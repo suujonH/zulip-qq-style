@@ -27,11 +27,22 @@ public static class CollectionSync
             if (i < target.Count && ReferenceEquals(target[i], desired[i]))
                 continue;
 
-            var oldIndex = target.IndexOf(desired[i]);
+            var oldIndex = IndexOfReference(target, desired[i], i);
             if (oldIndex >= 0)
                 target.Move(oldIndex, i);
             else
                 target.Insert(i, desired[i]);
         }
+    }
+
+    // 不用 IndexOf：元素重写了 Equals 时可能找到另一个“相等”的对象
+    private static int IndexOfReference<T>(ObservableCollection<T> target, T item, int start) where T : class
+    {
+        for (var i = start; i < target.Count; i++)
+        {
+            if (ReferenceEquals(target[i], item))
+                return i;
+        }
+        return -1;
     }
 }

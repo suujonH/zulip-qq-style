@@ -111,15 +111,19 @@ public sealed class ZulipClient : IDisposable
             .AddJson("narrow", q.Narrow)
             .Add("include_anchor", q.IncludeAnchor)
             .Add("apply_markdown", q.ApplyMarkdown)
-            .Add("client_gravatar", false);
+            .Add("client_gravatar", false)
+            .Add("allow_empty_topic_name", true);
         var root = await SendAsync(HttpMethod.Get, "api/v1/messages", args, DefaultTimeout, ct).ConfigureAwait(false);
         return ZulipJson.Deserialize<GetMessagesResult>(root);
     }
 
+    // REST 读取默认把空话题替换为 realm_empty_topic_display_name，而事件队列返回空字符串；
+    // 读取消息和话题时都传 allow_empty_topic_name=true，保证同一会话的键一致。
+
     /// <summary>取单条消息。<paramref name="applyMarkdown"/> 为 false 时 <see cref="MessageDto.Content"/> 是 Markdown 原文。</summary>
     public async Task<MessageDto> GetMessageAsync(long id, bool applyMarkdown = true, CancellationToken ct = default)
     {
-        var args = new FormBuilder().Add("apply_markdown", applyMarkdown);
+        var args = new FormBuilder().Add("apply_markdown", applyMarkdown).Add("allow_empty_topic_name", true);
         var root = await SendAsync(HttpMethod.Get, $"api/v1/messages/{Id(id)}", args, DefaultTimeout, ct).ConfigureAwait(false);
         return ZulipJson.Deserialize<MessageDto>(root.GetProperty("message"));
     }
@@ -242,7 +246,8 @@ public sealed class ZulipClient : IDisposable
     /// <summary>频道的话题列表（按最新消息 id 降序）。</summary>
     public async Task<IReadOnlyList<TopicDto>> GetTopicsAsync(long streamId, CancellationToken ct = default)
     {
-        var root = await SendAsync(HttpMethod.Get, $"api/v1/users/me/{Id(streamId)}/topics", null, DefaultTimeout, ct).ConfigureAwait(false);
+        var args = new FormBuilder().Add("allow_empty_topic_name", true);
+        var root = await SendAsync(HttpMethod.Get, $"api/v1/users/me/{Id(streamId)}/topics", args, DefaultTimeout, ct).ConfigureAwait(false);
         return ZulipJson.Deserialize<List<TopicDto>>(root.GetProperty("topics"));
     }
 

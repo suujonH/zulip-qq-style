@@ -32,6 +32,21 @@ public sealed class FileNameDeduperTests : IDisposable
         Assert.Equal(Path.Combine(_dir, "a_b_c.txt"), FileNameDeduper.NextFreePath(_dir, "a/b:c.txt"));
 
     [Fact]
+    public void SkipsExistingDirectory()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "c.txt"));
+        Assert.Equal(Path.Combine(_dir, "c(1).txt"), FileNameDeduper.NextFreePath(_dir, "c.txt"));
+    }
+
+    [Theory]
+    [InlineData("CON.txt", "_CON.txt")]
+    [InlineData("aux.zip", "_aux.zip")]
+    [InlineData("com1", "_com1")]
+    [InlineData("console.txt", "console.txt")]
+    public void EscapesReservedNames(string name, string expected) =>
+        Assert.Equal(Path.Combine(_dir, expected), FileNameDeduper.NextFreePath(_dir, name));
+
+    [Fact]
     public void NoExtension()
     {
         File.WriteAllText(Path.Combine(_dir, "README"), "");
@@ -44,6 +59,7 @@ public sealed class FileNameDeduperTests : IDisposable
     [InlineData("...", "_")]
     [InlineData("", "_")]
     [InlineData("localhost.localdomain:8443", "localhost.localdomain_8443")]
+    [InlineData("NUL", "_NUL")]
     public void SanitizeDirectoryName(string input, string expected) =>
         Assert.Equal(expected, FileNameDeduper.SanitizeDirectoryName(input));
 

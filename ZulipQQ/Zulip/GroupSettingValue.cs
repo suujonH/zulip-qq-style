@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -30,11 +31,12 @@ public sealed record GroupSettingValue(long? GroupId, IReadOnlyList<long> Direct
     {
         if (GroupId is { } id)
             return id.GetHashCode();
+        // Equals 不区分顺序，哈希也必须与顺序无关
         var hash = new HashCode();
-        foreach (var m in DirectMembers)
+        foreach (var m in DirectMembers.Distinct().Order())
             hash.Add(m);
         hash.Add(-1L);
-        foreach (var g in DirectSubgroups)
+        foreach (var g in DirectSubgroups.Distinct().Order())
             hash.Add(g);
         return hash.ToHashCode();
     }

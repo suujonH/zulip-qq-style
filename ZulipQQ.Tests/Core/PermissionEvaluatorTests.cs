@@ -115,6 +115,7 @@ public class PermissionEvaluatorTests
         Assert.True(channelAdmin.CanAdministerChannel(ch));
         Assert.True(channelAdmin.CanMoveTopicBetweenChannels(ch));
         Assert.True(channelAdmin.CanAddSubscribers(ch));
+        Assert.True(channelAdmin.CanRemoveSubscribers(ch));
         Assert.False(channelAdmin.CanSendToChannel(ch));
 
         var owner = Create(8, 100, realm);

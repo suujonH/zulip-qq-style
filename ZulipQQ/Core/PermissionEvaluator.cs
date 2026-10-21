@@ -153,8 +153,11 @@ public sealed class PermissionEvaluator(PermissionInputs inputs)
         || Allows(ch.CanAddSubscribersGroup, Stream, "can_add_subscribers_group")
         || CanAdministerChannel(ch);
 
+    /// <summary>频道管理员也可以移出成员（feature level 349 起）。</summary>
     public bool CanRemoveSubscribers(IChannelPermissions ch) =>
-        IsOrgAdmin || Allows(ch.CanRemoveSubscribersGroup, Stream, "can_remove_subscribers_group");
+        IsOrgAdmin
+        || Allows(ch.CanRemoveSubscribersGroup, Stream, "can_remove_subscribers_group")
+        || CanAdministerChannel(ch);
 
     public bool CanCreatePublicChannel => AllowsRealm("can_create_public_channel_group");
 

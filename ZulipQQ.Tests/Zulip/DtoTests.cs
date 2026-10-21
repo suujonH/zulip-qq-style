@@ -96,6 +96,8 @@ public class DtoTests
         Assert.Equal([1L, 2L], obj.DirectMembers);
         Assert.Equal([3L], obj.DirectSubgroups);
         Assert.Equal(GroupSettingValue.Anonymous([2, 1], [3]), obj);
+        Assert.Equal(GroupSettingValue.Anonymous([2, 1], [3]).GetHashCode(), obj.GetHashCode());
+        Assert.Contains(GroupSettingValue.Anonymous([2, 1], [3]), new HashSet<GroupSettingValue> { obj });
 
         Assert.Equal("12", ZulipJson.Serialize(number));
         Assert.Equal("""{"direct_members":[1,2],"direct_subgroups":[3]}""", ZulipJson.Serialize(obj));

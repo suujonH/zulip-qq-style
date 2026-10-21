@@ -27,6 +27,21 @@ public class CollectionSyncTests
         Assert.True(events <= 3);
     }
 
+    private sealed record Same(int Value);
+
+    [Fact]
+    public void SyncTo_UsesReference_WhenItemsAreEqual()
+    {
+        var a = new Same(1);
+        var b = new Same(1);
+        var c = new Same(1);
+        var target = new ObservableCollection<Same> { a, b, c };
+        CollectionSync.SyncTo(target, [c, b, a]);
+        Assert.Same(c, target[0]);
+        Assert.Same(b, target[1]);
+        Assert.Same(a, target[2]);
+    }
+
     [Fact]
     public void SyncTo_Unchanged_RaisesNoEvents()
     {
