@@ -32,7 +32,7 @@ jobs:
           "PKG=ZulipQQ-v$ver-win-x64" >> $env:GITHUB_ENV
 
       - name: Test
-        run: dotnet test ZulipQQ.slnx -c Release
+        run: dotnet test --solution ZulipQQ.slnx -c Release
 
       - name: Publish
         run: dotnet publish ZulipQQ/ZulipQQ.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -o publish/ZulipQQ
