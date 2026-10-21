@@ -1,0 +1,25 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ZulipQQ.App"
+             xmlns:local="using:ZulipQQ"
+             RequestedThemeVariant="Light">
+             <!-- 配色按 QQ 浅色界面调校，暂固定为 Light -->
+
+    <Application.DataTemplates>
+        <local:ViewLocator />
+    </Application.DataTemplates>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://ZulipQQ/Styles/Theme.axaml" />
+                <ResourceInclude Source="avares://ZulipQQ/Styles/Icons.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://ZulipQQ/Styles/AppStyles.axaml" />
+    </Application.Styles>
+</Application>

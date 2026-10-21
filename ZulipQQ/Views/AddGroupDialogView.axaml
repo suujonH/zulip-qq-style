@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.AddGroupDialogView"
+             x:DataType="vm:AddGroupDialogViewModel">
+
+    <Border Classes="dialog" Width="320">
+        <StackPanel>
+            <TextBlock Text="添加分组" FontSize="13" HorizontalAlignment="Center" Margin="0,7" />
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel Margin="20" Spacing="14">
+                <TextBox x:Name="NameBox" Classes="input" PlaceholderText="填写分组" Text="{Binding Name}">
+                    <TextBox.InnerRightContent>
+                        <Button Theme="{StaticResource FlatButton}" Background="Transparent" Width="24" Height="24"
+                                Margin="0,0,4,0" Foreground="{DynamicResource TextSecondaryBrush}"
+                                Command="{Binding ClearCommand}"
+                                IsVisible="{Binding Name, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                        </Button>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="确定"
+                            Command="{Binding ConfirmCommand}" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                            Command="{Binding CancelCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

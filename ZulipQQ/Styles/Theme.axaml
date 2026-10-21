@@ -1,0 +1,78 @@
+<!-- 颜色取自 QQ 截图；无样式的扁平控件主题 -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#EBEBEB" />
+    <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#F5F5F5" />
+    <SolidColorBrush x:Key="PanelBorderBrush" Color="#DCDCDC" />
+    <SolidColorBrush x:Key="DividerBrush" Color="#E6E6E6" />
+    <SolidColorBrush x:Key="FillBrush" Color="#EBEBEB" />
+    <SolidColorBrush x:Key="HoverBrush" Color="#E3E3E3" />
+    <SolidColorBrush x:Key="PressedBrush" Color="#D9D9D9" />
+
+    <SolidColorBrush x:Key="BrandBrush" Color="#0099FF" />
+    <SolidColorBrush x:Key="BrandHoverBrush" Color="#1AA3FF" />
+    <SolidColorBrush x:Key="BrandDisabledBrush" Color="#A3D7FF" />
+    <SolidColorBrush x:Key="InputBorderBrush" Color="#DCDCDC" />
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#EFEFEF" />
+    <SolidColorBrush x:Key="SelectedRowBrush" Color="#EBEBEB" />
+    <SolidColorBrush x:Key="RowDividerBrush" Color="#F0F0F0" />
+    <SolidColorBrush x:Key="DialogMaskBrush" Color="#66000000" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#F74C30" />
+    <SolidColorBrush x:Key="OnlineBrush" Color="#2BD158" />
+    <SolidColorBrush x:Key="MutedBadgeBrush" Color="#C8C8C8" />
+    <SolidColorBrush x:Key="PlaceholderLogoBrush" Color="#EBEBEB" />
+
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#999999" />
+    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#B3B3B3" />
+
+    <!-- 只有内容和背景的按钮，悬停/按下变灰 -->
+    <ControlTheme x:Key="FlatButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="PART_ContentPresenter"
+                                  Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  Padding="{TemplateBinding Padding}"
+                                  Foreground="{TemplateBinding Foreground}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="^:pressed">
+            <Setter Property="Background" Value="{DynamicResource PressedBrush}" />
+        </Style>
+    </ControlTheme>
+
+    <!-- 不带任何选中/悬停视觉的列表项，视觉由各自的数据模板通过样式处理 -->
+    <ControlTheme x:Key="PlainListBoxItem" TargetType="ListBoxItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="PART_ContentPresenter"
+                                  Background="{TemplateBinding Background}"
+                                  Padding="{TemplateBinding Padding}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+</ResourceDictionary>

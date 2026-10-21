@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="318" d:DesignHeight="600"
+             x:Class="ZulipQQ.Views.ContactsPageView"
+             x:DataType="vm:ContactsPageViewModel">
+
+    <Design.DataContext>
+        <vm:ContactsPageViewModel />
+    </Design.DataContext>
+
+    <UserControl.Styles>
+        <Style Selector="Button.manager">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#D0D0D0" />
+        </Style>
+
+        <!-- 好友通知 / 群通知 / 分组标题：通栏、无圆角 -->
+        <Style Selector="Button.row">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Button.row c|TdIcon">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+        </Style>
+        <Style Selector="Button.row.expanded c|TdIcon.chevron">
+            <Setter Property="RenderTransform" Value="rotate(90deg)" />
+        </Style>
+
+        <!-- 好友 / 群聊 分段切换 -->
+        <Style Selector="Border.tabs">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="3" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        </Style>
+        <Style Selector="Button.tab">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style Selector="Button.tab:pointerover">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.tab.active, Button.tab.active:pointerover">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+
+        <!-- 分组内的联系人 -->
+        <Style Selector="Border.contact">
+            <Setter Property="Height" Value="56" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.contact:pointerover">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top">
+            <Button Classes="manager" Theme="{StaticResource FlatButton}" Margin="16,2,16,8"
+                    Click="OnFriendManagerClick">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <c:TdIcon Icon="{StaticResource Icon.UserSetting}" Width="15" Height="15" />
+                    <TextBlock Text="好友管理器" FontSize="13" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
+            <Border Height="1" Margin="0,6" Background="{DynamicResource DividerBrush}" />
+
+            <Border Classes="tabs" Margin="16,6,16,8">
+                <Grid ColumnDefinitions="*,*">
+                    <Button Classes="tab" Classes.active="{Binding !IsGroupTab}" Theme="{StaticResource FlatButton}"
+                            Content="好友" Command="{Binding ShowFriendsCommand}" />
+                    <Button Grid.Column="1" Classes="tab" Classes.active="{Binding IsGroupTab}"
+                            Theme="{StaticResource FlatButton}"
+                            Content="群聊" Command="{Binding ShowGroupsCommand}" />
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding CurrentSections}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ContactSectionViewModel">
+                        <StackPanel>
+                            <Button Classes="row" Classes.expanded="{Binding IsExpanded}"
+                                    Theme="{StaticResource FlatButton}" Command="{Binding ToggleExpandedCommand}">
+                                <DockPanel>
+                                    <c:TdIcon DockPanel.Dock="Left" Classes="chevron"
+                                              Icon="{StaticResource Icon.ChevronRight}" />
+                                    <TextBlock DockPanel.Dock="Right" Classes="caption" Text="{Binding CountText}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}" Margin="6,0" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </Button>
+
+                            <!-- 分组内容按条目类型选择模板 -->
+                            <ItemsControl ItemsSource="{Binding Items}" IsVisible="{Binding IsExpanded}">
+                                <ItemsControl.DataTemplates>
+                                    <DataTemplate DataType="vm:FriendItemViewModel">
+                                        <Border Classes="contact">
+                                            <Grid ColumnDefinitions="Auto,*">
+                                                <Panel Width="40" Height="40">
+                                                    <c:Avatar Text="{Binding DisplayName}" />
+                                                    <Ellipse Classes="online" IsVisible="{Binding IsOnline}" />
+                                                </Panel>
+                                                <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="3"
+                                                            VerticalAlignment="Center">
+                                                    <TextBlock Classes="title" Text="{Binding DisplayName}" />
+                                                    <TextBlock Classes="sub" Text="{Binding StatusText}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                    <DataTemplate DataType="vm:DeviceItemViewModel">
+                                        <Border Classes="contact">
+                                            <Grid ColumnDefinitions="Auto,*">
+                                                <Border Width="40" Height="40" CornerRadius="20"
+                                                        Background="{DynamicResource BrandBrush}">
+                                                    <c:TdIcon Icon="{StaticResource Icon.Mobile}" Width="20" Height="20"
+                                                              Foreground="White" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="3"
+                                                            VerticalAlignment="Center">
+                                                    <TextBlock Classes="title" Text="{Binding Name}" />
+                                                    <TextBlock Classes="sub" Text="{Binding StatusText}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                    <DataTemplate DataType="vm:GroupItemViewModel">
+                                        <Border Classes="contact">
+                                            <Grid ColumnDefinitions="Auto,*">
+                                                <c:Avatar Width="40" Height="40" Text="{Binding Name}" />
+                                                <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="3"
+                                                            VerticalAlignment="Center">
+                                                    <TextBlock Classes="title" Text="{Binding Name}" />
+                                                    <TextBlock Classes="sub" Text="{Binding MemberCountText}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.DataTemplates>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

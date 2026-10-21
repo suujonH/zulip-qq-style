@@ -1,0 +1,113 @@
+<!-- 全局通用样式；页面专用样式写在各自的 View 中 -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:ZulipQQ.Controls">
+
+    <Style Selector="Window">
+        <Setter Property="FontFamily" Value="Microsoft YaHei UI, PingFang SC, Noto Sans CJK SC" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- 文字层级 -->
+    <Style Selector="TextBlock.title">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="TextBlock.sub">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+    </Style>
+
+    <!-- 在线状态小圆点，叠放在头像右下角 -->
+    <Style Selector="Ellipse.online">
+        <Setter Property="Width" Value="10" />
+        <Setter Property="Height" Value="10" />
+        <Setter Property="Fill" Value="{DynamicResource OnlineBrush}" />
+        <Setter Property="Stroke" Value="{DynamicResource PanelBackgroundBrush}" />
+        <Setter Property="StrokeThickness" Value="1.5" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+    </Style>
+
+    <!-- 搜索框：灰底圆角，去掉 Fluent 的边框与焦点下划线 -->
+    <Style Selector="TextBox.search">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="4,0,8,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.search /template/ Border#PART_BorderElement,
+                     TextBox.search:pointerover /template/ Border#PART_BorderElement,
+                     TextBox.search:focus /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <!-- 普通输入框：白底灰边框，聚焦时品牌色边框 -->
+    <Style Selector="TextBox.input">
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="TextBox.input /template/ Border#PART_BorderElement,
+                     TextBox.input:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBox.input:focus /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <!-- 对话框按钮（需配合 Theme="{StaticResource FlatButton}"） -->
+    <Style Selector="Button.primary, Button.secondary">
+        <Setter Property="MinWidth" Value="78" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.primary:pointerover">
+        <Setter Property="Background" Value="{DynamicResource BrandHoverBrush}" />
+    </Style>
+    <Style Selector="Button.primary:disabled">
+        <Setter Property="Background" Value="{DynamicResource BrandDisabledBrush}" />
+    </Style>
+    <Style Selector="Button.secondary">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.secondary:pointerover">
+        <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+    </Style>
+
+    <!-- 对话框外框 -->
+    <Style Selector="Border.dialog">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="BoxShadow" Value="0 4 16 0 #33000000" />
+    </Style>
+
+    <Style Selector="ToolTip">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="6,3" />
+        <Setter Property="CornerRadius" Value="4" />
+    </Style>
+</Styles>

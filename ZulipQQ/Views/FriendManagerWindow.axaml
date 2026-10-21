@@ -1,0 +1,417 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ZulipQQ.ViewModels"
+        xmlns:c="using:ZulipQQ.Controls"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="840" d:DesignHeight="600"
+        x:Class="ZulipQQ.Views.FriendManagerWindow"
+        x:DataType="vm:FriendManagerViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="好友管理器"
+        Width="840" Height="600" MinWidth="680" MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        Background="{DynamicResource PanelBackgroundBrush}">
+
+    <Design.DataContext>
+        <vm:FriendManagerViewModel />
+    </Design.DataContext>
+
+    <Window.Resources>
+        <!-- 右键“移动联系人至”子菜单项：当前分组在左侧打勾。
+             标题必须走模板：MenuItem 的标题文字为 "-" 时会被当成分隔线 -->
+        <ControlTheme x:Key="GroupMoveMenuItem" TargetType="MenuItem"
+                      BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="vm:GroupOptionViewModel">
+            <Setter Property="Header" Value="{Binding}" />
+            <Setter Property="HeaderTemplate">
+                <DataTemplate x:DataType="vm:GroupOptionViewModel">
+                    <TextBlock Text="{Binding Name}" FontSize="13" />
+                </DataTemplate>
+            </Setter>
+            <Setter Property="ToggleType" Value="CheckBox" />
+            <Setter Property="IsChecked" Value="{Binding IsCurrent, Mode=OneWay}" />
+            <Setter Property="Command" Value="{Binding SelectCommand}" />
+        </ControlTheme>
+
+        <!-- 分组下拉菜单项：当前分组在右侧打勾 -->
+        <ControlTheme x:Key="GroupDropdownMenuItem" TargetType="MenuItem"
+                      BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="vm:GroupOptionViewModel">
+            <Setter Property="Header" Value="{Binding}" />
+            <Setter Property="Command" Value="{Binding SelectCommand}" />
+            <Setter Property="HeaderTemplate">
+                <DataTemplate x:DataType="vm:GroupOptionViewModel">
+                    <Grid ColumnDefinitions="*,Auto" MinWidth="64">
+                        <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                        <c:TdIcon Grid.Column="1" Icon="{StaticResource Icon.Check}" Width="14" Height="14"
+                                  Margin="8,0,0,0" IsVisible="{Binding IsCurrent}" />
+                    </Grid>
+                </DataTemplate>
+            </Setter>
+        </ControlTheme>
+    </Window.Resources>
+
+    <Window.Styles>
+        <!-- 窗口按钮 -->
+        <Style Selector="Button.caption">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="Button.caption c|TdIcon">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+        </Style>
+        <Style Selector="Button.caption.close:pointerover">
+            <Setter Property="Background" Value="#E81123" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
+        <!-- 左侧分组筛选项 -->
+        <Style Selector="Button.filter">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+        <Style Selector="Border.filter">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Margin" Value="0,2" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover Border.filter">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Button.filter.active">
+            <Setter Property="Background" Value="#E0E0E0" />
+        </Style>
+        <Style Selector="ListBoxItem:selected Border.filter">
+            <Setter Property="Background" Value="#E0E0E0" />
+        </Style>
+        <Style Selector="Button.outline">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#C8C8C8" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <!-- 表格行：悬停浅灰，选中灰色 -->
+        <Style Selector="Button.row">
+            <Setter Property="Height" Value="44" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Button.row:pointerover, Button.row:pressed">
+            <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+        </Style>
+        <Style Selector="Button.row.selected">
+            <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+        </Style>
+
+        <!-- 圆形复选框（纯显示，点击由所在的行或表头处理） -->
+        <Style Selector="Border.check">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#C8C8C8" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.check > c|TdIcon">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Border.check.checked">
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Border.check.checked > c|TdIcon">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- 备注单元格：整格可点击进入编辑，自身没有悬停效果 -->
+        <Style Selector="Button.cell, Button.cell:pointerover, Button.cell:pressed">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <!-- InlineEditBox 的样式键是 TextBox，类型选择器匹配不到它，用样式类 inline -->
+        <Style Selector="TextBox.inline">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="7,0" />
+            <Setter Property="Margin" Value="-8,0,16,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <Style Selector="TextBox.inline /template/ Border#PART_BorderElement,
+                         TextBox.inline:pointerover /template/ Border#PART_BorderElement,
+                         TextBox.inline:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <!-- 分组下拉按钮：平时只有文字和箭头，展开时显示边框 -->
+        <Style Selector="Button.dropdown">
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="-8,0,0,0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.dropdown:pointerover, Button.dropdown:pressed">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.dropdown:flyout-open">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+        </Style>
+        <Style Selector="MenuFlyoutPresenter.dropdown">
+            <Setter Property="MaxHeight" Value="200" />
+            <Setter Property="MinWidth" Value="100" />
+        </Style>
+
+        <!-- 底部多选操作栏 -->
+        <Style Selector="Button.action">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="CornerRadius" Value="24" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.action:pointerover">
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        </Style>
+        <Style Selector="Button.dismiss, Button.dismiss:pointerover, Button.dismiss:pressed">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.dismiss:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Panel>
+        <Grid ColumnDefinitions="200,*">
+            <!-- 左侧：全部好友 / 分组 / 添加分组 -->
+            <Border Background="{DynamicResource SidebarBackgroundBrush}">
+                <DockPanel Margin="8,28,8,16">
+                    <Button DockPanel.Dock="Bottom" Classes="outline" Theme="{StaticResource FlatButton}"
+                            Margin="8,8,8,0" Command="{Binding OpenAddGroupDialogCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <c:TdIcon Icon="{StaticResource Icon.Add}" Width="14" Height="14" />
+                            <TextBlock Text="添加分组" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button DockPanel.Dock="Top" Classes="filter" Classes.active="{Binding IsAllFriendsFilter}"
+                            Theme="{StaticResource FlatButton}" Command="{Binding ShowAllFriendsCommand}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Classes="caption" Text="{Binding TotalCount}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="全部好友" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Button>
+
+                    <TextBlock DockPanel.Dock="Top" Classes="caption" Text="分组" FontSize="12" Margin="8,14,0,4" />
+
+                    <ListBox ItemsSource="{Binding GroupFilters}"
+                             SelectedItem="{Binding SelectedGroupFilter}"
+                             ItemContainerTheme="{StaticResource PlainListBoxItem}"
+                             Background="Transparent" BorderThickness="0" Padding="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GroupFilterItemViewModel">
+                                <Border Classes="filter">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Classes="caption" Text="{Binding Count}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Name}" FontSize="14" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- 右侧：标题 + 搜索 / 好友表格 / 多选操作栏 -->
+            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
+                <Grid ColumnDefinitions="*,Auto" Margin="36,32,20,20">
+                    <TextBlock Text="好友管理器" FontSize="18" VerticalAlignment="Center" />
+                    <TextBox Grid.Column="1" Classes="search" Width="200" PlaceholderText="搜索"
+                             Text="{Binding SearchText}">
+                        <TextBox.InnerLeftContent>
+                            <c:TdIcon Icon="{StaticResource Icon.Search}" Width="14" Height="14"
+                                      Margin="8,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </TextBox.InnerLeftContent>
+                    </TextBox>
+                </Grid>
+
+                <Border Grid.Row="1" Margin="20,0" Background="White" CornerRadius="8" ClipToBounds="True">
+                    <DockPanel>
+                        <!-- 表头：点击复选框全选 / 取消全选当前可见的好友 -->
+                        <Grid DockPanel.Dock="Top" Height="44" Margin="16,0" ColumnDefinitions="Auto,*,140,140">
+                            <Button Theme="{StaticResource FlatButton}" Background="Transparent" Padding="0,0,6,0"
+                                    Command="{Binding ToggleSelectAllCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Border Classes="check" Classes.checked="{Binding IsAllVisibleSelected}">
+                                        <c:TdIcon Icon="{StaticResource Icon.Check}" />
+                                    </Border>
+                                    <TextBlock Text="昵称" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Grid.Column="2" Text="备注" FontSize="13" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="分组" FontSize="13" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <ListBox ItemsSource="{Binding Rows}"
+                                 ItemContainerTheme="{StaticResource PlainListBoxItem}"
+                                 Background="Transparent" BorderThickness="0" Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FriendRowViewModel">
+                                    <!-- 点击行的空白处切换选中；备注格进入编辑；分组格打开下拉菜单 -->
+                                    <Button Classes="row" Classes.selected="{Binding IsSelected}"
+                                            Theme="{StaticResource FlatButton}" Command="{Binding ToggleSelectedCommand}">
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="移动联系人至" ItemsSource="{Binding GroupOptions}"
+                                                          ItemContainerTheme="{StaticResource GroupMoveMenuItem}">
+                                                    <MenuItem.Icon>
+                                                        <c:TdIcon Icon="{StaticResource Icon.ArrowRightUp}" Width="14" Height="14" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+
+                                        <Panel>
+                                            <Grid Margin="16,0" ColumnDefinitions="28,32,*,140,140">
+                                                <Border Classes="check" Classes.checked="{Binding IsSelected}">
+                                                    <c:TdIcon Icon="{StaticResource Icon.Check}" />
+                                                </Border>
+                                                <c:Avatar Grid.Column="1" Width="24" Height="24"
+                                                          HorizontalAlignment="Left" Text="{Binding Nickname}" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Nickname}" FontSize="13"
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                           Margin="0,0,12,0" />
+
+                                                <Panel Grid.Column="3">
+                                                    <Button Classes="cell" Theme="{StaticResource FlatButton}"
+                                                            Command="{Binding BeginEditRemarkCommand}"
+                                                            IsVisible="{Binding !IsEditingRemark}">
+                                                        <TextBlock Text="{Binding Remark}" FontSize="13"
+                                                                   TextTrimming="CharacterEllipsis" Margin="0,0,16,0" />
+                                                    </Button>
+                                                    <c:InlineEditBox Classes="inline" Text="{Binding EditingRemark}"
+                                                                     IsVisible="{Binding IsEditingRemark}"
+                                                                     CommitCommand="{Binding CommitRemarkCommand}"
+                                                                     CancelCommand="{Binding CancelRemarkCommand}" />
+                                                </Panel>
+
+                                                <Button Grid.Column="4" Classes="dropdown" Theme="{StaticResource FlatButton}">
+                                                    <Button.Flyout>
+                                                        <MenuFlyout Placement="BottomEdgeAlignedLeft"
+                                                                    FlyoutPresenterClasses="dropdown"
+                                                                    ItemsSource="{Binding GroupOptions}"
+                                                                    ItemContainerTheme="{StaticResource GroupDropdownMenuItem}" />
+                                                    </Button.Flyout>
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <TextBlock Text="{Binding GroupName}" FontSize="13" MaxWidth="72"
+                                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                        <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" Width="12" Height="12"
+                                                                  Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </Grid>
+                                            <Border Height="1" Margin="16,0" VerticalAlignment="Bottom"
+                                                    Background="{DynamicResource RowDividerBrush}" />
+                                        </Panel>
+                                    </Button>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+
+                <c:SlideBar Grid.Row="2" IsOpen="{Binding HasSelection}">
+                    <Grid Height="118" Margin="20,0">
+                        <TextBlock Classes="sub" Text="{Binding SelectedCountText}" Margin="0,22,0,0"
+                                   VerticalAlignment="Top" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="28"
+                                    Margin="0,20,0,0">
+                            <StackPanel Spacing="6">
+                                <Button Classes="action" Theme="{StaticResource FlatButton}"
+                                        Command="{Binding OpenSetGroupDialogCommand}">
+                                    <c:TdIcon Icon="{StaticResource Icon.UserSetting}" Width="20" Height="20" />
+                                </Button>
+                                <TextBlock Text="设置分组" FontSize="12" HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <Button Classes="dismiss" Theme="{StaticResource FlatButton}" VerticalAlignment="Top"
+                                    Margin="0,4,0,0" Command="{Binding ClearSelectionCommand}">
+                                <c:TdIcon Icon="{StaticResource Icon.Close}" Width="22" Height="22" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </c:SlideBar>
+            </Grid>
+        </Grid>
+
+        <!-- 标题栏：顶部整条可拖动，右侧窗口按钮 -->
+        <Grid Height="30" VerticalAlignment="Top" Background="Transparent"
+              chrome:WindowDecorationProperties.ElementRole="TitleBar">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMinimizeClick"
+                        chrome:WindowDecorationProperties.ElementRole="User">
+                    <c:TdIcon Icon="{StaticResource Icon.Minus}" />
+                </Button>
+                <Button Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMaximizeClick"
+                        chrome:WindowDecorationProperties.ElementRole="User">
+                    <c:TdIcon Icon="{StaticResource Icon.Rectangle}" Width="11" Height="11" />
+                </Button>
+                <Button Classes="caption close" Theme="{StaticResource FlatButton}" Click="OnCloseClick"
+                        chrome:WindowDecorationProperties.ElementRole="User">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 对话框层：每个对话框带一层遮罩，后打开的在上层 -->
+        <ItemsControl ItemsSource="{Binding Dialogs}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Panel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ViewModelBase">
+                    <Panel>
+                        <Border Background="{DynamicResource DialogMaskBrush}" />
+                        <ContentControl Content="{Binding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Panel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Panel>
+</Window>

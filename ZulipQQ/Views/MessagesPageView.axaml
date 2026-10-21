@@ -1,0 +1,114 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="318" d:DesignHeight="600"
+             x:Class="ZulipQQ.Views.MessagesPageView"
+             x:DataType="vm:MessagesPageViewModel">
+
+    <Design.DataContext>
+        <vm:MessagesPageViewModel />
+    </Design.DataContext>
+
+    <UserControl.Styles>
+        <Style Selector="Border.conv">
+            <Setter Property="Height" Value="64" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.conv.pinned">
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.notice">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="c|TdIcon.draft">
+            <Setter Property="Width" Value="13" />
+            <Setter Property="Height" Value="13" />
+            <Setter Property="Margin" Value="0,0,3,0" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="c|TdIcon.muted">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+        </Style>
+
+        <!-- 未读数：普通为红色，免打扰为灰色 -->
+        <Style Selector="Border.badge">
+            <Setter Property="Height" Value="16" />
+            <Setter Property="MinWidth" Value="16" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="Border.badge.muted">
+            <Setter Property="Background" Value="{DynamicResource MutedBadgeBrush}" />
+        </Style>
+        <Style Selector="Border.badge > TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 悬停 / 选中放在最后，覆盖上面的颜色 -->
+        <Style Selector="ListBoxItem:pointerover Border.conv">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected Border.conv">
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected TextBlock">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="ListBoxItem:selected c|TdIcon">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+    </UserControl.Styles>
+
+    <ListBox ItemsSource="{Binding Conversations}"
+             SelectedItem="{Binding SelectedConversation}"
+             ItemContainerTheme="{StaticResource PlainListBoxItem}"
+             Background="Transparent" BorderThickness="0" Padding="0"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ConversationItemViewModel">
+                <Border Classes="conv" Classes.pinned="{Binding IsPinned}">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <c:Avatar Width="44" Height="44" Text="{Binding Title}" />
+
+                        <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                              ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
+                            <TextBlock Classes="title" Text="{Binding Title}" />
+                            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding TimeText}"
+                                       Margin="8,0,0,0" VerticalAlignment="Center" />
+
+                            <!-- 预览行：[红色提示] / 草稿图标 + 预览文字（过长省略） -->
+                            <DockPanel Grid.Row="1">
+                                <TextBlock DockPanel.Dock="Left" Classes="notice" Text="{Binding NoticeText}"
+                                           IsVisible="{Binding HasNotice}" />
+                                <c:TdIcon DockPanel.Dock="Left" Classes="draft" Icon="{StaticResource Icon.Edit}"
+                                          IsVisible="{Binding HasDraft}" />
+                                <TextBlock Classes="sub" Text="{Binding PreviewText}" />
+                            </DockPanel>
+
+                            <Panel Grid.Row="1" Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right">
+                                <Border Classes="badge" Classes.muted="{Binding IsMuted}" IsVisible="{Binding HasUnread}">
+                                    <TextBlock Text="{Binding UnreadText}" />
+                                </Border>
+                                <c:TdIcon Classes="muted" Icon="{StaticResource Icon.NotificationOff}"
+                                          IsVisible="{Binding ShowMutedIcon}" />
+                            </Panel>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+</UserControl>

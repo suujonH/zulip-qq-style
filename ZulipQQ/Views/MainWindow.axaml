@@ -1,0 +1,193 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ZulipQQ.ViewModels"
+        xmlns:c="using:ZulipQQ.Controls"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1090" d:DesignHeight="694"
+        x:Class="ZulipQQ.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="ZulipQQ"
+        Width="1090" Height="694" MinWidth="800" MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Window.Styles>
+        <!-- 标题栏右侧窗口按钮 -->
+        <Style Selector="Button.caption">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="Button.caption c|TdIcon">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+        </Style>
+        <Style Selector="Button.caption.close:pointerover">
+            <Setter Property="Background" Value="#E81123" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
+        <!-- 左侧导航按钮 -->
+        <Style Selector="Button.nav">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.nav c|TdIcon">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+        </Style>
+        <Style Selector="Button.nav.active">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <!-- 可切换按钮的线框图标（仿 QQ）：按住时变淡；选中后藏在实心图标下保持淡色，被切走时从淡色渐变回来。
+             “按住”和“选中”分别作用在外层 Panel.press 和图标自身上：松开时两个状态会先后变化，
+             放在同一属性上会让过渡从中间值 1 重新开始，出现闪一下深色的问题 -->
+        <Style Selector="Button.nav Panel.press, Button.nav c|TdIcon.outline">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.nav c|TdIcon.outline">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.nav:pressed Panel.press, Button.nav.active c|TdIcon.outline">
+            <Setter Property="Opacity" Value="0.3" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="38,*">
+        <!-- 标题栏：整行可拖动，内部可点击的元素标记为 User 以接收输入 -->
+        <Grid Grid.Row="0"
+              ColumnDefinitions="Auto,Auto,*,Auto,Auto"
+              Background="Transparent"
+              chrome:WindowDecorationProperties.ElementRole="TitleBar">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="1"
+                        Margin="10,0,0,0" VerticalAlignment="Center">
+                <c:TdIcon Icon="{StaticResource Icon.QqFilled}" Width="14" Height="14" />
+                <TextBlock Text="QQ" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                        Margin="22,0,0,0" VerticalAlignment="Center">
+                <Panel Width="24" Height="24">
+                    <c:Avatar Text="{Binding CurrentUser.Nickname}" />
+                    <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2"
+                             IsVisible="{Binding CurrentUser.IsOnline}" />
+                </Panel>
+                <TextBlock Text="{Binding CurrentUser.Nickname}" FontSize="14" VerticalAlignment="Center" />
+                <TextBlock Classes="sub" Text="{Binding SignatureText}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- 天气为静态占位 -->
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
+                        Margin="0,0,20,0" VerticalAlignment="Center">
+                <c:TdIcon Icon="{StaticResource Icon.Moon}" Width="18" Height="18"
+                          Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Text="晴" FontSize="13" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="4" Orientation="Horizontal">
+                <Button Classes="caption" Theme="{StaticResource FlatButton}"
+                        chrome:WindowDecorationProperties.ElementRole="User">
+                    <c:TdIcon Icon="{StaticResource Icon.Layout}" />
+                </Button>
+                <Button Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMinimizeClick"
+                        chrome:WindowDecorationProperties.ElementRole="User">
+                    <c:TdIcon Icon="{StaticResource Icon.Minus}" />
+                </Button>
+                <Button Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMaximizeClick"
+                        chrome:WindowDecorationProperties.ElementRole="User">
+                    <c:TdIcon Icon="{StaticResource Icon.Rectangle}" Width="13" Height="13" />
+                </Button>
+                <Button Classes="caption close" Theme="{StaticResource FlatButton}" Click="OnCloseClick"
+                        chrome:WindowDecorationProperties.ElementRole="User">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 主体：导航栏 | 当前页面 | 右侧内容区 -->
+        <Border Grid.Row="1" Margin="2,0,2,2" CornerRadius="8,0,0,0" ClipToBounds="True"
+                Background="{DynamicResource PanelBackgroundBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1,1,0,0">
+            <Grid ColumnDefinitions="52,318,*">
+                <Border Grid.Column="0" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
+                    <DockPanel Margin="0,8">
+                        <StackPanel DockPanel.Dock="Bottom">
+                            <Button Classes="nav" Theme="{StaticResource FlatButton}">
+                                <c:TdIcon Icon="{StaticResource Icon.ViewList}" />
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel>
+                            <Button Classes="nav" Classes.active="{Binding IsMessagesActive}" ToolTip.Tip="消息"
+                                    Theme="{StaticResource FlatButton}" Command="{Binding ShowMessagesCommand}">
+                                <!-- 线框图标常驻，选中时实心图标从左下角圆形扩散盖住它 -->
+                                <Panel>
+                                    <Panel Classes="press">
+                                        <c:TdIcon Classes="outline" Icon="{StaticResource Icon.Chat}" />
+                                    </Panel>
+                                    <c:CircleReveal IsRevealed="{Binding IsMessagesActive}">
+                                        <c:TdIcon Icon="{StaticResource Icon.ChatFilled}" />
+                                    </c:CircleReveal>
+                                </Panel>
+                            </Button>
+                            <Button Classes="nav" Classes.active="{Binding IsContactsActive}" ToolTip.Tip="联系人"
+                                    Theme="{StaticResource FlatButton}" Command="{Binding ShowContactsCommand}">
+                                <Panel>
+                                    <Panel Classes="press">
+                                        <c:TdIcon Classes="outline" Icon="{StaticResource Icon.User}" />
+                                    </Panel>
+                                    <c:CircleReveal IsRevealed="{Binding IsContactsActive}">
+                                        <c:TdIcon Icon="{StaticResource Icon.UserFilled}" />
+                                    </c:CircleReveal>
+                                </Panel>
+                            </Button>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="1" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
+                    <DockPanel>
+                        <!-- 搜索栏两个页面共用 -->
+                        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="12,12,12,8">
+                            <TextBox Classes="search" PlaceholderText="搜索">
+                                <TextBox.InnerLeftContent>
+                                    <c:TdIcon Icon="{StaticResource Icon.Search}" Width="14" Height="14"
+                                              Margin="8,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </TextBox.InnerLeftContent>
+                            </TextBox>
+                            <Button Grid.Column="1" Width="28" Height="28" Margin="8,0,0,0"
+                                    Theme="{StaticResource FlatButton}" Background="{DynamicResource FillBrush}"
+                                    Foreground="{DynamicResource TextSecondaryBrush}">
+                                <c:TdIcon Icon="{StaticResource Icon.Add}" Width="16" Height="16" />
+                            </Button>
+                        </Grid>
+
+                        <ContentControl Content="{Binding CurrentPage}" />
+                    </DockPanel>
+                </Border>
+
+                <!-- 右侧内容区：暂未实现，显示企鹅占位 -->
+                <c:TdIcon Grid.Column="2" Icon="{StaticResource Icon.QqFilled}" Width="90" Height="90"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Foreground="{DynamicResource PlaceholderLogoBrush}" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
