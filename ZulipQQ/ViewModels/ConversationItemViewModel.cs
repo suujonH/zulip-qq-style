@@ -12,7 +12,7 @@ public class ConversationItemViewModel : ViewModelBase
     public ConversationItemViewModel(Conversation conversation, DateTime now)
     {
         Conversation = conversation;
-        TimeText = FormatTime(conversation.LastMessageTime, now);
+        TimeText = Core.TimeText.ListTime(conversation.LastMessageTime, now);
         HasDraft = !string.IsNullOrEmpty(conversation.Draft);
 
         if (HasDraft)
@@ -61,19 +61,4 @@ public class ConversationItemViewModel : ViewModelBase
     public bool ShowMutedIcon => IsMuted && !HasUnread;
 
     public bool IsPinned => Conversation.IsPinned;
-
-    /// <summary>
-    /// 今天：HH:mm；昨天：昨天HH:mm；今年：MM/dd；往年：yyyy/MM/dd。
-    /// 使用 InvariantCulture，避免“/”被替换为系统区域的日期分隔符。
-    /// </summary>
-    public static string FormatTime(DateTime time, DateTime now)
-    {
-        if (time.Date == now.Date)
-            return time.ToString("HH:mm", CultureInfo.InvariantCulture);
-        if (time.Date == now.Date.AddDays(-1))
-            return "昨天" + time.ToString("HH:mm", CultureInfo.InvariantCulture);
-        if (time.Year == now.Year)
-            return time.ToString("MM/dd", CultureInfo.InvariantCulture);
-        return time.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);
-    }
 }

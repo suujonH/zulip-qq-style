@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ZulipQQ.Core;
 using ZulipQQ.Models;
 using ZulipQQ.Services;
 
@@ -181,24 +182,7 @@ public partial class FriendManagerViewModel : ViewModelBase
             })
             .ToList();
 
-        var desiredIds = desired.Select(r => r.UserId).ToHashSet();
-        for (var i = Rows.Count - 1; i >= 0; i--)
-        {
-            if (!desiredIds.Contains(Rows[i].UserId))
-                Rows.RemoveAt(i);
-        }
-
-        for (var i = 0; i < desired.Count; i++)
-        {
-            if (i < Rows.Count && ReferenceEquals(Rows[i], desired[i]))
-                continue;
-
-            var oldIndex = Rows.IndexOf(desired[i]);
-            if (oldIndex >= 0)
-                Rows.Move(oldIndex, i);
-            else
-                Rows.Insert(i, desired[i]);
-        }
+        CollectionSync.SyncTo(Rows, desired);
 
         OnRowSelectionChanged();
     }
