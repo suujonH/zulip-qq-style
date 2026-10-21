@@ -18,4 +18,4 @@ jobs:
       - name: Build
         run: dotnet build ZulipQQ.slnx -c Release --no-restore
       - name: Test
-        run: dotnet test ZulipQQ.slnx -c Release --no-build
+        run: dotnet test --solution ZulipQQ.slnx -c Release --no-build

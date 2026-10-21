@@ -1,0 +1,119 @@
+using System.Text.Json;
+using ZulipQQ.Core;
+
+namespace ZulipQQ.Tests.Core;
+
+/// <summary>样本来自测试服务器的 <c>POST /messages/render</c>。</summary>
+public class ZulipHtmlTests
+{
+    private static readonly JsonElement Samples = Fixture.Json("rendered_samples.json");
+
+    private static string Sample(string name) => Samples.GetProperty(name).GetString()!;
+
+    private static string RealImage => Samples.GetProperty("real_image")[0].GetString()!;
+
+    [Fact]
+    public void Preview_Quote_ShowsOnlyNewContent() =>
+        Assert.Equal("阿杰 说: 回复内容", ZulipHtml.ToPreview(Sample("quote")));
+
+    [Fact]
+    public void Preview_Code() => Assert.Equal("[代码]", ZulipHtml.ToPreview(Sample("code")));
+
+    [Fact]
+    public void Preview_Emoji_ToUnicode() => Assert.Equal("你好 😄 👍", ZulipHtml.ToPreview(Sample("emoji")));
+
+    [Fact]
+    public void Preview_List_JoinsWithSpaces() => Assert.Equal("一 二 甲 乙", ZulipHtml.ToPreview(Sample("list")));
+
+    [Fact]
+    public void Preview_Time_IsLocal()
+    {
+        var expected = new DateTimeOffset(2026, 10, 22, 2, 0, 0, TimeSpan.Zero).ToLocalTime()
+            .ToString("yyyy/MM/dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal(expected, ZulipHtml.ToPreview(Sample("time")));
+    }
+
+    [Fact]
+    public void Preview_Math() => Assert.Equal("[公式] 与 [公式] [公式]", ZulipHtml.ToPreview(Sample("math")));
+
+    [Fact]
+    public void Preview_Spoiler() => Assert.Equal("[剧透]", ZulipHtml.ToPreview(Sample("spoiler")));
+
+    [Fact]
+    public void Preview_Mentions() => Assert.Equal("@all @topic @Members", ZulipHtml.ToPreview(Sample("mentions")));
+
+    [Fact]
+    public void Preview_ImageLinkWithoutInlinePreview() => Assert.Equal("[图片]", ZulipHtml.ToPreview(Sample("img")));
+
+    [Fact]
+    public void Preview_ImageWithInlinePreview_ShowsOnce() => Assert.Equal("截图 [图片]", ZulipHtml.ToPreview(RealImage));
+
+    [Fact]
+    public void Preview_File() =>
+        Assert.Equal("给你发个压缩包 [文件]资料.zip",
+            ZulipHtml.ToPreview("<p>给你发个压缩包 <a href=\"/user_uploads/2/85/w2m/资料.zip\">资料.zip</a></p>"));
+
+    [Fact]
+    public void Preview_Formatting() => Assert.Equal("粗 斜 删 code 链接", ZulipHtml.ToPreview(Sample("strong")));
+
+    [Fact]
+    public void Preview_Empty() => Assert.Equal("", ZulipHtml.ToPreview(""));
+
+    [Fact]
+    public void PlainText_Quote_KeepsQuoteMarks() =>
+        Assert.Equal("阿杰 说:\n> 原文内容\n回复内容", ZulipHtml.ToPlainText(Sample("quote")));
+
+    [Fact]
+    public void PlainText_Code_KeepsSource() => Assert.Equal("print(1)", ZulipHtml.ToPlainText(Sample("code")));
+
+    [Fact]
+    public void PlainText_List() => Assert.Equal("• 一\n• 二\n1. 甲\n2. 乙", ZulipHtml.ToPlainText(Sample("list")));
+
+    [Fact]
+    public void PlainText_ImageKeepsFileName() => Assert.Equal("截图 截图-开发.png", ZulipHtml.ToPlainText(RealImage));
+
+    [Fact]
+    public void PlainText_ExternalLinkKeepsUrl() =>
+        Assert.Equal("粗 斜 删 code 链接 (https://example.com)", ZulipHtml.ToPlainText(Sample("strong")));
+
+    [Fact]
+    public void PlainText_LineBreaks() =>
+        Assert.Equal("a\nb\nc", ZulipHtml.ToPlainText("<p>a<br>\nb</p>\n<p>c</p>"));
+
+    [Fact]
+    public void ExtractUploads_DedupesAndDetectsImages()
+    {
+        var uploads = ZulipHtml.ExtractUploads(RealImage);
+        var upload = Assert.Single(uploads);
+        Assert.Equal("/user_uploads/2/ac/LxWueOIW7MbTvYUwx5Oq51ne/截图-开发.png", upload.Path);
+        Assert.Equal("截图-开发.png", upload.FileName);
+        Assert.True(upload.IsImage);
+        Assert.False(ZulipHtml.HasFileAttachment(RealImage));
+    }
+
+    [Fact]
+    public void ExtractUploads_AbsoluteUrlAndUrlText()
+    {
+        const string html = "<p><a href=\"https://zulip.example.com/user_uploads/2/ab/x/%E8%B5%84%E6%96%99.zip\">https://zulip.example.com/user_uploads/2/ab/x/%E8%B5%84%E6%96%99.zip</a></p>";
+        var upload = Assert.Single(ZulipHtml.ExtractUploads(html));
+        Assert.Equal("/user_uploads/2/ab/x/%E8%B5%84%E6%96%99.zip", upload.Path);
+        Assert.Equal("资料.zip", upload.FileName);
+        Assert.False(upload.IsImage);
+        Assert.True(ZulipHtml.HasFileAttachment(html));
+    }
+
+    [Theory]
+    [InlineData("emoji emoji-1f604", "😄")]
+    [InlineData("emoji emoji-1f469-200d-1f4bb", "👩‍💻")]
+    [InlineData("emoji emoji-zz", null)]
+    [InlineData("emoji", null)]
+    public void EmojiFromClass(string cls, string? expected) => Assert.Equal(expected, ZulipHtml.EmojiFromClass(cls));
+
+    [Theory]
+    [InlineData("/user_uploads/thumbnail/2/ac/x.png/840x560.webp", null)]
+    [InlineData("#narrow/near/1", null)]
+    [InlineData("https://example.com/foo/user_uploads/x", "/user_uploads/x")]
+    [InlineData("/user_uploads/2/a/b.txt?x=1", "/user_uploads/2/a/b.txt")]
+    public void NormalizeUploadPath(string href, string? expected) =>
+        Assert.Equal(expected, ZulipHtml.NormalizeUploadPath(href));
+}

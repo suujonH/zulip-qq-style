@@ -12,7 +12,7 @@
 
 ```powershell
 dotnet build ZulipQQ.slnx
-dotnet test ZulipQQ.slnx
+dotnet test --solution ZulipQQ.slnx
 dotnet run --project ZulipQQ
 ```
 
