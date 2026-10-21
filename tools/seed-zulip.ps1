@@ -30,15 +30,14 @@ function Get-AuthHeader([pscustomobject]$Account) {
 
 # 调用 Zulip API；429 时按 Retry-After 等待后重试
 function Invoke-Zulip {
-    param([pscustomobject]$Account, [string]$Method, [string]$Path, [hashtable]$Body, [hashtable]$Form)
+    param([pscustomobject]$Account, [string]$Method, [string]$Path, [hashtable]$Body)
     for ($attempt = 0; ; $attempt++) {
         try {
             $req = @{
                 Uri = "$Realm/api/v1/$Path"; Method = $Method; SkipCertificateCheck = $true
                 Headers = (Get-AuthHeader $Account)
             }
-            if ($Form) { $req.Form = $Form }
-            elseif ($Body) {
+            if ($Body) {
                 # 手动编码为 UTF-8 表单：PowerShell 对 PATCH 的哈希表 Body 不会按表单发送
                 $q = ($Body.GetEnumerator() | ForEach-Object { "$($_.Key)=$([Uri]::EscapeDataString([string]$_.Value))" }) -join '&'
                 if ($Method -eq 'GET') { $req.Uri += "?$q" }
@@ -129,13 +128,25 @@ function Test-NarrowEmpty([pscustomobject]$Account, $Narrow) {
 }
 
 # ---------- 3. 上传 ----------
-$tmp = Join-Path ([IO.Path]::GetTempPath()) "zulipqq-seed-$PID"
-New-Item -ItemType Directory -Force $tmp | Out-Null
+# 上传文件。不用 -Form：它会把所有文件都标为 application/octet-stream，
+# Zulip 因此不会把图片当作图片（没有预览，has:image 也查不到）
+$uploadClient = [Net.Http.HttpClient]::new([Net.Http.HttpClientHandler]@{ ServerCertificateCustomValidationCallback = [Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator })
 function New-Upload([pscustomobject]$From, [string]$FileName, [byte[]]$Bytes) {
-    $path = Join-Path $tmp $FileName
-    [IO.File]::WriteAllBytes($path, $Bytes)
-    $r = Invoke-Zulip $From POST 'user_uploads' -Form @{ file = Get-Item $path }
-    "[$FileName]($($r.url))"
+    $mime = switch ([IO.Path]::GetExtension($FileName).ToLowerInvariant()) {
+        '.png' { 'image/png' } '.jpg' { 'image/jpeg' } '.txt' { 'text/plain' } '.zip' { 'application/zip' }
+        default { 'application/octet-stream' }
+    }
+    $file = [Net.Http.ByteArrayContent]::new($Bytes)
+    $file.Headers.ContentType = [Net.Http.Headers.MediaTypeHeaderValue]::new($mime)
+    $form = [Net.Http.MultipartFormDataContent]::new()
+    $form.Add($file, 'file', $FileName)
+    $msg = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Post, "$Realm/api/v1/user_uploads")
+    $msg.Headers.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::Parse((Get-AuthHeader $From).Authorization)
+    $msg.Content = $form
+    $resp = $uploadClient.SendAsync($msg).GetAwaiter().GetResult()
+    $json = $resp.Content.ReadAsStringAsync().GetAwaiter().GetResult() | ConvertFrom-Json
+    if (-not $resp.IsSuccessStatusCode) { throw "上传 $FileName 失败：$($json.msg)" }
+    "[$FileName]($($json.url))"
 }
 function New-Png([int]$Seed) {
     Add-Type -AssemblyName System.Drawing
@@ -158,33 +169,48 @@ $lines = @(
     '已经解决了', '明天再说吧', '好的没问题', '辛苦了 :thumbs_up:', '这周能搞定吗', '我觉得可以', '先这样吧',
     '有点意思', '同意楼上', '等我五分钟', '已提交', '谁有空帮忙看看', '我也遇到过'
 )
-$seededChannel = $false
+function Get-NarrowCount([pscustomobject]$Account, $Narrow, [int]$Max) {
+    $r = Invoke-Zulip $Account GET 'messages' @{ anchor = 'newest'; num_before = $Max; num_after = 0; narrow = (ConvertTo-Json1 $Narrow) }
+    $r.messages.Count
+}
+
+# 每个话题补足 25 条；中途失败后重新运行会从缺少的条数继续
 foreach ($c in $channels) {
-    if (-not (Test-NarrowEmpty $owner @(@{ operator = 'channel'; operand = $c.Id }))) {
-        Write-Host "  #$($c.Name) 已有消息，跳过"
-        continue
-    }
-    $seededChannel = $true
     $others = @($c.Members | Where-Object { $_.Id -ne $owner.Id })
+    $added = 0
     foreach ($t in $c.Topics) {
-        for ($n = 0; $n -lt 25; $n++) {
+        # 话题可能已被第 6 步标记为已解决（改名为 "✔ 话题"），两个名字一起计数
+        $existing = 0
+        foreach ($name in $t, "✔ $t") {
+            $existing += Get-NarrowCount $owner @(@{ operator = 'channel'; operand = $c.Id }, @{ operator = 'topic'; operand = $name }) 25
+        }
+        $missing = 25 - $existing
+        for ($n = 0; $n -lt $missing; $n++) {
             $from = $c.Members[$rnd.Next($c.Members.Count)]
             $text = $lines[$rnd.Next($lines.Count)]
             switch ($rnd.Next(14)) {
                 0 { $text = "$(Get-Mention $others[$rnd.Next($others.Count)]) $text" }
                 1 { $text = "``````python`nprint('hello $t')`n``````" }
                 2 { $text = "**$t**：$text`n- 第一点`n- 第二点" }
-                3 { $text = "``````quote`n$($lines[$rnd.Next($lines.Count)])`n``````$text" }
+                3 { $text = "``````quote`n$($lines[$rnd.Next($lines.Count)])`n```````n$text" }
                 default { }
             }
             Send-Channel $from $c $t $text | Out-Null
+            $added++
         }
     }
-    # 文件与图片
+    # 文件与图片（放在第一个话题）
     $from = $others[0]
-    Send-Channel $from $c $c.Topics[0] ("文档在这里 " + (New-Upload $from "说明-$($c.Name).txt" ([Text.Encoding]::UTF8.GetBytes("测试文件 $($c.Name)`n" * 50)))) | Out-Null
-    Send-Channel $from $c $c.Topics[0] ("截图 " + (New-Upload $from "截图-$($c.Name).png" (New-Png $c.Id))) | Out-Null
-    Write-Host "  #$($c.Name) 已生成"
+    $first = @(@{ operator = 'channel'; operand = $c.Id }, @{ operator = 'topic'; operand = $c.Topics[0] })
+    if (Test-NarrowEmpty $owner ($first + @(@{ operator = 'has'; operand = 'attachment' }))) {
+        Send-Channel $from $c $c.Topics[0] ("文档在这里 " + (New-Upload $from "说明-$($c.Name).txt" ([Text.Encoding]::UTF8.GetBytes("测试文件 $($c.Name)`n" * 50)))) | Out-Null
+        $added++
+    }
+    if (Test-NarrowEmpty $owner ($first + @(@{ operator = 'has'; operand = 'image' }))) {
+        Send-Channel $from $c $c.Topics[0] ("截图 " + (New-Upload $from "截图-$($c.Name).png" (New-Png $c.Id))) | Out-Null
+        $added++
+    }
+    Write-Host "  #$($c.Name) 新增 $added 条"
 }
 
 # ---------- 5. 私聊 ----------
@@ -209,8 +235,10 @@ Write-Host '== 未读、星标、表情、草稿、已解决、静音'
 $dev = $channels[0]; $game = $channels[1]
 function Test-OwnerNarrowEmpty($Narrow) { Test-NarrowEmpty $owner $Narrow }
 
-# 先把历史消息全部标为已读，再制造一批新的未读（只在本次生成了频道消息时执行）
-if ($seededChannel) {
+# 先把历史消息全部标为已读，再制造一批新的未读。
+# 以"构建失败"话题中 @我 的消息是否存在作为完成标记；中途失败时重新运行会再执行一次
+$mentionNarrow = @(@{ operator = 'channel'; operand = $dev.Id }, @{ operator = 'topic'; operand = '构建失败' }, @{ operator = 'is'; operand = 'mentioned' })
+if (Test-OwnerNarrowEmpty $mentionNarrow) {
     $anchor = 'oldest'; $include = 'true'
     do {
         $r = Invoke-Zulip $owner POST 'messages/flags/narrow' @{
@@ -267,7 +295,7 @@ if (-not (Test-OwnerNarrowEmpty $reviewNarrow)) {
 # 静音话题（重复设置无副作用）
 Invoke-Zulip $owner POST 'user_topics' @{ stream_id = $game.Id; topic = '吐槽'; visibility_policy = 1 } | Out-Null
 
-Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+$uploadClient.Dispose()
 
 # ---------- 7. 输出 ----------
 $everyone | Select-Object Email, Name, Id, Key | ConvertTo-Json | Set-Content -Encoding utf8 $OutFile
