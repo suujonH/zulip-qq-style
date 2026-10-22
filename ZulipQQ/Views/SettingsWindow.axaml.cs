@@ -17,7 +17,7 @@ public partial class SettingsWindow : Window, ISessionWindow
     public SettingsWindow()
     {
         InitializeComponent();
-        AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyDownEvent, OnEscapeKeyDown, RoutingStrategies.Bubble);
     }
 
     /// <summary>打开设置窗口并切换到 <paramref name="page"/>；已打开时还原并激活。</summary>
@@ -58,8 +58,8 @@ public partial class SettingsWindow : Window, ISessionWindow
             PageScroller.Offset = default;
     }
 
-    // Esc 关闭窗口；有对话框时先关闭对话框（由对话框自己处理）
-    private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
+    // Esc 关闭窗口；冒泡阶段处理，先让行内编辑框（取消编辑）、下拉框等子控件处理；有对话框时由对话框自己处理
+    private void OnEscapeKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Escape || _vm is not { Dialogs.Count: 0 })
             return;

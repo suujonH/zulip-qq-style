@@ -31,7 +31,8 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
     private readonly SemaphoreSlim _modeGate = new(1, 1);
 
     // 最近一次关闭同步前的状态：设置页提交设置失败时用它恢复服务器模式
-    private (Dictionary<ConversationKey, List<DraftEntry>> Server, Dictionary<ConversationKey, string> Local)? _beforeDisable;
+    private (Dictionary<ConversationKey, List<DraftEntry>> Server, Dictionary<ConversationKey, string> Local,
+        Dictionary<ConversationKey, string> Transferred)? _beforeDisable;
 
     /// <summary>当前是否使用服务器草稿（Zulip 的 enable_drafts_synchronization）。</summary>
     public bool UseServer { get; private set; }
@@ -204,7 +205,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
         HashSet<ConversationKey> affected = [.. _server.Keys, .. _local.Keys];
         if (!enabled)
         {
-            _beforeDisable = (new(_server), new(_local));
+            var before = (Server: new Dictionary<ConversationKey, List<DraftEntry>>(_server), Local: new Dictionary<ConversationKey, string>(_local));
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             foreach (var key in _server.Keys.ToList())
             {
@@ -214,6 +215,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
                     localRepo.Set(key, content, now);
                 }
             }
+            _beforeDisable = (before.Server, before.Local, new(_local));
             _server.Clear();
             UseServer = false;
         }
@@ -255,9 +257,11 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
 
     /// <summary>
     /// 设置页关闭同步、但提交设置失败时调用：服务器上的草稿还在，恢复关闭前的服务器模式，撤销转存到本地的草稿。
+    /// 提交期间（本地模式下）修改或删除过的草稿不撤销，而是同步到服务器。
     /// </summary>
     public async Task RevertDisableAsync()
     {
+        var changed = new List<(ConversationKey Key, string? Content)>();
         await _modeGate.WaitAsync();
         try
         {
@@ -265,18 +269,25 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
                 return;
             _beforeDisable = null;
             HashSet<ConversationKey> affected = [.. _local.Keys, .. before.Server.Keys];
-            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            foreach (var key in _local.Keys.ToList())
+            foreach (var key in before.Transferred.Keys)
             {
-                if (!before.Local.TryGetValue(key, out var content))
+                if (!_local.ContainsKey(key))
+                    changed.Add((key, null));
+            }
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            foreach (var (key, content) in _local.ToList())
+            {
+                if (before.Transferred.GetValueOrDefault(key) != content)
+                    changed.Add((key, content));
+                if (before.Local.TryGetValue(key, out var leftover) && !changed.Any(c => c.Key.Equals(key)))
+                {
+                    _local[key] = leftover;
+                    localRepo.Set(key, leftover, now);
+                }
+                else
                 {
                     _local.Remove(key);
                     localRepo.Delete(key);
-                }
-                else if (_local[key] != content)
-                {
-                    _local[key] = content;
-                    localRepo.Set(key, content, now);
                 }
             }
             foreach (var (key, list) in before.Server)
@@ -288,6 +299,14 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
         finally
         {
             _modeGate.Release();
+        }
+
+        foreach (var (key, content) in changed)
+        {
+            if (content is null)
+                await DeleteAsync(key);
+            else
+                await SetAsync(key, content);
         }
     }
 

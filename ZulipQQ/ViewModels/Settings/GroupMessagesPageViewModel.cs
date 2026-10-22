@@ -228,7 +228,11 @@ public sealed class GroupMessagesPageViewModel : SettingsPageViewModel
         Channels.Clear();
         foreach (var channel in Session.Channels.Subscribed())
             Channels.Add(new ChannelLevelGroupViewModel(Session, channel.StreamId, Owner.ShowToast));
+        BuildGroupDms();
+    }
 
+    private void BuildGroupDms()
+    {
         GroupDms.Clear();
         foreach (var entry in Session.Conversations.Entries
                      .Where(e => e.Key is DmKey { IsGroupDm: true })
@@ -244,8 +248,12 @@ public sealed class GroupMessagesPageViewModel : SettingsPageViewModel
             case TopicKey t:
                 Channels.FirstOrDefault(c => c.StreamId == t.StreamId)?.RefreshRow(key);
                 break;
-            case DmKey:
-                GroupDms.FirstOrDefault(r => r.Key.Equals(key))?.Refresh();
+            case DmKey { IsGroupDm: true }:
+                // 新出现的多人私聊加入列表
+                if (GroupDms.FirstOrDefault(r => r.Key.Equals(key)) is { } row)
+                    row.Refresh();
+                else
+                    BuildGroupDms();
                 break;
         }
     }

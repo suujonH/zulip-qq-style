@@ -51,11 +51,14 @@ public sealed class SettingsStore(ZulipSession session, SettingRepository localR
     /// <summary>删除提醒词；结果同样以 alert_words 事件为准。</summary>
     public Task RemoveAlertWordAsync(string word) => session.Client.RemoveAlertWordsAsync([word], session.Token);
 
-    /// <summary>修改 Zulip 设置。<paramref name="value"/> 为 bool、int、long 或 string。失败时恢复原值并抛出异常。</summary>
+    /// <summary>
+    /// 修改 Zulip 设置。<paramref name="value"/> 为 bool、int、long 或 string。
+    /// 失败时只恢复这一项的原值（同时进行的其它修改不受影响）并抛出异常。
+    /// </summary>
     public async Task SetZulipAsync(string name, object value)
     {
-        var old = Zulip;
-        Apply(name, JsonSerializer.SerializeToElement(value));
+        var old = JsonSerializer.SerializeToNode(Zulip, ZulipJson.Options)?[name]?.DeepClone();
+        Apply(name, JsonSerializer.SerializeToNode(value));
         Changed?.Invoke(this, name);
 
         var args = new FormBuilder();
@@ -85,7 +88,7 @@ public sealed class SettingsStore(ZulipSession session, SettingRepository localR
         {
             if (!session.IsDisposed)
             {
-                Zulip = old;
+                Apply(name, old);
                 Changed?.Invoke(this, name);
             }
             throw;
@@ -95,16 +98,16 @@ public sealed class SettingsStore(ZulipSession session, SettingRepository localR
     /// <summary>user_settings update 事件。</summary>
     public void OnZulipSettingChanged(string property, JsonElement value)
     {
-        Apply(property, value);
+        Apply(property, JsonNode.Parse(value.GetRawText()));
         Changed?.Invoke(this, property);
     }
 
     // 以 JSON 方式替换一个字段：设置名与 DTO 的蛇形属性名一致，不认识的设置不影响结果
-    private void Apply(string name, JsonElement value)
+    private void Apply(string name, JsonNode? value)
     {
         if (JsonSerializer.SerializeToNode(Zulip, ZulipJson.Options) is not JsonObject node)
             return;
-        node[name] = JsonNode.Parse(value.GetRawText());
+        node[name] = value;
         Zulip = node.Deserialize<UserSettingsDto>(ZulipJson.Options) ?? Zulip;
     }
 }
