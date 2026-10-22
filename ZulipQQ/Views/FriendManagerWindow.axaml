@@ -2,7 +2,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:ZulipQQ.ViewModels"
         xmlns:c="using:ZulipQQ.Controls"
-        xmlns:chrome="using:Avalonia.Controls.Chrome"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="840" d:DesignHeight="600"
@@ -15,10 +14,6 @@
         WindowDecorations="BorderOnly"
         ExtendClientAreaToDecorationsHint="True"
         Background="{DynamicResource PanelBackgroundBrush}">
-
-    <Design.DataContext>
-        <vm:FriendManagerViewModel />
-    </Design.DataContext>
 
     <Window.Resources>
         <!-- 右键“移动联系人至”子菜单项：当前分组在左侧打勾。
@@ -54,21 +49,6 @@
     </Window.Resources>
 
     <Window.Styles>
-        <!-- 窗口按钮 -->
-        <Style Selector="Button.caption">
-            <Setter Property="Width" Value="40" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="CornerRadius" Value="0" />
-        </Style>
-        <Style Selector="Button.caption c|TdIcon">
-            <Setter Property="Width" Value="14" />
-            <Setter Property="Height" Value="14" />
-        </Style>
-        <Style Selector="Button.caption.close:pointerover">
-            <Setter Property="Background" Value="#E81123" />
-            <Setter Property="Foreground" Value="White" />
-        </Style>
-
         <!-- 左侧分组筛选项 -->
         <Style Selector="Button.filter">
             <Setter Property="Height" Value="36" />
@@ -378,40 +358,8 @@
             </Grid>
         </Grid>
 
-        <!-- 标题栏：顶部整条可拖动，右侧窗口按钮 -->
-        <Grid Height="30" VerticalAlignment="Top" Background="Transparent"
-              chrome:WindowDecorationProperties.ElementRole="TitleBar">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMinimizeClick"
-                        chrome:WindowDecorationProperties.ElementRole="User">
-                    <c:TdIcon Icon="{StaticResource Icon.Minus}" />
-                </Button>
-                <Button Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMaximizeClick"
-                        chrome:WindowDecorationProperties.ElementRole="User">
-                    <c:TdIcon Icon="{StaticResource Icon.Rectangle}" Width="11" Height="11" />
-                </Button>
-                <Button Classes="caption close" Theme="{StaticResource FlatButton}" Click="OnCloseClick"
-                        chrome:WindowDecorationProperties.ElementRole="User">
-                    <c:TdIcon Icon="{StaticResource Icon.Close}" />
-                </Button>
-            </StackPanel>
-        </Grid>
+        <c:CaptionBar />
 
-        <!-- 对话框层：每个对话框带一层遮罩，后打开的在上层 -->
-        <ItemsControl ItemsSource="{Binding Dialogs}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <Panel />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:ViewModelBase">
-                    <Panel>
-                        <Border Background="{DynamicResource DialogMaskBrush}" />
-                        <ContentControl Content="{Binding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Panel>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <c:DialogLayer Dialogs="{Binding Dialogs}" />
     </Panel>
 </Window>

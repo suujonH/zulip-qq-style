@@ -11,9 +11,9 @@ namespace ZulipQQ.ViewModels;
 public partial class FriendRowViewModel : ViewModelBase
 {
     private readonly FriendManagerViewModel _owner;
-    private readonly FriendStore _store;
+    private readonly ContactStore _store;
 
-    public FriendRowViewModel(FriendManagerViewModel owner, FriendStore store, Friend friend)
+    public FriendRowViewModel(FriendManagerViewModel owner, ContactStore store, Friend friend)
     {
         _owner = owner;
         _store = store;
@@ -26,15 +26,17 @@ public partial class FriendRowViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(Nickname), nameof(Remark))]
     public partial Friend Friend { get; private set; }
 
-    public string Nickname => Friend.User.Nickname;
+    public string Nickname => Friend.User.FullName;
 
     public string Remark => Friend.Remark ?? "";
 
-    public string GroupName => _store.Groups.FirstOrDefault(g => g.Id == Friend.GroupId)?.Name ?? "";
+    /// <summary>所在的自定义分组；不在任何自定义分组时显示“我的好友”。</summary>
+    public string GroupName => _store.Groups.FirstOrDefault(g => g.Id == Friend.GroupId)?.Name ?? "我的好友";
 
     /// <summary>分组下拉框与右键“移动联系人至”共用的选项，当前所在分组带勾。</summary>
     public IReadOnlyList<GroupOptionViewModel> GroupOptions =>
-        _store.Groups.Select(g => new GroupOptionViewModel(g, g.Id == Friend.GroupId, this)).ToList();
+        [new GroupOptionViewModel(null, Friend.GroupId is null, this),
+            .. _store.Groups.Select(g => new GroupOptionViewModel(g, g.Id == Friend.GroupId, this))];
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
@@ -49,11 +51,13 @@ public partial class FriendRowViewModel : ViewModelBase
     public void Update(Friend friend)
     {
         Friend = friend;
+        // ZulipUser 是就地更新的，记录相等时 Friend 的 setter 不会发出通知
+        OnPropertyChanged(nameof(Nickname));
         OnPropertyChanged(nameof(GroupName));
         OnPropertyChanged(nameof(GroupOptions));
     }
 
-    internal void MoveTo(long groupId) => _store.MoveFriends([UserId], groupId);
+    internal void MoveTo(long? groupId) => _store.MoveUsers([UserId], groupId);
 
     partial void OnIsSelectedChanged(bool value) => _owner.OnRowSelectionChanged();
 

@@ -1,0 +1,109 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ZulipQQ.ViewModels"
+        xmlns:c="using:ZulipQQ.Controls"
+        x:Class="ZulipQQ.Views.LoginWindow"
+        x:DataType="vm:LoginViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="ZulipQQ"
+        Width="320" Height="448" CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        Background="{DynamicResource PanelBackgroundBrush}">
+
+    <Window.Styles>
+        <Style Selector="CheckBox">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style Selector="Button.link, ToggleButton.link">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.account:pointerover">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Panel>
+        <DockPanel Margin="28,40,28,18">
+            <c:TdIcon DockPanel.Dock="Top" Icon="{StaticResource Icon.QqFilled}" Width="64" Height="64"
+                      Foreground="{DynamicResource BrandBrush}" Margin="0,0,0,18" />
+
+            <!-- 登录按钮：登录中显示进度文字 -->
+            <Button DockPanel.Dock="Bottom" Classes="primary" Theme="{StaticResource FlatButton}"
+                    HorizontalAlignment="Stretch" Height="36" Command="{Binding LoginCommand}">
+                <Panel>
+                    <TextBlock Text="登录" IsVisible="{Binding !IsBusy}" />
+                    <TextBlock Text="{Binding BusyText}" IsVisible="{Binding IsBusy}" />
+                </Panel>
+            </Button>
+
+            <StackPanel Spacing="10">
+                <TextBox Classes="input" PlaceholderText="服务器地址" ToolTip.Tip="例如 https://chat.example.com"
+                         Text="{Binding ServerUrl}" IsEnabled="{Binding !IsBusy}" />
+
+                <!-- 邮箱 + 历史账号下拉 -->
+                <TextBox Classes="input" PlaceholderText="邮箱" Text="{Binding Email}" IsEnabled="{Binding !IsBusy}">
+                    <TextBox.InnerRightContent>
+                        <Button x:Name="AccountsButton" Theme="{StaticResource FlatButton}" Background="Transparent"
+                                Width="24" Height="24" Margin="0,0,4,0"
+                                Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding HasAccounts}">
+                            <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" Width="14" Height="14" />
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight">
+                                    <ItemsControl ItemsSource="{Binding Accounts}" Width="250">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:SavedAccountViewModel">
+                                                <Border Classes="account" CornerRadius="6" Padding="8,6"
+                                                        Background="Transparent" Cursor="Hand"
+                                                        PointerPressed="OnAccountPressed">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                                        <c:Avatar Width="30" Height="30" Text="{Binding DisplayName}" />
+                                                        <StackPanel Grid.Column="1" Margin="8,0" VerticalAlignment="Center">
+                                                            <TextBlock Classes="title" FontSize="13" Text="{Binding Email}" />
+                                                            <TextBlock Classes="sub" FontSize="11" Text="{Binding RealmUrl}" />
+                                                        </StackPanel>
+                                                        <Button Grid.Column="2" Theme="{StaticResource FlatButton}"
+                                                                Width="22" Height="22" ToolTip.Tip="删除此账号记录"
+                                                                Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                Click="OnRemoveAccountClick">
+                                                            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="12" Height="12" />
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+
+                <TextBox Classes="input" PasswordChar="•" PlaceholderText="{Binding PasswordPlaceholder}"
+                         Text="{Binding Password}" IsEnabled="{Binding !IsBusy}" KeyDown="OnPasswordKeyDown" />
+
+                <DockPanel>
+                    <ToggleButton DockPanel.Dock="Right" Classes="link" Theme="{StaticResource FlatButton}"
+                                  Content="高级" IsChecked="{Binding IsAdvancedOpen}" />
+                    <CheckBox Content="自动登录" IsChecked="{Binding AutoLogin}" />
+                </DockPanel>
+
+                <StackPanel Spacing="4" IsVisible="{Binding IsAdvancedOpen}">
+                    <CheckBox Content="允许不受信任的证书（仅测试服务器）" IsChecked="{Binding AllowInvalidCert}" />
+                    <Button Classes="link" Theme="{StaticResource FlatButton}" HorizontalAlignment="Left"
+                            Content="使用 zuliprc 登录…" Click="OnZuliprcClick" IsEnabled="{Binding !IsBusy}" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding ErrorText}" IsVisible="{Binding HasError}" FontSize="12"
+                           Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+        </DockPanel>
+
+        <c:CaptionBar ShowMaximize="False" />
+    </Panel>
+</Window>

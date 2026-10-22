@@ -8,10 +8,6 @@
              x:Class="ZulipQQ.Views.MessagesPageView"
              x:DataType="vm:MessagesPageViewModel">
 
-    <Design.DataContext>
-        <vm:MessagesPageViewModel />
-    </Design.DataContext>
-
     <UserControl.Styles>
         <Style Selector="Border.conv">
             <Setter Property="Height" Value="64" />
@@ -72,6 +68,12 @@
         </Style>
     </UserControl.Styles>
 
+    <DockPanel>
+    <!-- 连接状态提示条：连接正常时隐藏 -->
+    <Border DockPanel.Dock="Top" Background="#FFF4DB" Padding="12,6" IsVisible="{Binding IsConnectionBannerVisible}">
+        <TextBlock Text="{Binding ConnectionText}" FontSize="12" Foreground="#B26B00" TextWrapping="Wrap" />
+    </Border>
+
     <ListBox ItemsSource="{Binding Conversations}"
              SelectedItem="{Binding SelectedConversation}"
              ItemContainerTheme="{StaticResource PlainListBoxItem}"
@@ -111,4 +113,5 @@
             </DataTemplate>
         </ListBox.ItemTemplate>
     </ListBox>
+    </DockPanel>
 </UserControl>

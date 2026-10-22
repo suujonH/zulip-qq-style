@@ -1,0 +1,43 @@
+<!-- 无边框窗口的标题栏：整条可拖动，右侧最小化 / 最大化 / 关闭按钮 -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:chrome="using:Avalonia.Controls.Chrome"
+             x:Class="ZulipQQ.Controls.CaptionBar"
+             Height="30" VerticalAlignment="Top">
+
+    <UserControl.Styles>
+        <Style Selector="Button.caption">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="Button.caption c|TdIcon">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+        </Style>
+        <Style Selector="Button.caption.close:pointerover">
+            <Setter Property="Background" Value="#E81123" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="*,Auto" Background="Transparent"
+          chrome:WindowDecorationProperties.ElementRole="TitleBar">
+        <TextBlock x:Name="TitleText" Margin="12,0" FontSize="12" VerticalAlignment="Center" IsVisible="False" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <Button x:Name="MinimizeButton" Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMinimizeClick"
+                    chrome:WindowDecorationProperties.ElementRole="User">
+                <c:TdIcon Icon="{StaticResource Icon.Minus}" />
+            </Button>
+            <Button x:Name="MaximizeButton" Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMaximizeClick"
+                    chrome:WindowDecorationProperties.ElementRole="User">
+                <c:TdIcon Icon="{StaticResource Icon.Rectangle}" Width="11" Height="11" />
+            </Button>
+            <Button Classes="caption close" Theme="{StaticResource FlatButton}" Click="OnCloseClick"
+                    chrome:WindowDecorationProperties.ElementRole="User">
+                <c:TdIcon Icon="{StaticResource Icon.Close}" />
+            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>

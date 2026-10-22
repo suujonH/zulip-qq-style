@@ -8,10 +8,6 @@
              x:Class="ZulipQQ.Views.ContactsPageView"
              x:DataType="vm:ContactsPageViewModel">
 
-    <Design.DataContext>
-        <vm:ContactsPageViewModel />
-    </Design.DataContext>
-
     <UserControl.Styles>
         <Style Selector="Button.manager">
             <Setter Property="Height" Value="32" />
@@ -125,34 +121,6 @@
                                                             VerticalAlignment="Center">
                                                     <TextBlock Classes="title" Text="{Binding DisplayName}" />
                                                     <TextBlock Classes="sub" Text="{Binding StatusText}" />
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                    <DataTemplate DataType="vm:DeviceItemViewModel">
-                                        <Border Classes="contact">
-                                            <Grid ColumnDefinitions="Auto,*">
-                                                <Border Width="40" Height="40" CornerRadius="20"
-                                                        Background="{DynamicResource BrandBrush}">
-                                                    <c:TdIcon Icon="{StaticResource Icon.Mobile}" Width="20" Height="20"
-                                                              Foreground="White" />
-                                                </Border>
-                                                <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="3"
-                                                            VerticalAlignment="Center">
-                                                    <TextBlock Classes="title" Text="{Binding Name}" />
-                                                    <TextBlock Classes="sub" Text="{Binding StatusText}" />
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                    <DataTemplate DataType="vm:GroupItemViewModel">
-                                        <Border Classes="contact">
-                                            <Grid ColumnDefinitions="Auto,*">
-                                                <c:Avatar Width="40" Height="40" Text="{Binding Name}" />
-                                                <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="3"
-                                                            VerticalAlignment="Center">
-                                                    <TextBlock Classes="title" Text="{Binding Name}" />
-                                                    <TextBlock Classes="sub" Text="{Binding MemberCountText}" />
                                                 </StackPanel>
                                             </Grid>
                                         </Border>

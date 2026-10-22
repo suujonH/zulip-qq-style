@@ -1,0 +1,21 @@
+<!-- 对话框层：每个对话框带一层遮罩，后打开的在上层。放在窗口内容的最上层 -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             x:Class="ZulipQQ.Controls.DialogLayer">
+    <ItemsControl x:Name="Items">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <Panel />
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ViewModelBase">
+                <Panel>
+                    <Border Background="{DynamicResource DialogMaskBrush}" />
+                    <ContentControl Content="{Binding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Panel>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

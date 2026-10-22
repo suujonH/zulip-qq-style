@@ -10,7 +10,7 @@ namespace ZulipQQ.ViewModels;
 /// “添加分组”对话框。名称为空或只有空白时不能确定；名称允许与已有分组重复。
 /// 关闭时调用 onClosed：确定传入新建的分组，取消传入 null。
 /// </summary>
-public partial class AddGroupDialogViewModel(FriendStore store, Action<FriendGroup?> onClosed) : ViewModelBase
+public partial class AddGroupDialogViewModel(ContactStore store, Action<FriendGroup?> onClosed) : ViewModelBase
 {
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConfirmCommand))]
