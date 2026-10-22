@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ZulipQQ.Controls;
 using ZulipQQ.Core;
 using ZulipQQ.Services;
 using ZulipQQ.Zulip;
@@ -26,18 +28,25 @@ public partial class EditHistoryDialogViewModel : ViewModelBase
 {
     private readonly ZulipSession _session;
     private readonly Action _onClosed;
+    private readonly Func<MessageLinkTarget, TopLevel?, Task> _handleLink;
 
-    private EditHistoryDialogViewModel(ZulipSession session, Action onClosed)
+    private EditHistoryDialogViewModel(ZulipSession session, Action onClosed, Func<MessageLinkTarget, TopLevel?, Task> handleLink)
     {
         _session = session;
         _onClosed = onClosed;
+        _handleLink = handleLink;
     }
 
-    /// <summary>在对话框层中打开并加载历史。</summary>
-    public static void Show(ZulipSession session, IDialogHost host, long messageId)
+    public ZulipSession Session => _session;
+
+    /// <summary>
+    /// 在对话框层中打开并加载历史。<paramref name="handleLink"/> 处理内容中链接、文件的点击（与聊天中相同）；
+    /// 图片和提及由视图处理。
+    /// </summary>
+    public static void Show(ZulipSession session, IDialogHost host, long messageId, Func<MessageLinkTarget, TopLevel?, Task> handleLink)
     {
         EditHistoryDialogViewModel dialog = null!;
-        dialog = new EditHistoryDialogViewModel(session, () => host.Dialogs.Remove(dialog));
+        dialog = new EditHistoryDialogViewModel(session, () => host.Dialogs.Remove(dialog), handleLink);
         host.Dialogs.Add(dialog);
         _ = dialog.LoadAsync(messageId);
     }
@@ -104,4 +113,7 @@ public partial class EditHistoryDialogViewModel : ViewModelBase
 
     [RelayCommand]
     private void Close() => _onClosed();
+
+    /// <summary>内容中链接、文件的点击。</summary>
+    public Task HandleLinkAsync(MessageLinkTarget target, TopLevel? top) => _handleLink(target, top);
 }

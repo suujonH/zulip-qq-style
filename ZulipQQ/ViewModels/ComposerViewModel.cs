@@ -261,6 +261,7 @@ public partial class ComposerViewModel : ViewModelBase
         if (!CanSend())
             return;
         var key = _chat.Key;
+        var submittedText = Text;
         var quote = QuoteTarget;
         // 等待引用原文期间可能又添加了图片：只发送、移除现在已有的附件
         var captured = Attachments.ToList();
@@ -342,8 +343,9 @@ public partial class ComposerViewModel : ViewModelBase
                 }
                 if (_closed)
                 {
-                    // 请求期间聊天被关闭，关闭时把内容存成了草稿：已经定时发送，删除草稿，避免重新打开后再发一次
-                    if (!_session.IsDisposed)
+                    // 请求期间聊天被关闭，关闭时把内容存成了草稿：已经定时发送，删除草稿，避免重新打开后再发一次。
+                    // 只删除提交的那份；之后重新打开又写了别的内容时保留
+                    if (!_session.IsDisposed && _session.Drafts.Get(scheduledKey)?.Trim() == submittedText.Trim())
                         _session.Forget(_session.Drafts.DeleteAsync(scheduledKey), "删除草稿");
                     return;
                 }

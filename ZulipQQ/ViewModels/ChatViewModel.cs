@@ -770,7 +770,8 @@ public partial class ChatViewModel : ViewModelBase
     public bool CanShowEditHistory(MessageItemViewModel item) =>
         item.IsEdited && _session.Realm.EditHistoryVisibilityPolicy != "none";
 
-    public void ShowEditHistory(MessageItemViewModel item) => EditHistoryDialogViewModel.Show(_session, Host, item.Id);
+    public void ShowEditHistory(MessageItemViewModel item) =>
+        EditHistoryDialogViewModel.Show(_session, Host, item.Id, (target, top) => HandleLinkAsync(item, target, top));
 
     /// <summary>话题和多人私聊，且组织开启了已读回执。</summary>
     public bool CanShowReadReceipts => _session.Realm.EnableReadReceipts && Key is TopicKey or DmKey { IsGroupDm: true };

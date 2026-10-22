@@ -397,7 +397,8 @@ public sealed class ZulipClient : IDisposable
             args.Add("type", "stream").Add("to", streamId).Add("topic", m.Topic ?? "");
         else
             args.Add("type", "direct").AddJson("to", m.UserIds ?? []);
-        args.Add("content", m.Content).Add("scheduled_delivery_timestamp", deliverAt);
+        // 与立即发送一致：服务器按客户端名称猜测时不认识本客户端，送达后会成为自己的未读消息
+        args.Add("content", m.Content).Add("scheduled_delivery_timestamp", deliverAt).Add("read_by_sender", true);
         var root = await SendAsync(HttpMethod.Post, "api/v1/scheduled_messages", args, DefaultTimeout, ct).ConfigureAwait(false);
         return root.GetProperty("scheduled_message_id").GetInt64();
     }
