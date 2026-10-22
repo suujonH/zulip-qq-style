@@ -13,6 +13,7 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private int _openVersion;
+    private ConversationKey? _openingKey;   // 正在等待旧聊天关闭的打开请求
 
     public MainViewModel(ZulipSession session)
     {
@@ -104,18 +105,35 @@ public partial class MainViewModel : ViewModelBase
         }
 
         if (RightPane is ChatViewModel old)
+        {
+            _openingKey = key;
             await old.CloseAsync();
-        if (version != _openVersion || Session.IsDisposed)
-            return;
+            if (version != _openVersion || Session.IsDisposed)
+            {
+                // 被取消（另开了会话或该会话被移除）时，不要把已关闭的旧聊天留在右侧
+                if (RightPane == old)
+                    RightPane = null;
+                return;
+            }
+        }
+        _openingKey = null;
 
         var chat = new ChatViewModel(Session, key, (k, f) => OpenChatAsync(k, f), ShowToast);
         RightPane = chat;
         await chat.OpenAsync(focusMessageId);
     }
 
-    /// <summary>右侧正在显示该会话时关闭聊天，恢复企鹅占位图标。</summary>
+    /// <summary>右侧正在显示（或正在打开）该会话时关闭聊天，恢复企鹅占位图标。</summary>
     public async Task CloseChatAsync(ConversationKey key)
     {
+        if (_openingKey is { } opening && opening.Equals(key))
+        {
+            // 取消还在等待旧聊天关闭的打开请求
+            ++_openVersion;
+            _openingKey = null;
+            Messages.Select(null);
+            return;
+        }
         if (RightPane is not ChatViewModel chat || !chat.Key.Equals(key))
             return;
         ++_openVersion;

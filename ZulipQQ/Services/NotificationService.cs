@@ -31,24 +31,28 @@ public sealed class NotificationService(ZulipSession session)
     public event EventHandler<NotificationRequest>? Requested;
 
     /// <summary>
-    /// 新消息：自己发的、发送者被屏蔽、会话不是“允许消息提醒”、正在前台查看该会话时不提醒。
+    /// 新消息：自己发的、已读的（如服务器代为标记已读的系统消息）、发送者被屏蔽、
+    /// 会话不是“允许消息提醒”、正在前台查看该会话时不提醒。
     /// 其余情况总是请求闪烁任务栏；是否弹窗、是否有声音按 Zulip 的设置决定。
     /// </summary>
     public void OnNewMessage(ChatMessage m, IReadOnlyList<string> flags)
     {
         if (m.SenderId == session.SelfId
+            || Contains(flags, "read")
             || session.Users.IsMuted(m.SenderId)
             || session.Conversations.GetLevel(m.Key) != DndLevel.Notify
             || session.Registry.IsActivelyViewing(m.Key))
             return;
 
         var (popup, sound) = Decide(m.Key, flags);
-        if (sound)
+        // 提示音选择“无”时不播放任何提示音（与 Zulip 一致）
+        if (sound && session.Settings.Zulip.NotificationSound != "none")
             PlaySound("Notification.IM", IntPtr.Zero, SndAlias | SndAsync | SndNoDefault);
         Requested?.Invoke(this, Build(m, popup));
     }
 
-    // 私聊看总开关；话题依次看 @我 / 提醒词、@全体、关注的话题、频道设置（未设置时用全局设置）
+    // 私聊看总开关；话题的 @我 / 提醒词、@全体、关注的话题、频道设置（未设置时用全局设置）
+    // 是相互独立的触发条件，任一满足即提醒（与 Zulip 网页端一致）
     private (bool Popup, bool Sound) Decide(ConversationKey key, IReadOnlyList<string> flags)
     {
         var z = session.Settings.Zulip;
@@ -56,25 +60,34 @@ public sealed class NotificationService(ZulipSession session)
             return (z.EnableDesktopNotifications, z.EnableSounds);
 
         var channel = session.Channels.Get(t.StreamId);
+        var popup = channel?.DesktopNotifications ?? z.EnableStreamDesktopNotifications;
+        var sound = channel?.AudibleNotifications ?? z.EnableStreamAudibleNotifications;
         if (Contains(flags, "mentioned") || Contains(flags, "has_alert_word"))
-            return (z.EnableDesktopNotifications, z.EnableSounds);
-        if (Contains(flags, "stream_wildcard_mentioned") || Contains(flags, "topic_wildcard_mentioned")
-            || Contains(flags, "wildcard_mentioned"))
         {
-            var wildcard = channel?.WildcardMentionsNotify ?? z.WildcardMentionsNotify;
-            return (wildcard && z.EnableDesktopNotifications, wildcard && z.EnableSounds);
+            popup |= z.EnableDesktopNotifications;
+            sound |= z.EnableSounds;
+        }
+        if ((Contains(flags, "stream_wildcard_mentioned") || Contains(flags, "topic_wildcard_mentioned")
+             || Contains(flags, "wildcard_mentioned"))
+            && (channel?.WildcardMentionsNotify ?? z.WildcardMentionsNotify))
+        {
+            popup |= z.EnableDesktopNotifications;
+            sound |= z.EnableSounds;
         }
         if (session.Channels.TopicPolicy(t.StreamId, t.Topic) == 3)
-            return (z.EnableFollowedTopicDesktopNotifications, z.EnableFollowedTopicAudibleNotifications);
-        return (channel?.DesktopNotifications ?? z.EnableStreamDesktopNotifications,
-            channel?.AudibleNotifications ?? z.EnableStreamAudibleNotifications);
+        {
+            popup |= z.EnableFollowedTopicDesktopNotifications;
+            sound |= z.EnableFollowedTopicAudibleNotifications;
+        }
+        return (popup, sound);
     }
 
     private NotificationRequest Build(ChatMessage m, bool popup)
     {
         var title = session.Conversations.GetTitle(m.Key);
         string body;
-        if (!session.Settings.Zulip.PmContentInDesktopNotifications)
+        // “通知显示消息内容”只作用于私聊
+        if (m.Key is DmKey && !session.Settings.Zulip.PmContentInDesktopNotifications)
         {
             body = "你收到了一条新消息";
         }
