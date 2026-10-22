@@ -225,13 +225,24 @@
                             <Border Classes="bubble" Classes.selected="{Binding IsTimeShown}" Classes.bare="{Binding ShowsBare}"
                                     MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}">
                                 <Panel>
-                                    <StackPanel IsVisible="{Binding !IsMutedHidden}">
+                                    <StackPanel IsVisible="{Binding ShowsContent}">
                                         <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
                                         <TextBlock Text="(已编辑)" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Right" Margin="0,2,0,0"
                                                    Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsEdited}" />
                                     </StackPanel>
                                     <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="{DynamicResource FontSizeBody}" Cursor="Hand"
                                                Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsMutedHidden}" />
+                                    <!-- 就地编辑：发送快捷键与输入框相同，Esc 取消 -->
+                                    <StackPanel Spacing="6" MinWidth="260" IsVisible="{Binding IsEditing}">
+                                        <TextBox Classes="input editBox" Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap"
+                                                 MaxHeight="240" VerticalContentAlignment="Top" IsEnabled="{Binding !IsSavingEdit}" />
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                                            <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                                                    Command="{Binding CancelEditCommand}" />
+                                            <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="保存"
+                                                    Command="{Binding SaveEditCommand}" />
+                                        </StackPanel>
+                                    </StackPanel>
                                 </Panel>
                             </Border>
                         </StackPanel>

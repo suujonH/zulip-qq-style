@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.EditHistoryDialogView"
+             x:DataType="vm:EditHistoryDialogViewModel">
+
+    <Border Classes="dialog" Width="480">
+        <StackPanel>
+            <Grid Height="30">
+                <TextBlock Text="编辑历史" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CloseCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <Panel Margin="20,14,20,20">
+                <TextBlock Classes="sub" Text="{Binding StatusText}" FontSize="{DynamicResource FontSizeSmall}" IsVisible="{Binding HasStatus}" />
+                <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Entries}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:EditHistoryEntry">
+                                <StackPanel Spacing="4" Margin="0,0,0,14">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Header}" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding TimeText}" FontSize="{DynamicResource FontSizeSub}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding MoveText}" FontSize="{DynamicResource FontSizeSub}" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding HasMove}" />
+                                    <Border Padding="10,8" CornerRadius="6" Background="{DynamicResource FillBrush}"
+                                            IsVisible="{Binding HasHtml}">
+                                        <c:MessageContent Html="{Binding Html}" TextElement.FontSize="{DynamicResource FontSizeBody}" />
+                                    </Border>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Panel>
+        </StackPanel>
+    </Border>
+</UserControl>

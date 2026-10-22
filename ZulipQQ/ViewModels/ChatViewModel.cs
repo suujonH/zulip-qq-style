@@ -11,6 +11,7 @@ using ZulipQQ.Controls;
 using ZulipQQ.Core;
 using ZulipQQ.Models;
 using ZulipQQ.Services;
+using ZulipQQ.Zulip;
 
 namespace ZulipQQ.ViewModels;
 
@@ -50,6 +51,13 @@ public partial class ChatViewModel : ViewModelBase
     // 消息至少成功加载过一次；加载失败时什么都没显示，不能标记已读
     private bool _loaded;
     private bool _closed;
+
+    // 正在就地编辑的消息与编辑前的原文
+    private MessageItemViewModel? _editing;
+    private string _editOriginal = "";
+
+    // “从这里标为未读”之后，本次打开期间不再自动标记已读（与网页端一致）
+    private bool _autoReadSuspended;
 
     // 正在输入的用户与其状态的过期时间（UTC）；超过 started_expiry 没有收到新的 start 即视为停止
     private readonly Dictionary<long, DateTime> _typers = [];
@@ -157,6 +165,9 @@ public partial class ChatViewModel : ViewModelBase
     public Window? HostWindow { get; set; }
 
     public event EventHandler<ScrollRequest>? ScrollRequested;
+
+    /// <summary>开始就地编辑一条消息：视图把焦点放到它的输入框。</summary>
+    public event EventHandler<MessageItemViewModel>? EditStarted;
 
     /// <summary>打开完成时的滚动位置；视图在会话打开之后才挂载（或换到另一个窗口）时用它定位。</summary>
     public ScrollRequest? InitialScroll { get; private set; }
@@ -267,6 +278,9 @@ public partial class ChatViewModel : ViewModelBase
         Composer.OnKeyChanged(oldKey);
         _ = ReloadAsync();
     }
+
+    /// <summary>正在查看时自动标记已读；“从这里标为未读”之后为 false。</summary>
+    public bool AutoMarksRead => !_autoReadSuspended;
 
     /// <summary>新消息会出现在列表末尾：消息已加载，且当前窗口包含最新的消息。</summary>
     public bool ShowsLatest => _loaded && !_closed && _session.Messages.TryGet(Key) is { FoundNewest: true };
@@ -593,6 +607,141 @@ public partial class ChatViewModel : ViewModelBase
         }
     }
 
+    // ---- 编辑、编辑历史、已读成员、标为未读、提醒 ----
+
+    /// <summary>可以编辑：自己的消息，组织允许编辑，且在编辑时限内。</summary>
+    public bool CanEdit(MessageItemViewModel item) =>
+        item.Id > 0 && _session.Permissions.CanEditMessage(item.Message.SenderId, item.Message.Timestamp,
+            DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+    /// <summary>就地编辑：取 Markdown 原文后气泡换成输入框。同一时间只编辑一条。</summary>
+    public async Task BeginEditAsync(MessageItemViewModel item)
+    {
+        string raw;
+        try
+        {
+            raw = await _session.Chat.GetRawContentAsync(item.Id);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"获取消息原文失败：{item.Id}", ex);
+            _showToast("获取消息原文失败");
+            return;
+        }
+        if (_closed)
+            return;
+        if (_editing is { } previous)
+            CancelEdit(previous);
+        _editing = item;
+        _editOriginal = raw;
+        item.EditText = raw;
+        item.IsEditing = true;
+        EditStarted?.Invoke(this, item);
+    }
+
+    public void CancelEdit(MessageItemViewModel item)
+    {
+        item.IsEditing = false;
+        if (_editing == item)
+            _editing = null;
+    }
+
+    /// <summary>保存编辑：内容为空或过长时提示；没有修改时直接结束编辑。新内容由 update_message 事件显示。</summary>
+    public async Task SaveEditAsync(MessageItemViewModel item)
+    {
+        if (!item.IsEditing || item.IsSavingEdit)
+            return;
+        var text = item.EditText.TrimEnd();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _showToast("消息内容不能为空");
+            return;
+        }
+        if (_session.Realm.MaxMessageLength > 0 && text.Length > _session.Realm.MaxMessageLength)
+        {
+            _showToast("消息过长");
+            return;
+        }
+        if (text == _editOriginal.TrimEnd())
+        {
+            CancelEdit(item);
+            return;
+        }
+
+        item.IsSavingEdit = true;
+        try
+        {
+            await _session.Chat.EditAsync(item.Id, text);
+            CancelEdit(item);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"编辑消息失败：{item.Id}", ex);
+            _showToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"编辑失败：{api.Message}" : "编辑失败");
+        }
+        finally
+        {
+            item.IsSavingEdit = false;
+        }
+    }
+
+    /// <summary>编辑过的消息，且组织允许查看编辑历史。</summary>
+    public bool CanShowEditHistory(MessageItemViewModel item) =>
+        item.IsEdited && _session.Realm.EditHistoryVisibilityPolicy != "none";
+
+    public void ShowEditHistory(MessageItemViewModel item) => EditHistoryDialogViewModel.Show(_session, Host, item.Id);
+
+    /// <summary>话题和多人私聊，且组织开启了已读回执。</summary>
+    public bool CanShowReadReceipts => _session.Realm.EnableReadReceipts && Key is TopicKey or DmKey { IsGroupDm: true };
+
+    public void ShowReadReceipts(MessageItemViewModel item) =>
+        ReadReceiptsDialogViewModel.Show(_session, Host, item.Id, item.Message.SenderId);
+
+    /// <summary>从这条消息开始（含）全部标为未读；之后本次打开期间不再自动标记已读。</summary>
+    public async Task MarkUnreadFromAsync(MessageItemViewModel item)
+    {
+        _autoReadSuspended = true;
+        try
+        {
+            await _session.Chat.MarkUnreadFromAsync(Key, item.Id);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"标为未读失败：{item.Id}", ex);
+            _showToast("操作失败");
+        }
+    }
+
+    /// <summary>在 <paramref name="at"/>（本地时间）提醒自己这条消息；到时服务器发一条私信给自己。</summary>
+    public async Task RemindAsync(MessageItemViewModel item, DateTime at)
+    {
+        try
+        {
+            await _session.Chat.CreateReminderAsync(item.Id, new DateTimeOffset(at).ToUnixTimeSeconds());
+            _showToast($"将在 {at:yyyy/MM/dd HH:mm} 提醒你");
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"设置提醒失败：{item.Id}", ex);
+            _showToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"设置提醒失败：{api.Message}" : "设置提醒失败");
+        }
+    }
+
+    /// <summary>自定义提醒时间。</summary>
+    public async Task RemindCustomAsync(MessageItemViewModel item)
+    {
+        if (await DateTimeDialogViewModel.ShowAsync(Host, "提醒我", "设置提醒") is { } at && !_closed)
+            await RemindAsync(item, at);
+    }
+
     /// <summary>重发发送失败的消息。</summary>
     internal void Retry(MessageItemViewModel item)
     {
@@ -654,7 +803,7 @@ public partial class ChatViewModel : ViewModelBase
 
     private void MarkReadIfViewing()
     {
-        if (_loaded && _session.Unread.Count(Key) > 0 && _session.Registry.IsActivelyViewing(Key))
+        if (_loaded && !_autoReadSuspended && _session.Unread.Count(Key) > 0 && _session.Registry.IsActivelyViewing(Key))
             _session.Forget(_session.Chat.MarkConversationReadAsync(Key), "标记会话已读");
     }
 

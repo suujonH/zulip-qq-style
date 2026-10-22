@@ -332,7 +332,7 @@ internal static partial class ZulipHtmlRenderer
     private static void BindResource(AvaloniaObject target, AvaloniaProperty property, IResourceHost host, string key) =>
         target.Bind(property, host.GetResourceObservable(key));
 
-    private readonly record struct InlineStyle(bool Bold, bool Italic, bool Strike, bool Code, bool Accent, bool Highlight);
+    private readonly record struct InlineStyle(bool Bold, bool Italic, bool Strike, bool Code, bool Accent, bool Highlight, bool Deleted = false);
 
     /// <summary>把行内节点展开为扁平的 Run 列表，同时记录链接的字符区间。</summary>
     private sealed class InlineBuilder(MessageTextBlock block)
@@ -403,6 +403,15 @@ internal static partial class ZulipHtmlRenderer
                 var tex = e.QuerySelector("annotation[encoding=\"application/x-tex\"]")?.TextContent;
                 AddText(tex ?? e.TextContent, style with { Code = true }, link);
             }
+            // 编辑历史的差异：新增的文字高亮，删除的文字为红色删除线
+            else if (cls.Contains("highlight_text_inserted"))
+            {
+                Children(e, style with { Highlight = true }, link);
+            }
+            else if (cls.Contains("highlight_text_deleted"))
+            {
+                Children(e, style with { Strike = true, Deleted = true }, link);
+            }
             else if (cls.Contains("highlight"))
             {
                 Children(e, style with { Highlight = true }, link);
@@ -441,6 +450,8 @@ internal static partial class ZulipHtmlRenderer
                 BindResource(run, TextElement.BackgroundProperty, block, "SearchHighlightBrush");
             if (style.Accent)
                 BindResource(run, TextElement.ForegroundProperty, block, "BrandBrush");
+            if (style.Deleted)
+                BindResource(run, TextElement.ForegroundProperty, block, "DangerBrush");
 
             block.Inlines!.Add(run);
             if (link is not null)

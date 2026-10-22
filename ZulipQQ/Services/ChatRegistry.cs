@@ -72,7 +72,7 @@ public sealed class ChatRegistry(ZulipSession session)
         var chats = _open.Where(vm => vm.Key.Equals(m.Key)).ToList();
         foreach (var vm in chats)
             vm.OnIncomingMessage(m);
-        if (m.SenderId == session.SelfId || m.IsRead || !chats.Exists(vm => vm.ShowsLatest && IsInActiveWindow(vm)))
+        if (m.SenderId == session.SelfId || m.IsRead || !chats.Exists(vm => vm.ShowsLatest && vm.AutoMarksRead && IsInActiveWindow(vm)))
             return;
         session.Forget(session.Chat.MarkReadAsync([m.Id]), "标记已读");
     }

@@ -53,10 +53,26 @@ public partial class MessageItemViewModel : ViewModelBase
 
     /// <summary>发送者被屏蔽：内容替换为“已屏蔽的消息（点击查看）”，点击后在本次打开期间显示。</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsBare))]
+    [NotifyPropertyChangedFor(nameof(ShowsBare), nameof(ShowsContent))]
     public partial bool IsMutedHidden { get; private set; }
 
-    public bool ShowsBare => IsBare && !IsMutedHidden;
+    public bool ShowsBare => IsBare && !IsMutedHidden && !IsEditing;
+
+    /// <summary>显示消息内容（没有被屏蔽，也不在编辑中）。</summary>
+    public bool ShowsContent => !IsMutedHidden && !IsEditing;
+
+    /// <summary>正在就地编辑：气泡中的内容换成多行输入框。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsBare), nameof(ShowsContent))]
+    public partial bool IsEditing { get; set; }
+
+    /// <summary>编辑中的 Markdown 原文。</summary>
+    [ObservableProperty]
+    public partial string EditText { get; set; } = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveEditCommand))]
+    public partial bool IsSavingEdit { get; set; }
 
     private bool _revealed;
 
@@ -134,6 +150,14 @@ public partial class MessageItemViewModel : ViewModelBase
     }
 
     internal Task ToggleReactionAsync(ReactionViewModel reaction) => _chat.ToggleReactionAsync(this, reaction);
+
+    private bool CanSaveEdit => !IsSavingEdit;
+
+    [RelayCommand(CanExecute = nameof(CanSaveEdit))]
+    private Task SaveEditAsync() => _chat.SaveEditAsync(this);
+
+    [RelayCommand]
+    private void CancelEdit() => _chat.CancelEdit(this);
 
     /// <summary>点击发送失败的红色感叹号：重发。</summary>
     [RelayCommand]
