@@ -45,8 +45,12 @@
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}"
                                                           Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
-                                                <TextBlock Text="{Binding Title}" FontSize="13" MaxWidth="220"
-                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock FontSize="13" MaxWidth="220"
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                    <Run Text="{Binding Title}" />
+                                                    <Run Text="{Binding ChannelText}" FontSize="12"
+                                                         Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                </TextBlock>
                                             </StackPanel>
                                         </CheckBox>
                                     </DataTemplate>
@@ -84,8 +88,12 @@
                                     <Grid Classes="picked" ColumnDefinitions="Auto,*,Auto">
                                         <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}"
                                                   Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
-                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" Margin="8,0"
-                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" FontSize="13" Margin="8,0"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding Title}" />
+                                            <Run Text="{Binding ChannelText}" FontSize="12"
+                                                 Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </TextBlock>
                                         <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="24" Height="24"
                                                 Foreground="{DynamicResource TextSecondaryBrush}"
                                                 Command="{Binding $parent[UserControl].((vm:ForwardDialogViewModel)DataContext).RemoveCommand}"

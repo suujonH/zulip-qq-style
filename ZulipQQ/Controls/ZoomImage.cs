@@ -87,7 +87,8 @@ public class ZoomImage : Control
             return;
         _fit = false;
         var old = _scale;
-        SetScale(Math.Clamp(old * factor, MinScale, MaxScale));
+        // 超大图适应窗口时比例可能已低于 MinScale：下限取两者较小值，缩小不会变成放大
+        SetScale(Math.Clamp(old * factor, Math.Min(MinScale, old), Math.Max(MaxScale, old)));
         var ratio = _scale / old;
         _offset = new Vector(center.X - (center.X - _offset.X) * ratio, center.Y - (center.Y - _offset.Y) * ratio);
         InvalidateVisual();

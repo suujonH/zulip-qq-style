@@ -54,6 +54,7 @@ public partial class HistoryWindow : Window, ISessionWindow
         // 文件卡片从这里取下载状态
         MessageContent.SetFiles(window, main.Session.Files);
         vm.MainWindowRequested += window.OnMainWindowRequested;
+        vm.Rekeyed += window.OnRekeyed;
         Open[key] = window;
         // 不设 Owner：附属窗口总在主窗口之上，"定位到聊天"后会挡住主窗口；改为手动居中于主窗口
         if (owner is not null)
@@ -75,9 +76,19 @@ public partial class HistoryWindow : Window, ISessionWindow
         if (_vm is null)
             return;
         _vm.MainWindowRequested -= OnMainWindowRequested;
+        _vm.Rekeyed -= OnRekeyed;
         _vm.Close();
         if (Open.TryGetValue(_vm.Key, out var w) && w == this)
             Open.Remove(_vm.Key);
+    }
+
+    // 话题被移动或改名：索引换成新键。新键已有窗口时（极少见）保留那一个的索引
+    private void OnRekeyed(object? sender, ConversationKey oldKey)
+    {
+        if (Open.TryGetValue(oldKey, out var w) && w == this)
+            Open.Remove(oldKey);
+        if (_vm is not null)
+            Open.TryAdd(_vm.Key, this);
     }
 
     private void OnMainWindowRequested(object? sender, EventArgs e)

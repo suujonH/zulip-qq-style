@@ -137,13 +137,18 @@ public partial class HistoryViewModel : ViewModelBase
             _searchTimer.Stop();
             Reload();
         };
+        session.Conversations.ConversationRekeyed += OnRekeyed;
     }
 
-    public ConversationKey Key { get; }
+    /// <summary>话题被整体移动或改名时换成新键（参数为旧键），窗口据此更新索引。</summary>
+    public event EventHandler<ConversationKey>? Rekeyed;
+
+    public ConversationKey Key { get; private set; }
 
     public ZulipSession Session => _session;
 
-    public string Title { get; }
+    [ObservableProperty]
+    public partial string Title { get; private set; }
 
     [ObservableProperty]
     public partial string Query { get; set; } = "";
@@ -217,6 +222,17 @@ public partial class HistoryViewModel : ViewModelBase
         _closed = true;
         _searchTimer.Stop();
         _version++;
+        _session.Conversations.ConversationRekeyed -= OnRekeyed;
+    }
+
+    private void OnRekeyed(object? sender, (ConversationKey Old, ConversationKey New) e)
+    {
+        if (_closed || !Key.Equals(e.Old))
+            return;
+        Key = e.New;
+        Title = _session.Conversations.GetTitle(e.New);
+        Rekeyed?.Invoke(this, e.Old);
+        Reload();
     }
 
     /// <summary>从搜索结果再次打开时替换搜索词。</summary>
@@ -279,10 +295,10 @@ public partial class HistoryViewModel : ViewModelBase
         }
     }
 
-    /// <summary>滚动到底部附近时加载更早的消息。</summary>
+    /// <summary>滚动到底部附近时加载更早的消息；上一页失败时再次滚动即重试。</summary>
     public void LoadOlder()
     {
-        if (!_loading && !_foundOldest && _oldestId is not null && !HasError)
+        if (!_loading && !_foundOldest && _oldestId is not null)
             _ = LoadAsync(reset: false);
     }
 
@@ -383,6 +399,9 @@ public partial class HistoryViewModel : ViewModelBase
             _loading = false;
             HasError = true;
             SetLoading(false);
+            // 已有内容时列表中间不显示状态文字，用提示告知；再次滚动到底部即重试
+            if (Groups.Count > 0)
+                ShowToast("加载失败，请稍后再试");
             return;
         }
         if (version != _version || _session.IsDisposed)
@@ -445,12 +464,7 @@ public partial class HistoryViewModel : ViewModelBase
     {
         List<ViewModelBase> entries = Tab switch
         {
-            HistoryTab.Media =>
-            [
-                .. ZulipHtml.ExtractInlineImages(dto.Content).Select(i => new HistoryImageItem(this, dto.Id, i)),
-                .. ZulipHtml.ExtractUploads(dto.Content).Where(u => ZulipHtml.IsVideoPath(u.Path))
-                    .Select(u => new HistoryVideoItem(this, dto.Id, u)),
-            ],
+            HistoryTab.Media => MediaEntries(dto),
             HistoryTab.Files => ZulipHtml.ExtractUploads(dto.Content).Where(u => !u.IsImage && !ZulipHtml.IsVideoPath(u.Path))
                 .Select(u => (ViewModelBase)new HistoryFileItem(this, dto.Id, u)).ToList(),
             _ => [MessageItem(dto)],
@@ -471,6 +485,21 @@ public partial class HistoryViewModel : ViewModelBase
         foreach (var entry in entries)
             group.Entries.Add(entry);
         return true;
+    }
+
+    // 图片/视频页的条目：内联预览图；没有预览的上传图片（例如写在句中的链接）直接用原图；上传的视频
+    private List<ViewModelBase> MediaEntries(MessageDto dto)
+    {
+        var images = ZulipHtml.ExtractInlineImages(dto.Content);
+        var previewed = images.Select(i => i.Original).ToHashSet();
+        var uploads = ZulipHtml.ExtractUploads(dto.Content);
+        return
+        [
+            .. images.Select(i => new HistoryImageItem(this, dto.Id, i)),
+            .. uploads.Where(u => u.IsImage && !previewed.Contains(u.Path))
+                .Select(u => new HistoryImageItem(this, dto.Id, new InlineImage(u.Path, u.Path))),
+            .. uploads.Where(u => ZulipHtml.IsVideoPath(u.Path)).Select(u => new HistoryVideoItem(this, dto.Id, u)),
+        ];
     }
 
     private HistoryMessageItem MessageItem(MessageDto dto, bool isFirst = false)

@@ -12,12 +12,15 @@ using ZulipQQ.Services;
 namespace ZulipQQ.ViewModels;
 
 /// <summary>转发对话框中的一个会话。</summary>
-public partial class ForwardTargetItem(ConversationKey key, string title, string? avatarUrl, string avatarText, IBrush? avatarFill)
-    : ObservableObject
+public partial class ForwardTargetItem(ConversationKey key, string title, string? avatarUrl, string avatarText, IBrush? avatarFill,
+    string? channelName = null) : ObservableObject
 {
     public ConversationKey Key { get; } = key;
 
     public string Title { get; } = title;
+
+    /// <summary>话题所属频道（“#名称”），区分不同频道中的同名话题；私聊为 null。</summary>
+    public string? ChannelText { get; } = channelName is null ? null : "#" + channelName;
 
     public string? AvatarUrl { get; } = avatarUrl;
 
@@ -149,7 +152,7 @@ public partial class ForwardDialogViewModel : ViewModelBase
         item = key switch
         {
             TopicKey t => new ForwardTargetItem(key, title, null, title,
-                ConversationItemViewModel.BrushOf(_session.Channels.Get(t.StreamId)?.Color)),
+                ConversationItemViewModel.BrushOf(_session.Channels.Get(t.StreamId)?.Color), _session.Channels.Get(t.StreamId)?.Name),
             DmKey { IsSelfDm: true } => new ForwardTargetItem(key, title, _session.Users.Get(_session.SelfId)?.AvatarUrl, title, null),
             DmKey { OtherUserIds.Length: 1 } d => new ForwardTargetItem(key, title, _session.Users.Get(d.OtherUserIds[0])?.AvatarUrl, title, null),
             _ => new ForwardTargetItem(key, title, null, "群", ConversationItemViewModel.BrushOf(MessagesPageViewModel.GroupDmAvatarColor)),
