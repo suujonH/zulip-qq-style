@@ -19,6 +19,9 @@ public class RemoteImage : Control
     public static readonly StyledProperty<string?> SourceProperty =
         AvaloniaProperty.Register<RemoteImage, string?>(nameof(Source));
 
+    public static readonly StyledProperty<string?> HrefProperty =
+        AvaloniaProperty.Register<RemoteImage, string?>(nameof(Href));
+
     public static readonly StyledProperty<double> CornerRadiusProperty =
         AvaloniaProperty.Register<RemoteImage, double>(nameof(CornerRadius), 6);
 
@@ -43,20 +46,24 @@ public class RemoteImage : Control
     }
 
     /// <summary>点击时打开的地址（原图或原链接）；为 null 时不可点击。</summary>
-    public string? Href { get; init; }
+    public string? Href
+    {
+        get => GetValue(HrefProperty);
+        set => SetValue(HrefProperty, value);
+    }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == SourceProperty)
             Load();
+        else if (change.Property == HrefProperty)
+            Cursor = Href is null ? null : HandCursor;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (Href is not null)
-            Cursor = HandCursor;
         if (_bitmap is null && !_failed)
             Load();
     }
