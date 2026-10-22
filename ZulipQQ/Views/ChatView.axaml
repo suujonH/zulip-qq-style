@@ -122,6 +122,36 @@
             <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
         </Style>
 
+        <!-- 多选操作栏：圆形图标 + 文字，不可用时变浅 -->
+        <Style Selector="Button.multiAction">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="4" />
+        </Style>
+        <Style Selector="Button.multiAction:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+        <Style Selector="Button.multiAction Border">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="CornerRadius" Value="22" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        </Style>
+        <Style Selector="Button.multiAction:pointerover Border">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Button.multiAction c|TdIcon">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.multiAction TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
         <!-- 更多面板：从右侧滑入 -->
         <Style Selector="v|ChatMorePanelView.slide">
             <Setter Property="Opacity" Value="0" />
@@ -168,7 +198,13 @@
 
         <DataTemplate DataType="vm:MessageItemViewModel">
             <Border Classes="row" Classes.flash="{Binding IsFlashing}">
-                <DockPanel Classes="msg" Classes.own="{Binding IsOwn}">
+                <DockPanel>
+                <!-- 多选模式：左侧复选框只显示状态，点击整行切换；消息内容不响应鼠标 -->
+                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsChecked, Mode=OneWay}" Focusable="False"
+                          IsHitTestVisible="False" VerticalAlignment="Top" Margin="0,4,8,0" MinWidth="0" Padding="0"
+                          IsVisible="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}" />
+                <DockPanel Classes="msg" Classes.own="{Binding IsOwn}"
+                           IsHitTestVisible="{Binding !$parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
                     <c:Avatar Classes="sender" Width="32" Height="32" VerticalAlignment="Top"
                               Source="{Binding AvatarUrl}" Text="{Binding SenderName}" />
                     <StackPanel Classes="body">
@@ -221,6 +257,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
+                </DockPanel>
                 </DockPanel>
             </Border>
         </DataTemplate>
@@ -277,7 +314,40 @@
 
         <!-- 输入区：高度可拖动调整（最小 120，最大为窗口的 60%） -->
         <Border Grid.Row="3" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
-            <ContentControl x:Name="ComposerHost" Content="{Binding Composer}" />
+            <Panel>
+                <ContentControl x:Name="ComposerHost" Content="{Binding Composer}" IsVisible="{Binding !IsMultiSelect}" />
+
+                <!-- 多选模式的操作栏，替代输入区 -->
+                <Grid IsVisible="{Binding IsMultiSelect}">
+                    <TextBlock Classes="sub" Text="{Binding CheckedCount, StringFormat='已选择{0}条消息'}" FontSize="12"
+                               Margin="20,14,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                    <Button Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,8,12,0"
+                            HorizontalAlignment="Right" VerticalAlignment="Top" ToolTip.Tip="退出多选"
+                            Command="{Binding ExitMultiSelectCommand}">
+                        <c:TdIcon Icon="{StaticResource Icon.Close}" Width="16" Height="16" />
+                    </Button>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="36">
+                        <Button Classes="multiAction" Command="{Binding ForwardEachCommand}">
+                            <StackPanel Spacing="6">
+                                <Border><c:TdIcon Icon="{StaticResource Icon.Share}" /></Border>
+                                <TextBlock Text="逐条转发" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="multiAction" Command="{Binding ForwardMergedCommand}">
+                            <StackPanel Spacing="6">
+                                <Border><c:TdIcon Icon="{StaticResource Icon.ChatBubble}" /></Border>
+                                <TextBlock Text="合并转发" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="multiAction" Command="{Binding StarCheckedCommand}">
+                            <StackPanel Spacing="6">
+                                <Border><c:TdIcon Icon="{StaticResource Icon.Star}" /></Border>
+                                <TextBlock Text="收藏" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Panel>
         </Border>
         <GridSplitter Grid.Row="2" Height="4" Margin="0,0,0,-4" Background="Transparent" ResizeDirection="Rows" />
 

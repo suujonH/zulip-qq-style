@@ -19,7 +19,7 @@ namespace ZulipQQ.ViewModels;
 /// </summary>
 public partial class MessagesPageViewModel : ViewModelBase
 {
-    private const string GroupDmAvatarColor = "#0052D9";
+    internal const string GroupDmAvatarColor = "#0052D9";
 
     private readonly ZulipSession _session;
     private readonly Action<ConversationKey> _openChat;

@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.ForwardDialogView"
+             x:DataType="vm:ForwardDialogViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="CheckBox.target">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0,6" />
+            <Setter Property="Padding" Value="8,0,0,0" />
+        </Style>
+        <Style Selector="Grid.picked">
+            <Setter Property="Height" Value="44" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="dialog" Width="640" Height="500">
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" Height="30">
+                <TextBlock Text="转发" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CancelCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <Grid ColumnDefinitions="*,1,*">
+                <!-- 左侧：最近会话 / 搜索结果 -->
+                <DockPanel Margin="16,12,8,12">
+                    <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Classes="input" PlaceholderText="搜索"
+                             Text="{Binding Query}" Margin="0,0,0,8" />
+                    <TextBlock DockPanel.Dock="Top" Classes="sub" Text="最近聊天" FontSize="12" Margin="0,0,0,4"
+                               IsVisible="{Binding ShowsRecent}" />
+                    <Panel>
+                        <TextBlock Classes="sub" Text="未找到相关结果" FontSize="13" HorizontalAlignment="Center"
+                                   Margin="0,40,0,0" IsVisible="{Binding IsEmpty}" />
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding Results}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ForwardTargetItem">
+                                        <CheckBox Classes="target" IsChecked="{Binding IsChecked}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}"
+                                                          Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
+                                                <TextBlock Text="{Binding Title}" FontSize="13" MaxWidth="220"
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </CheckBox>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Panel>
+                </DockPanel>
+
+                <Border Grid.Column="1" Background="{DynamicResource DividerBrush}" />
+
+                <!-- 右侧：已选择、预览、留言 -->
+                <DockPanel Grid.Column="2" Margin="12,12,16,14">
+                    <TextBlock DockPanel.Dock="Top" Classes="sub" Text="{Binding SelectedText}" FontSize="13"
+                               Margin="0,8,0,6" />
+
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"
+                                Margin="0,10,0,0">
+                        <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="发送"
+                                Command="{Binding SendCommand}" />
+                        <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                                Command="{Binding CancelCommand}" />
+                    </StackPanel>
+                    <TextBox DockPanel.Dock="Bottom" Classes="input" PlaceholderText="给朋友留言" Text="{Binding Note}"
+                             MaxLength="{Binding NoteMaxLength}" Margin="0,8,0,0" />
+                    <Border DockPanel.Dock="Bottom" Padding="10,8" CornerRadius="4" Background="{DynamicResource FillBrush}">
+                        <TextBlock Text="{Binding Preview}" FontSize="12" TextWrapping="Wrap" MaxLines="3"
+                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </Border>
+
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,8">
+                        <ItemsControl ItemsSource="{Binding Selected}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ForwardTargetItem">
+                                    <Grid Classes="picked" ColumnDefinitions="Auto,*,Auto">
+                                        <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}"
+                                                  Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" Margin="8,0"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="24" Height="24"
+                                                Foreground="{DynamicResource TextSecondaryBrush}"
+                                                Command="{Binding $parent[UserControl].((vm:ForwardDialogViewModel)DataContext).RemoveCommand}"
+                                                CommandParameter="{Binding}">
+                                            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="12" Height="12" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Grid>
+        </DockPanel>
+    </Border>
+</UserControl>

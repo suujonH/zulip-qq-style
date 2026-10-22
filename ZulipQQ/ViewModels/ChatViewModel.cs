@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -198,6 +197,7 @@ public partial class ChatViewModel : ViewModelBase
             return Task.CompletedTask;
         _closed = true;
         CloseMorePanel();
+        ExitMultiSelect();
         Unsubscribe();
         _session.Registry.Unregister(this);
         return Composer.CloseAsync();
@@ -236,6 +236,7 @@ public partial class ChatViewModel : ViewModelBase
     public void Rekey(ConversationKey newKey)
     {
         var oldKey = Key;
+        ExitMultiSelect();
         Key = newKey;
         RefreshTitle();
         Composer.OnKeyChanged(oldKey);
@@ -340,40 +341,158 @@ public partial class ChatViewModel : ViewModelBase
         _ => null,
     };
 
-    /// <summary>处理消息内容中的点击：链接、文件、图片。提及的用户名片由视图弹出。</summary>
+    /// <summary>处理消息内容中的点击：链接、文件。图片查看器和提及的用户名片由视图打开。</summary>
     public async Task HandleLinkAsync(MessageItemViewModel? item, MessageLinkTarget target, TopLevel? top)
     {
-        var messageId = item?.Id ?? 0;
         switch (target)
         {
             case UrlTarget url:
-                await OpenUrlAsync(url.Href);
+                await MessageLinks.OpenUrlAsync(_session, _openChat, url.Href);
                 break;
-            case FileTarget { Action: FileAction.Open } file:
-                if (!await _session.Files.OpenAsync(file.Link, Key, messageId) && !_session.IsDisposed)
-                    _showToast("文件下载失败");
-                break;
-            case FileTarget { Action: FileAction.SaveAs } file when top is not null:
-                if (!await _session.Files.SaveAsAsync(file.Link, top) && !_session.IsDisposed)
-                    _showToast("文件下载失败");
-                break;
-            case FileTarget { Action: FileAction.RevealInFolder } file:
-                if (_session.Files.LocalPath(file.Link.Path) is { } path)
-                    FileService.RevealInFolder(path);
-                break;
-            case ImageTarget image:
-                // 图片查看器在后续分支实现，目前上传的图片下载后用系统程序打开
-                if (ZulipHtml.NormalizeUploadPath(image.Href) is { } upload)
-                {
-                    if (!await _session.Files.OpenAsync(ZulipHtml.UploadLinkOf(upload, null), Key, messageId) && !_session.IsDisposed)
-                        _showToast("图片下载失败");
-                }
-                else
-                {
-                    await OpenUrlAsync(image.Href);
-                }
+            case FileTarget file:
+                await MessageLinks.HandleFileAsync(_session, file, Key, item?.Id ?? 0, top, _showToast);
                 break;
         }
+    }
+
+    /// <summary>
+    /// 图片查看器的图片列表：当前已加载的消息中的全部图片（按时间先后），以及点击的那张的位置。
+    /// 点击的图片不在消息中（例如群公告里的图片）时只有它一张。
+    /// </summary>
+    public (IReadOnlyList<InlineImage> Images, int Index) CollectImages(ImageTarget clicked)
+    {
+        var images = new List<InlineImage>();
+        foreach (var m in _session.Messages.TryGet(Key)?.Messages ?? [])
+        {
+            if (!m.IsHiddenByPlugin && m.Id > 0 && !(m.SenderId != _session.SelfId && _session.Users.IsMuted(m.SenderId)))
+                images.AddRange(ZulipHtml.ExtractInlineImages(m.ContentHtml));
+        }
+        var index = images.FindIndex(i => i.Src == clicked.Src && i.Href == clicked.Href);
+        return index >= 0 ? (images, index) : ([new InlineImage(clicked.Src, clicked.Href)], 0);
+    }
+
+    /// <summary>消息链接（复制链接用）。</summary>
+    public string MessageLink(long messageId)
+    {
+        var channel = Key is TopicKey t ? _session.Channels.Get(t.StreamId)?.Name ?? "" : "";
+        var topic = Key is TopicKey tk ? _session.Conversations.GetTopicName(tk) : "";
+        return ZulipLinks.MessageLink(_session.Client.RealmUrl, Key, _session.SelfId, messageId, channel, topic);
+    }
+
+    // ---- 多选 ----
+
+    private readonly HashSet<long> _checked = [];
+
+    /// <summary>多选模式：消息左侧显示复选框，点击消息切换勾选，输入区换成操作栏。</summary>
+    [ObservableProperty]
+    public partial bool IsMultiSelect { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChecked))]
+    [NotifyCanExecuteChangedFor(nameof(ForwardEachCommand), nameof(ForwardMergedCommand), nameof(StarCheckedCommand))]
+    public partial int CheckedCount { get; private set; }
+
+    public bool HasChecked => CheckedCount > 0;
+
+    /// <summary>进入多选模式，并勾选右键的那条消息。</summary>
+    public void BeginMultiSelect(MessageItemViewModel first)
+    {
+        IsMultiSelect = true;
+        CloseMorePanel();
+        if (first.Id > 0 && _checked.Add(first.Id))
+            first.IsChecked = true;
+        CheckedCount = _checked.Count;
+    }
+
+    [RelayCommand]
+    public void ExitMultiSelect()
+    {
+        foreach (var id in _checked)
+        {
+            if (_vms.TryGetValue(id, out var vm))
+                vm.IsChecked = false;
+        }
+        _checked.Clear();
+        CheckedCount = 0;
+        IsMultiSelect = false;
+    }
+
+    /// <summary>多选模式下点击消息：切换勾选（发送中的本地回显不能勾选）。</summary>
+    public void ToggleChecked(MessageItemViewModel item)
+    {
+        if (!IsMultiSelect || item.Id <= 0)
+            return;
+        if (!_checked.Remove(item.Id))
+            _checked.Add(item.Id);
+        item.IsChecked = _checked.Contains(item.Id);
+        CheckedCount = _checked.Count;
+    }
+
+    /// <summary>转发一条消息（右键菜单）。</summary>
+    public void Forward(MessageItemViewModel item) => ShowForward([item.Message], merge: false);
+
+    [RelayCommand(CanExecute = nameof(HasChecked))]
+    private void ForwardEach() => ForwardChecked(merge: false);
+
+    [RelayCommand(CanExecute = nameof(HasChecked))]
+    private void ForwardMerged() => ForwardChecked(merge: true);
+
+    /// <summary>收藏勾选的消息，然后退出多选。</summary>
+    [RelayCommand(CanExecute = nameof(HasChecked))]
+    private async Task StarCheckedAsync()
+    {
+        var ids = CheckedMessages().Select(m => m.Id).ToList();
+        ExitMultiSelect();
+        try
+        {
+            await _session.Chat.SetStarredAsync(ids, true);
+            _showToast("已收藏");
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn("收藏失败", ex);
+            _showToast("收藏失败");
+        }
+    }
+
+    private void ForwardChecked(bool merge)
+    {
+        var messages = CheckedMessages();
+        ExitMultiSelect();
+        if (messages.Count > 0)
+            ShowForward(messages, merge);
+    }
+
+    // 勾选的消息按 id 升序（即发送顺序）；已不在时间线中的（被删除、移走）跳过
+    private List<ChatMessage> CheckedMessages() =>
+        (_session.Messages.TryGet(Key)?.Messages ?? []).Where(m => _checked.Contains(m.Id)).OrderBy(m => m.Id).ToList();
+
+    private void ShowForward(IReadOnlyList<ChatMessage> messages, bool merge)
+    {
+        var session = _session;
+        var names = messages.Select(m => session.Users.Get(m.SenderId) is null ? m.SenderName : session.Contacts.DisplayName(m.SenderId)).ToList();
+        string preview;
+        if (merge)
+            preview = $"[聊天记录] 共{messages.Count}条";
+        else if (messages.Count == 1)
+            preview = $"{names[0]}：{ZulipHtml.ToPreview(messages[0].ContentHtml)}";
+        else
+            preview = $"[逐条转发] 共{messages.Count}条消息";
+
+        async Task<IReadOnlyList<string>> BuildAsync()
+        {
+            var raws = new List<string>();
+            foreach (var m in messages)
+                raws.Add(await session.Chat.GetRawContentAsync(m.Id));
+            if (!merge)
+                return raws;
+            var forwarded = messages.Select((m, i) => new ForwardedMessage(names[i], TimeText.FromUnix(m.Timestamp), raws[i])).ToList();
+            return ForwardFormatter.Merge(forwarded, session.Realm.MaxMessageLength);
+        }
+
+        ForwardDialogViewModel.Show(Main, preview, BuildAsync);
     }
 
     internal Task ToggleReactionAsync(MessageItemViewModel item, ReactionViewModel reaction) =>
@@ -469,37 +588,6 @@ public partial class ChatViewModel : ViewModelBase
             _session.Forget(_session.Chat.MarkConversationReadAsync(Key), "标记会话已读");
     }
 
-    private async Task OpenUrlAsync(string href)
-    {
-        var realm = _session.Client.RealmUrl;
-        if (ZulipLinks.TryParse(href, realm, out var link))
-        {
-            ConversationKey? key = link switch
-            {
-                { StreamId: { } streamId, Topic: { } topic } => new TopicKey(streamId, topic),
-                { DmUserIds: { } ids } => DmKey.Create(ids, _session.SelfId),
-                _ => null,
-            };
-            if (key is not null)
-            {
-                await _openChat(key, link.NearMessageId);
-                return;
-            }
-        }
-
-        // 只用浏览器打开网页和邮件链接；相对链接以组织地址为基准
-        if (!Uri.TryCreate(realm, href, out var uri) || uri.Scheme is not ("http" or "https" or "mailto"))
-            return;
-        try
-        {
-            Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            Log.Warn($"打开链接失败：{uri}", ex);
-        }
-    }
-
     private void LoadOlder()
     {
         _loadingOlder = true;
@@ -576,6 +664,7 @@ public partial class ChatViewModel : ViewModelBase
             if (!_vms.TryGetValue(m.Id, out var vm) || vm.Message != m)
                 vm = new MessageItemViewModel(this, _session, m);
             vm.IsTimeShown = m.Id == _timeShownMessageId;
+            vm.IsChecked = _checked.Contains(m.Id);
             vms[m.Id] = vm;
             desired.Add(vm);
             previous = m;
