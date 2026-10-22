@@ -315,7 +315,7 @@ public sealed class ZulipSession : IAsyncDisposable
         {
             var key = DmKey.Create(pm.UserIds, SelfId);
             if (!covered.Contains(key))
-                Conversations.BootstrapKnown(key, pm.MaxMessageId, "");
+                Conversations.BootstrapKnown(key, pm.MaxMessageId, "", isExactMax: true);
         }
         foreach (var key in Unread.Keys.Where(k => !covered.Contains(k)).ToList())
             Conversations.BootstrapKnown(key, Unread.MaxId(key), key is TopicKey t ? t.Topic : "");

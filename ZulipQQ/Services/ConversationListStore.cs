@@ -108,8 +108,9 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
 
     /// <summary>
     /// 只知道最大消息 id 的会话（最近私聊、未读摘要）：比已保存的预览新时加入列表，并排队补取预览。
+    /// <paramref name="isExactMax"/> 表示 maxId 是会话真实的最新消息 id（而不是最大的未读 id）。
     /// </summary>
-    public void BootstrapKnown(ConversationKey key, long maxId, string title)
+    public void BootstrapKnown(ConversationKey key, long maxId, string title, bool isExactMax = false)
     {
         if (!_entries.TryGetValue(key, out var e))
         {
@@ -125,6 +126,11 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
                 e.InList = true;
                 repo.Upsert(e.ToRow());
             }
+            QueueBackfill(key);
+        }
+        else if (isExactMax && maxId < e.LastMessageId)
+        {
+            // 服务器报告的真实最大 id 变小：离线期间最后一条消息被删除，只重新补取预览，不算新动态
             QueueBackfill(key);
         }
         ListChanged?.Invoke(this, EventArgs.Empty);
@@ -198,13 +204,14 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
     }
 
     /// <summary>编辑了某会话的最后一条消息：更新预览。</summary>
-    public void OnEdited(ChatMessage m)
+    public void OnEdited(long messageId, string renderedHtml)
     {
-        if (!_entries.TryGetValue(m.Key, out var e) || e.LastMessageId != m.Id)
+        // 按消息 id 查找：预览可能来自补取，被编辑的消息不一定在消息缓存中
+        if (_entries.Values.FirstOrDefault(x => x.LastMessageId == messageId) is not { } e)
             return;
-        e.LastPreview = ZulipHtml.ToPreview(m.ContentHtml);
-        repo.ReplacePreview(m.Key, e.LastMessageId, e.LastMessageTime, e.LastSenderId, e.LastPreview);
-        EntryChanged?.Invoke(this, m.Key);
+        e.LastPreview = ZulipHtml.ToPreview(renderedHtml);
+        repo.ReplacePreview(e.Key, e.LastMessageId, e.LastMessageTime, e.LastSenderId, e.LastPreview);
+        EntryChanged?.Invoke(this, e.Key);
     }
 
     /// <summary>

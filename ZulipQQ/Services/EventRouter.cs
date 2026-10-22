@@ -122,8 +122,7 @@ public static class EventRouter
             if (ev.TryGetProperty("flags", out var flags) && flags.ValueKind == JsonValueKind.Array)
                 s.Unread.OnEdited(id.GetInt64(), [.. flags.EnumerateArray().Select(f => f.GetString() ?? "")],
                     rendered.GetString() ?? "");
-            if (s.Messages.Get(id.GetInt64()) is { } edited)
-                s.Conversations.OnEdited(edited);
+            s.Conversations.OnEdited(id.GetInt64(), rendered.GetString() ?? "");
         }
     }
 

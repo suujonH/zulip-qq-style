@@ -28,6 +28,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
     private readonly Dictionary<ConversationKey, List<DraftEntry>> _server = [];
     private readonly Dictionary<ConversationKey, string> _local = [];
     private readonly Dictionary<ConversationKey, SemaphoreSlim> _locks = [];
+    private readonly SemaphoreSlim _modeGate = new(1, 1);
 
     /// <summary>当前是否使用服务器草稿（Zulip 的 enable_drafts_synchronization）。</summary>
     public bool UseServer { get; private set; }
@@ -41,17 +42,17 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
         UseServer = reg.UserSettings.EnableDraftsSynchronization;
         if (UseServer)
             LoadServer(reg.Drafts);
-        else
-            foreach (var (key, content) in localRepo.LoadAll())
-                _local[key] = content;
+        // 服务器模式下本地表中只剩开启同步时上传失败的草稿，仍然可读
+        foreach (var (key, content) in localRepo.LoadAll())
+            _local[key] = content;
     }
 
     /// <summary>会话的草稿；没有时为 null。</summary>
     public string? Get(ConversationKey key)
     {
-        if (!UseServer)
-            return _local.GetValueOrDefault(key);
-        return _server.TryGetValue(key, out var list) && list.Count > 0 ? list.MaxBy(d => d.Timestamp)!.Content : null;
+        if (UseServer && _server.TryGetValue(key, out var list) && list.Count > 0)
+            return list.MaxBy(d => d.Timestamp)!.Content;
+        return _local.GetValueOrDefault(key);
     }
 
     /// <summary>保存草稿；去掉首尾空白后为空等同于删除。网络失败只记日志，内存中保留新值。</summary>
@@ -101,6 +102,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
                 list.RemoveAll(d => d != latest && d.Id == id);
                 latest.Id = id;
             }
+            RemoveLocalLeftover(key);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !session.IsDisposed)
         {
@@ -131,8 +133,12 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
                 return;
             }
 
+            RemoveLocalLeftover(key);
             if (!_server.Remove(key, out var list))
+            {
+                DraftChanged?.Invoke(this, key);
                 return;
+            }
             DraftChanged?.Invoke(this, key);
             foreach (var d in list.Where(d => d.Id > 0))
                 await session.Client.DeleteDraftAsync(d.Id, session.Token);
@@ -175,7 +181,21 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
     /// </summary>
     public async Task OnSyncSettingChangedAsync(bool enabled)
     {
-        if (enabled == UseServer)
+        // 串行执行：开启过程中又被关闭时，关闭在开启完成后再执行，不会被开启的结果覆盖
+        await _modeGate.WaitAsync();
+        try
+        {
+            await ApplySyncSettingAsync(enabled);
+        }
+        finally
+        {
+            _modeGate.Release();
+        }
+    }
+
+    private async Task ApplySyncSettingAsync(bool enabled)
+    {
+        if (enabled == UseServer || session.IsDisposed)
             return;
 
         HashSet<ConversationKey> affected = [.. _server.Keys, .. _local.Keys];
@@ -227,6 +247,13 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
 
         foreach (var key in affected)
             DraftChanged?.Invoke(this, key);
+    }
+
+    // 服务器模式下保存或删除成功后，清掉开启同步时上传失败、留在本地的草稿
+    private void RemoveLocalLeftover(ConversationKey key)
+    {
+        if (UseServer && _local.Remove(key))
+            localRepo.Delete(key);
     }
 
     private void LoadServer(IEnumerable<DraftDto> drafts)

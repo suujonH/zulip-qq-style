@@ -9,12 +9,25 @@ using ZulipQQ.Services;
 
 namespace ZulipQQ.ViewModels;
 
-/// <summary>下拉框中的一项；<see cref="Group"/> 为 null 表示末尾的“创建新的分组”。</summary>
-public sealed record GroupChoice(FriendGroup? Group)
+public enum GroupChoiceKind
 {
-    public bool IsCreateNew => Group is null;
+    /// <summary>“我的好友”：不属于任何自定义分组。</summary>
+    Default,
+    Group,
+    CreateNew,
+}
 
-    public string Name => Group?.Name ?? "创建新的分组";
+/// <summary>下拉框中的一项：“我的好友”、自定义分组，或末尾的“创建新的分组”。</summary>
+public sealed record GroupChoice(GroupChoiceKind Kind, FriendGroup? Group = null)
+{
+    public bool IsCreateNew => Kind == GroupChoiceKind.CreateNew;
+
+    public string Name => Kind switch
+    {
+        GroupChoiceKind.Default => "我的好友",
+        GroupChoiceKind.Group => Group!.Name,
+        _ => "创建新的分组",
+    };
 }
 
 /// <summary>
@@ -60,12 +73,12 @@ public partial class SetGroupDialogViewModel : ViewModelBase
         });
     }
 
-    private bool CanConfirm => SelectedChoice?.Group is not null;
+    private bool CanConfirm => SelectedChoice is { Kind: not GroupChoiceKind.CreateNew };
 
     [RelayCommand(CanExecute = nameof(CanConfirm))]
     private void Confirm()
     {
-        _store.MoveUsers(_userIds, SelectedChoice!.Group!.Id);
+        _store.MoveUsers(_userIds, SelectedChoice!.Group?.Id);
         _onClosed(true);
     }
 
@@ -73,5 +86,6 @@ public partial class SetGroupDialogViewModel : ViewModelBase
     private void Cancel() => _onClosed(false);
 
     private List<GroupChoice> BuildChoices() =>
-        [.. _store.Groups.Select(g => new GroupChoice(g)), new GroupChoice(null)];
+        [new GroupChoice(GroupChoiceKind.Default), .. _store.Groups.Select(g => new GroupChoice(GroupChoiceKind.Group, g)),
+            new GroupChoice(GroupChoiceKind.CreateNew)];
 }

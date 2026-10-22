@@ -23,6 +23,8 @@ public sealed class UnreadStore(ZulipSession session)
     private readonly Dictionary<long, ConversationKey> _keyOf = [];
     private readonly Dictionary<long, MentionKind> _mention = [];
     private readonly HashSet<long> _hasFile = [];
+    // 正在向服务器查询详情的“标为未读”消息；查询期间又被标为已读时从这里移除，查询结果随之作废
+    private readonly HashSet<long> _pendingUnread = [];
 
     public event EventHandler<ConversationKey>? ConversationChanged;
 
@@ -34,6 +36,7 @@ public sealed class UnreadStore(ZulipSession session)
         _keyOf.Clear();
         _mention.Clear();
         _hasFile.Clear();
+        _pendingUnread.Clear();
 
         var self = session.SelfId;
         foreach (var s in u.Streams)
@@ -92,6 +95,7 @@ public sealed class UnreadStore(ZulipSession session)
                 _keyOf.Clear();
                 _mention.Clear();
                 _hasFile.Clear();
+                _pendingUnread.Clear();
                 foreach (var key in keys)
                     ConversationChanged?.Invoke(this, key);
                 return;
@@ -139,7 +143,10 @@ public sealed class UnreadStore(ZulipSession session)
         foreach (var key in changed)
             ConversationChanged?.Invoke(this, key);
         if (missing.Count > 0)
+        {
+            _pendingUnread.UnionWith(missing);
             _ = FetchMissingAsync(missing);
+        }
     }
 
     /// <summary>消息被编辑：未读消息按新的 flags 与内容重新计算提及和文件。</summary>
@@ -231,6 +238,7 @@ public sealed class UnreadStore(ZulipSession session)
         HashSet<ConversationKey> changed = [];
         foreach (var id in ids)
         {
+            _pendingUnread.Remove(id);
             if (!_keyOf.TryGetValue(id, out var key))
                 continue;
             Forget(id);
@@ -260,7 +268,7 @@ public sealed class UnreadStore(ZulipSession session)
                 if (session.IsDisposed)
                     return;
                 // 查询期间可能又被标为已读，此时消息的 flags 中含 read
-                if (_keyOf.ContainsKey(id) || m.Flags.Contains("read"))
+                if (!_pendingUnread.Remove(id) || _keyOf.ContainsKey(id) || m.Flags.Contains("read"))
                     continue;
                 var key = ConversationKey.FromMessage(m, session.SelfId);
                 Add(key, id);

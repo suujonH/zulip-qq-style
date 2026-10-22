@@ -35,7 +35,8 @@ public partial class FriendRowViewModel : ViewModelBase
 
     /// <summary>分组下拉框与右键“移动联系人至”共用的选项，当前所在分组带勾。</summary>
     public IReadOnlyList<GroupOptionViewModel> GroupOptions =>
-        _store.Groups.Select(g => new GroupOptionViewModel(g, g.Id == Friend.GroupId, this)).ToList();
+        [new GroupOptionViewModel(null, Friend.GroupId is null, this),
+            .. _store.Groups.Select(g => new GroupOptionViewModel(g, g.Id == Friend.GroupId, this))];
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
@@ -56,7 +57,7 @@ public partial class FriendRowViewModel : ViewModelBase
         OnPropertyChanged(nameof(GroupOptions));
     }
 
-    internal void MoveTo(long groupId) => _store.MoveUsers([UserId], groupId);
+    internal void MoveTo(long? groupId) => _store.MoveUsers([UserId], groupId);
 
     partial void OnIsSelectedChanged(bool value) => _owner.OnRowSelectionChanged();
 
