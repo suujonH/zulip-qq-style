@@ -1,21 +1,62 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using ZulipQQ.Data;
 using ZulipQQ.Zulip;
 using ZulipQQ.Zulip.Dtos;
 
 namespace ZulipQQ.Services;
 
-/// <summary>Zulip 用户设置。修改时先乐观更新本地值，再提交服务器；收到 user_settings 事件时同步。</summary>
-public sealed class SettingsStore(ZulipSession session)
+/// <summary>
+/// 用户设置：Zulip 用户设置（修改时先乐观更新本地值，再提交服务器；收到 user_settings 事件时同步）、
+/// 提醒词，以及只保存在本机的 <see cref="Local"/>。
+/// </summary>
+public sealed class SettingsStore(ZulipSession session, SettingRepository localRepository)
 {
     public UserSettingsDto Zulip { get; private set; } = new();
+
+    public LocalSettings Local { get; } = new(localRepository);
+
+    /// <summary>提醒词（服务器保存，按添加顺序）。</summary>
+    public IReadOnlyList<string> AlertWords { get; private set; } = [];
 
     /// <summary>某个设置变化，参数为 Zulip 的设置名（如 <c>enter_sends</c>）。</summary>
     public event EventHandler<string>? Changed;
 
-    public void Load(RegisterResult reg) => Zulip = reg.UserSettings;
+    /// <summary>提醒词列表变化。</summary>
+    public event EventHandler? AlertWordsChanged;
+
+    public void Load(RegisterResult reg)
+    {
+        Zulip = reg.UserSettings;
+        AlertWords = reg.AlertWords;
+        AlertWordsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>alert_words 事件：服务器返回完整列表。</summary>
+    public void OnAlertWords(List<string> words)
+    {
+        AlertWords = words;
+        AlertWordsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>添加提醒词；结果以服务器返回的列表为准。</summary>
+    public async Task AddAlertWordAsync(string word)
+    {
+        var words = await session.Client.AddAlertWordsAsync([word], session.Token);
+        if (!session.IsDisposed)
+            OnAlertWords(words);
+    }
+
+    /// <summary>删除提醒词。</summary>
+    public async Task RemoveAlertWordAsync(string word)
+    {
+        var words = await session.Client.RemoveAlertWordsAsync([word], session.Token);
+        if (!session.IsDisposed)
+            OnAlertWords(words);
+    }
 
     /// <summary>修改 Zulip 设置。<paramref name="value"/> 为 bool、int、long 或 string。失败时恢复原值并抛出异常。</summary>
     public async Task SetZulipAsync(string name, object value)

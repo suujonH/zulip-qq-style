@@ -48,6 +48,8 @@ public sealed class NotificationService(ZulipSession session)
         // 提示音选择“无”时不播放任何提示音（与 Zulip 一致）
         if (sound && session.Settings.Zulip.NotificationSound != "none")
             PlaySound("Notification.IM", IntPtr.Zero, SndAlias | SndAsync | SndNoDefault);
+        // 通知类型为“仅闪烁”时不弹窗
+        popup &= session.Settings.Local.NotificationStyle == NotificationStyle.Banner;
         Requested?.Invoke(this, Build(m, popup));
     }
 

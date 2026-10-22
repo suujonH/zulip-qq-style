@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.GroupMessagesPageView"
+             x:DataType="vm:GroupMessagesPageViewModel">
+    <UserControl.Styles>
+        <Style Selector="ToggleButton.expander">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="ToggleButton.expander c|TdIcon.arrow">
+            <Setter Property="RenderTransform" Value="none" />
+        </Style>
+        <Style Selector="ToggleButton.expander:checked c|TdIcon.arrow">
+            <Setter Property="RenderTransform" Value="rotate(90deg)" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:LevelRowViewModel">
+            <Grid Classes="item" ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+                <ComboBox Grid.Column="1" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="群消息设置" />
+        <TextBlock Classes="hint" Text="设置话题（群）与多人私聊的消息提醒方式。“接收消息但不提醒”及以下的级别会同步为 Zulip 的话题静音。" />
+
+        <TextBlock Classes="section" Text="频道" />
+        <ItemsControl ItemsSource="{Binding Channels}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="8" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ChannelLevelGroupViewModel">
+                    <Border Classes="card">
+                        <StackPanel>
+                            <Grid Classes="item" ColumnDefinitions="*,Auto,Auto">
+                                <ToggleButton Classes="expander" IsChecked="{Binding IsExpanded}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <c:TdIcon Classes="arrow" Icon="{StaticResource Icon.ChevronRight}" Width="14" Height="14"
+                                                  Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                                        <c:Avatar Width="24" Height="24" Text="{Binding Name}" Fill="{Binding Fill}" />
+                                        <TextBlock Text="{Binding Name}" FontSize="{DynamicResource FontSizeBody}"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </ToggleButton>
+                                <TextBlock Grid.Column="1" Classes="hint" Text="频道静音" Margin="12,0,8,0" />
+                                <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsMuted}" />
+                            </Grid>
+                            <StackPanel IsVisible="{Binding IsExpanded}" Margin="22,0,0,4">
+                                <TextBlock Classes="hint" Text="正在加载…" Margin="0,4" IsVisible="{Binding IsLoading}" />
+                                <ItemsControl ItemsSource="{Binding Topics}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="section" Text="多人私聊" IsVisible="{Binding HasGroupDms}" />
+        <Border Classes="card" IsVisible="{Binding HasGroupDms}">
+            <ItemsControl ItemsSource="{Binding GroupDms}" />
+        </Border>
+    </StackPanel>
+</UserControl>

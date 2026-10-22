@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="ZulipQQ.App"
              xmlns:local="using:ZulipQQ"
-             RequestedThemeVariant="Light">
-             <!-- 配色按 QQ 浅色界面调校，暂固定为 Light -->
+             RequestedThemeVariant="Default">
+             <!-- 登录前跟随系统；登录后按 Zulip 的外观设置（ThemeService） -->
 
     <Application.DataTemplates>
         <local:ViewLocator />
@@ -20,6 +20,7 @@
 
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
         <StyleInclude Source="avares://ZulipQQ/Styles/AppStyles.axaml" />
     </Application.Styles>
 </Application>

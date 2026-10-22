@@ -49,7 +49,7 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
         {
             var realm = session.Client.RealmUrl;
             var host = realm.IsDefaultPort ? realm.Host : $"{realm.Host}_{realm.Port}";
-            return Path.Combine(AppPaths.DefaultDownloadRoot,
+            return Path.Combine(session.Settings.Local.DownloadRoot,
                 FileNameDeduper.SanitizeDirectoryName(host),
                 FileNameDeduper.SanitizeDirectoryName(session.Account.Email));
         }
@@ -125,11 +125,18 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
     }
 
     /// <summary>
-    /// 打开文件：未下载时先下载。可执行文件不直接运行，只在资源管理器中定位。返回是否成功。
+    /// 打开文件：未下载时先下载（设置为仅下载时只下载不打开）。可执行文件不直接运行，只在资源管理器中定位。返回是否成功。
     /// </summary>
     public async Task<bool> OpenAsync(UploadLink link, ConversationKey key, long messageId)
     {
-        var path = LocalPath(link.Path) ?? await DownloadAsync(link, key, messageId);
+        var path = LocalPath(link.Path);
+        if (path is null)
+        {
+            path = await DownloadAsync(link, key, messageId);
+            // 设置为“仅下载”时，未下载的文件只下载不打开
+            if (path is not null && session.Settings.Local.FileClickAction == FileClickAction.DownloadOnly)
+                return true;
+        }
         if (path is null || session.IsDisposed)
             return false;
         if (ExecutableExtensions.Contains(Path.GetExtension(path)))

@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.AboutPageView"
+             x:DataType="vm:AboutPageViewModel">
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="关于" />
+
+        <Border Classes="card" Padding="16,20">
+            <StackPanel Spacing="6" HorizontalAlignment="Center">
+                <c:TdIcon Icon="{StaticResource Icon.QqFilled}" Width="48" Height="48" HorizontalAlignment="Center"
+                          Foreground="{DynamicResource BrandBrush}" />
+                <TextBlock Text="ZulipQQ" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" />
+                <TextBlock Classes="hint" HorizontalAlignment="Center" Text="{Binding Version, StringFormat='版本 {0}'}" />
+                <TextBlock Classes="hint" HorizontalAlignment="Center" IsVisible="{Binding HasBuild}"
+                           Text="{Binding Build, StringFormat='构建 {0}'}" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="组织" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="组织名称" />
+                    <SelectableTextBlock Grid.Column="1" Classes="hint" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                         Text="{Binding RealmName}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="组织地址" />
+                    <SelectableTextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                         FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource TextSecondaryBrush}"
+                                         Text="{Binding RealmUrl}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="服务器版本" />
+                    <SelectableTextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                         FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource TextSecondaryBrush}"
+                                         Text="{Binding ServerVersion}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="Feature level" />
+                    <TextBlock Grid.Column="1" Classes="hint" HorizontalAlignment="Right" Text="{Binding FeatureLevel}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

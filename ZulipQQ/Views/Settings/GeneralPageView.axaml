@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             x:Class="ZulipQQ.Views.Settings.GeneralPageView"
+             x:DataType="vm:GeneralPageViewModel">
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="通用" />
+
+        <TextBlock Classes="section" Text="外观" />
+        <Border Classes="card">
+            <StackPanel Orientation="Horizontal" MinHeight="44">
+                <RadioButton GroupName="scheme" Content="跟随系统" IsChecked="{Binding IsSchemeAuto}" />
+                <RadioButton GroupName="scheme" Content="白天" IsChecked="{Binding IsSchemeLight}" />
+                <RadioButton GroupName="scheme" Content="夜间" IsChecked="{Binding IsSchemeDark}" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="聊天" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="发送消息" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <RadioButton GroupName="send" Content="Enter" IsChecked="{Binding IsEnterSends}" />
+                        <RadioButton GroupName="send" Content="Ctrl+Enter" IsChecked="{Binding IsCtrlEnterSends}" Margin="0" />
+                    </StackPanel>
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="24 小时制显示时间" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding TwentyFourHourTime}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="字体大小" />
+        <Border Classes="card">
+            <Grid Classes="item" ColumnDefinitions="Auto,*,Auto,40">
+                <TextBlock Text="A" FontSize="12" />
+                <Slider Grid.Column="1" Margin="12,0" VerticalAlignment="Center"
+                        Minimum="{Binding MinFontSize}" Maximum="{Binding MaxFontSize}"
+                        TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding FontSize}" />
+                <TextBlock Grid.Column="2" Text="A" FontSize="18" />
+                <TextBlock Grid.Column="3" Classes="hint" HorizontalAlignment="Right" Text="{Binding FontSize}" />
+            </Grid>
+        </Border>
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.PrivacyPageView"
+             x:DataType="vm:PrivacyPageViewModel">
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="隐私" />
+
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="发送已读回执" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding SendReadReceipts}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="发送“正在输入”状态" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding SendTyping}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="谁可以看到我的邮箱" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding EmailVisibilityOptions}"
+                              SelectedItem="{Binding EmailVisibility}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="已屏蔽的用户" />
+        <Border Classes="card">
+            <Panel>
+                <TextBlock Classes="hint" Text="没有屏蔽任何人" Margin="0,12" IsVisible="{Binding !HasMutedUsers}" />
+                <ItemsControl ItemsSource="{Binding MutedUsers}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MutedUserItem">
+                            <Grid Classes="item" ColumnDefinitions="Auto,*,Auto">
+                                <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}" Text="{Binding Name}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="10,0" TextTrimming="CharacterEllipsis" />
+                                <Button Grid.Column="2" Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消屏蔽"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding $parent[UserControl].((vm:PrivacyPageViewModel)DataContext).UnmuteCommand}"
+                                        CommandParameter="{Binding}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Panel>
+        </Border>
+    </StackPanel>
+</UserControl>
