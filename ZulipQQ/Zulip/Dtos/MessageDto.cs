@@ -35,7 +35,7 @@ public sealed record MessageDto
     public List<ReactionDto> Reactions { get; init; } = [];
     public long? LastEditTimestamp { get; init; }
     public bool IsMeMessage { get; init; }
-    public JsonElement Submessages { get; init; }
+    public List<SubmessageDto> Submessages { get; init; } = [];
 
     /// <summary>搜索时服务器返回的带高亮的内容。</summary>
     public string? MatchContent { get; init; }

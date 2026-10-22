@@ -11,7 +11,7 @@ using ZulipQQ.Zulip.Dtos;
 
 namespace ZulipQQ.Services;
 
-/// <summary>聊天相关的服务器操作：已读、发送、上传、表情回应、星标。</summary>
+/// <summary>聊天相关的服务器操作：已读、发送、上传、表情回应、星标、编辑、提醒。</summary>
 public sealed class ChatService(ZulipSession session)
 {
     private const int FlagBatchSize = 1000;
@@ -61,6 +61,34 @@ public sealed class ChatService(ZulipSession session)
             includeAnchor = false;
         }
     }
+
+    /// <summary>
+    /// 从这条消息开始（含）到会话最新的消息全部标为未读：按 narrow 分批提交，直到服务器处理到最新的消息。
+    /// 本地未读由随后的 update_message_flags 事件恢复。
+    /// </summary>
+    public async Task MarkUnreadFromAsync(ConversationKey key, long messageId)
+    {
+        var narrow = Narrow.For(key, session.SelfId, key is TopicKey t ? session.Conversations.GetTopicName(t) : null);
+        var anchor = messageId.ToString(CultureInfo.InvariantCulture);
+        var includeAnchor = true;
+        while (true)
+        {
+            var result = await session.Client.UpdateFlagsForNarrowAsync(
+                narrow, anchor, includeAnchor, 0, NarrowBatchSize, "remove", "read", session.Token);
+            if (session.IsDisposed || result.FoundNewest || result.LastProcessedId is not { } last)
+                return;
+            anchor = last.ToString(CultureInfo.InvariantCulture);
+            includeAnchor = false;
+        }
+    }
+
+    /// <summary>编辑消息内容。界面等待 update_message 事件更新。</summary>
+    public Task EditAsync(long messageId, string content) =>
+        session.Client.UpdateMessageAsync(messageId, content: content, ct: session.Token);
+
+    /// <summary>在 <paramref name="deliverAt"/>（Unix 秒）提醒自己这条消息。</summary>
+    public Task CreateReminderAsync(long messageId, long deliverAt) =>
+        session.Client.CreateReminderAsync(messageId, deliverAt, session.Token);
 
     /// <summary>
     /// 切换表情回应：自己已回应过同一个表情时撤销，否则添加。不做乐观更新，界面等待 reaction 事件。
@@ -158,7 +186,8 @@ public sealed class ChatService(ZulipSession session)
     public async Task<string> GetRawContentAsync(long messageId) =>
         (await session.Client.GetMessageAsync(messageId, applyMarkdown: false, session.Token)).Content;
 
-    private OutgoingMessage ToOutgoing(ConversationKey key, string content, string localId) => key switch
+    /// <summary>发往会话的消息；<paramref name="localId"/> 为 null 时不带事件队列（例如定时消息）。</summary>
+    internal OutgoingMessage ToOutgoing(ConversationKey key, string content, string? localId = null) => key switch
     {
         TopicKey t => new OutgoingMessage(t.StreamId, session.Conversations.GetTopicName(t), null, content, session.QueueId, localId),
         DmKey d => new OutgoingMessage(null, null, d.IsSelfDm ? [session.SelfId] : [.. d.OtherUserIds], content, session.QueueId, localId),

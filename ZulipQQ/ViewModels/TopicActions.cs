@@ -162,7 +162,7 @@ public sealed class TopicActions(MainViewModel main, IDialogHost host)
                 return;
             try
             {
-                await Session.Client.UpdateMessageAsync(latest, newTopic, newStreamId, "change_all", Session.Token);
+                await Session.Client.UpdateMessageAsync(latest, newTopic, newStreamId, "change_all", ct: Session.Token);
             }
             catch (ZulipApiException e) when (e.Code == "MOVE_MESSAGES_TIME_LIMIT_EXCEEDED" && e.Body is { } body)
             {
@@ -177,7 +177,7 @@ public sealed class TopicActions(MainViewModel main, IDialogHost host)
                 if (Session.IsDisposed
                     || !await host.ConfirmAsync($"只有 {allowed}/{total} 条消息可以{action}（更早的消息已超出时间限制），是否{action}这 {allowed} 条？"))
                     return;
-                await Session.Client.UpdateMessageAsync(first.GetInt64(), newTopic, newStreamId, "change_later", Session.Token);
+                await Session.Client.UpdateMessageAsync(first.GetInt64(), newTopic, newStreamId, "change_later", ct: Session.Token);
             }
         }
         catch (Exception ex) when (!Session.IsDisposed)

@@ -283,6 +283,25 @@ public sealed class MessageStore(ZulipSession session)
             Raise(move.NewKey, new TimelineChange(TimelineChangeKind.Invalidated));
     }
 
+    /// <summary>submessage 事件：投票、待办等小部件的一次操作，追加到消息的子消息中。</summary>
+    public void OnSubmessage(JsonElement ev)
+    {
+        if (!_byId.TryGetValue(ev.GetProperty("message_id").GetInt64(), out var m))
+            return;
+        var id = ev.GetProperty("submessage_id").GetInt64();
+        if (m.Submessages.Exists(s => s.Id == id))
+            return;
+        m.Submessages.Add(new SubmessageDto
+        {
+            Id = id,
+            MessageId = m.Id,
+            SenderId = ev.GetProperty("sender_id").GetInt64(),
+            MsgType = ev.GetProperty("msg_type").GetString() ?? "",
+            Content = ev.GetProperty("content").GetString() ?? "",
+        });
+        MessageUpdated?.Invoke(this, m.Id);
+    }
+
     /// <summary>delete_message 事件。</summary>
     public void OnDeleted(IReadOnlyCollection<long> ids)
     {
@@ -421,7 +440,7 @@ public sealed class MessageStore(ZulipSession session)
             existing.LastEditTimestamp = dto.LastEditTimestamp;
             existing.Topic = dto.Subject;
             existing.StreamId = dto.StreamId;
-            existing.Submessages = dto.Submessages;
+            existing.Submessages = [.. dto.Submessages];
             return existing;
         }
         var msg = ChatMessage.FromDto(dto, key);

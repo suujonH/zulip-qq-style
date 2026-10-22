@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text.Json;
 using ZulipQQ.Core;
 using ZulipQQ.Zulip.Dtos;
 
@@ -41,7 +40,8 @@ public sealed class ChatMessage
     public string Topic { get; set; } = "";
 
     public long? StreamId { get; set; }
-    public JsonElement Submessages { get; set; }
+    /// <summary>投票、待办等小部件的子消息，按 id 升序；submessage 事件追加。</summary>
+    public List<SubmessageDto> Submessages { get; set; } = [];
 
     /// <summary>本地回显的标识，与发送时的 <c>local_id</c> 相同；服务器消息为 null。</summary>
     public string? LocalId { get; init; }
@@ -71,6 +71,6 @@ public sealed class ChatMessage
         IsMeMessage = dto.IsMeMessage,
         Topic = dto.Subject,
         StreamId = dto.StreamId,
-        Submessages = dto.Submessages,
+        Submessages = [.. dto.Submessages],
     };
 }
