@@ -65,6 +65,7 @@ public partial class ChatView : UserControl
         MessageList.AddHandler(PointerReleasedEvent, OnMessagePointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         // 隧道阶段处理：SelectableTextBlock 自带的“Copy”菜单会在冒泡阶段先处理
         MessageList.AddHandler(ContextRequestedEvent, OnMessageContextRequested, RoutingStrategies.Tunnel);
+        MessageList.AddHandler(KeyDownEvent, OnEditKeyDown, RoutingStrategies.Tunnel);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
@@ -98,6 +99,7 @@ public partial class ChatView : UserControl
         _vm = vm;
         vm.ScrollRequested += OnScrollRequested;
         vm.Items.CollectionChanged += OnItemsChanged;
+        vm.EditStarted += OnEditStarted;
         MessageContent.SetFiles(this, vm.Session.Files);
 
         _host = TopLevel.GetTopLevel(this) as Window;
@@ -131,6 +133,7 @@ public partial class ChatView : UserControl
             return;
         _vm.ScrollRequested -= OnScrollRequested;
         _vm.Items.CollectionChanged -= OnItemsChanged;
+        _vm.EditStarted -= OnEditStarted;
         if (_host is not null)
         {
             _host.Activated -= OnHostActivated;
@@ -158,6 +161,58 @@ public partial class ChatView : UserControl
     }
 
     private void OnScrollRequested(object? sender, ScrollRequest request) => RequestScroll(request);
+
+    // 开始编辑：布局完成后把焦点放到这条消息的输入框末尾
+    private void OnEditStarted(object? sender, MessageItemViewModel item) => Dispatcher.UIThread.Post(() =>
+    {
+        if (MessageList.ContainerFromItem(item)?.GetVisualDescendants().OfType<TextBox>()
+                .FirstOrDefault(t => t.Classes.Contains("editBox")) is not { } box)
+            return;
+        box.Focus();
+        box.CaretIndex = box.Text?.Length ?? 0;
+    }, DispatcherPriority.Background);
+
+    // 编辑框的按键：与输入框相同的发送快捷键保存，Esc 取消
+    private void OnEditKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_vm is null || e.Source is not TextBox { DataContext: MessageItemViewModel { IsEditing: true } item } box
+            || !box.Classes.Contains("editBox"))
+            return;
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            Dispatcher.UIThread.Post(() => item.CancelEditCommand.Execute(null));
+            return;
+        }
+        if (e.Key != Key.Enter)
+            return;
+        var enterSends = _vm.Composer.EnterSends;
+        var save = e.KeyModifiers switch
+        {
+            KeyModifiers.None => enterSends,
+            KeyModifiers.Control => !enterSends,
+            _ => false,
+        };
+        if (save)
+        {
+            e.Handled = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (item.SaveEditCommand.CanExecute(null))
+                    item.SaveEditCommand.Execute(null);
+            });
+        }
+        else if (e.KeyModifiers == KeyModifiers.Control)
+        {
+            // Enter 保存时 Ctrl+Enter 换行（TextBox 默认不处理 Ctrl+Enter）
+            e.Handled = true;
+            var text = box.Text ?? "";
+            var start = Math.Clamp(Math.Min(box.SelectionStart, box.SelectionEnd), 0, text.Length);
+            var end = Math.Clamp(Math.Max(box.SelectionStart, box.SelectionEnd), 0, text.Length);
+            box.Text = string.Concat(text.AsSpan(0, start), "\n", text.AsSpan(end));
+            box.CaretIndex = start + 1;
+        }
+    }
 
     private void RequestScroll(ScrollRequest request)
     {
@@ -370,12 +425,14 @@ public partial class ChatView : UserControl
     }
 
     /// <summary>
-    /// 消息右键菜单：第一行是快捷表情回应（最后一个“+”打开表情选择器），然后是复制、收藏、引用、转发、多选、复制链接。
-    /// 不提供删除和撤回。发送中的本地回显没有菜单。
+    /// 消息右键菜单：第一行是快捷表情回应（最后一个“+”打开表情选择器），然后是复制、收藏、引用、转发、多选、复制链接，
+    /// 以及编辑、编辑历史、已读成员、从这里标为未读、提醒我（编辑等没有权限时不显示）。
+    /// 不提供删除和撤回。发送中的本地回显没有菜单；编辑框中使用输入框自己的菜单。
     /// </summary>
     private void OnMessageContextRequested(object? sender, ContextRequestedEventArgs e)
     {
-        if (_vm is null || FindBubble(e.Source as Visual) is not { DataContext: MessageItemViewModel { Id: > 0 } item } bubble)
+        if (_vm is null || (e.Source as Visual)?.FindAncestorOfType<TextBox>(includeSelf: true) is not null
+            || FindBubble(e.Source as Visual) is not { DataContext: MessageItemViewModel { Id: > 0, IsEditing: false } item } bubble)
             return;
         e.Handled = true;
         var vm = _vm;
@@ -411,6 +468,20 @@ public partial class ChatView : UserControl
         menu.Items.Add(MenuItem("转发", () => vm.Forward(item)));
         menu.Items.Add(MenuItem("多选", () => vm.BeginMultiSelect(item)));
         menu.Items.Add(MenuItem("复制链接", () => _ = ConversationMenus.CopyAsync(this, vm.MessageLink(item.Id), vm.Host)));
+
+        menu.Items.Add(new Separator());
+        if (vm.CanEdit(item))
+            menu.Items.Add(MenuItem("编辑", () => _ = vm.BeginEditAsync(item)));
+        if (vm.CanShowEditHistory(item))
+            menu.Items.Add(MenuItem("编辑历史", () => vm.ShowEditHistory(item)));
+        if (vm.CanShowReadReceipts)
+            menu.Items.Add(MenuItem("已读成员", () => vm.ShowReadReceipts(item)));
+        menu.Items.Add(MenuItem("从这里标为未读", () => _ = vm.MarkUnreadFromAsync(item)));
+        var remind = new MenuItem { Header = "提醒我" };
+        remind.Items.Add(MenuItem("1 小时后", () => _ = vm.RemindAsync(item, DateTime.Now.AddHours(1))));
+        remind.Items.Add(MenuItem("明天 9:00", () => _ = vm.RemindAsync(item, DateTime.Today.AddDays(1).AddHours(9))));
+        remind.Items.Add(MenuItem("自定义…", () => _ = vm.RemindCustomAsync(item)));
+        menu.Items.Add(remind);
         menu.Open(bubble);
     }
 
@@ -499,7 +570,7 @@ public partial class ChatView : UserControl
             return;
         for (var v = e.Source as Visual; v is not null && v != MessageList; v = v.GetVisualParent())
         {
-            if (v is Button)
+            if (v is Button or TextBox)
                 return;
             if (v is Control { DataContext: MessageItemViewModel msg } c && c.Classes.Contains("sender"))
             {

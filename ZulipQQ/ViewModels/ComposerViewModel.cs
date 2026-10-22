@@ -15,6 +15,8 @@ using CommunityToolkit.Mvvm.Input;
 using ZulipQQ.Core;
 using ZulipQQ.Plugins;
 using ZulipQQ.Services;
+using ZulipQQ.Zulip;
+using ZulipQQ.Zulip.Dtos;
 
 namespace ZulipQQ.ViewModels;
 
@@ -65,10 +67,14 @@ public partial class ComposerViewModel : ViewModelBase
 {
     private static readonly TimeSpan DraftDelay = TimeSpan.FromSeconds(1);
 
+    /// <summary>常用语标题的长度上限（Zulip 服务器的限制）。</summary>
+    private const int MaxSnippetTitleLength = 60;
+
     private readonly ChatViewModel _chat;
     private readonly ZulipSession _session;
     private readonly Action<string> _showToast;
     private readonly DispatcherTimer _draftTimer = new() { Interval = DraftDelay };
+    private readonly TypingNotifier _typing;
 
     // 载入草稿、发送后清空时不触发保存
     private bool _loadingText;
@@ -85,6 +91,7 @@ public partial class ComposerViewModel : ViewModelBase
         _session = session;
         _showToast = showToast;
         Mentions = new MentionCompletionViewModel(chat, session);
+        _typing = new TypingNotifier(session);
         _draftTimer.Tick += (_, _) => SaveDraft();
         Attachments.CollectionChanged += (_, _) =>
         {
@@ -165,6 +172,7 @@ public partial class ComposerViewModel : ViewModelBase
             return Task.CompletedTask;
         _closed = true;
         _draftTimer.Stop();
+        _typing.Stop();
         foreach (var a in Attachments)
             a.Cancellation.Cancel();
         _session.Settings.Changed -= OnSettingChanged;
@@ -185,6 +193,7 @@ public partial class ComposerViewModel : ViewModelBase
     /// </summary>
     public void OnKeyChanged(ConversationKey oldKey)
     {
+        _typing.Stop();
         RefreshPermission();
         if (!_opened || _closed || oldKey.Equals(_chat.Key) || _session.Drafts.Get(oldKey) is null)
             return;
@@ -212,6 +221,7 @@ public partial class ComposerViewModel : ViewModelBase
         _draftDirty = true;
         _draftTimer.Stop();
         _draftTimer.Start();
+        _typing.OnInput(_chat.Key, !string.IsNullOrWhiteSpace(value));
     }
 
     private void SaveDraft()
@@ -234,9 +244,24 @@ public partial class ComposerViewModel : ViewModelBase
     /// 发送前清空输入区并删除草稿。消息本身在后台发送（本地回显立即出现）。
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanSend))]
-    private async Task SendAsync()
+    private Task SendAsync() => SubmitAsync(null);
+
+    /// <summary>定时发送：选择时间后把输入区的内容提交为定时消息，服务器接受后才清空输入区。</summary>
+    [RelayCommand(CanExecute = nameof(CanSend))]
+    private async Task ScheduleAsync()
     {
+        if (await DateTimeDialogViewModel.ShowAsync(_chat.Host, "定时发送", "定时发送") is { } at && !_closed)
+            await SubmitAsync(at);
+    }
+
+    // scheduleAt 为 null 时立即发送，否则在该本地时间定时发送
+    private async Task SubmitAsync(DateTime? scheduleAt)
+    {
+        // 定时发送的时间选择期间内容可能被清空或正在上传
+        if (!CanSend())
+            return;
         var key = _chat.Key;
+        var submittedText = Text;
         var quote = QuoteTarget;
         // 等待引用原文期间可能又添加了图片：只发送、移除现在已有的附件
         var captured = Attachments.ToList();
@@ -300,11 +325,39 @@ public partial class ComposerViewModel : ViewModelBase
             }
             text = filtered;
 
+            if (scheduleAt is { } at)
+            {
+                // 会话的键在 await 之后取：话题可能在获取引用原文或插件过滤期间被移动
+                var scheduledKey = _chat.Key;
+                try
+                {
+                    await _session.Scheduled.CreateAsync(scheduledKey, text, new DateTimeOffset(at).ToUnixTimeSeconds());
+                }
+                catch (Exception ex)
+                {
+                    if (_session.IsDisposed)
+                        return;
+                    Log.Warn($"定时发送失败：{scheduledKey}", ex);
+                    _showToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"定时发送失败：{api.Message}" : "定时发送失败");
+                    return;
+                }
+                if (_closed)
+                {
+                    // 请求期间聊天被关闭，关闭时把内容存成了草稿：已经定时发送，删除草稿，避免重新打开后再发一次。
+                    // 只删除提交的那份；之后重新打开又写了别的内容时保留
+                    if (!_session.IsDisposed && _session.Drafts.Get(scheduledKey)?.Trim() == submittedText.Trim())
+                        _session.Forget(_session.Drafts.DeleteAsync(scheduledKey), "删除草稿");
+                    return;
+                }
+                _showToast($"将在 {at:yyyy/MM/dd HH:mm} 发送");
+            }
+
             _loadingText = true;
             Text = "";
             _loadingText = false;
             _draftDirty = false;
             _draftTimer.Stop();
+            _typing.Stop();
             foreach (var a in captured)
                 Attachments.Remove(a);
             QuoteTarget = null;
@@ -312,7 +365,8 @@ public partial class ComposerViewModel : ViewModelBase
             // 关闭时等待删除完成，否则退出账号会取消请求，已发送的草稿下次登录又出现
             _draftSave = _session.Drafts.DeleteAsync(_chat.Key);
             _session.Forget(_draftSave, "删除草稿");
-            _session.Forget(SendToLatestAsync(text), "发送消息");
+            if (scheduleAt is null)
+                _session.Forget(SendToLatestAsync(text), "发送消息");
         }
         finally
         {
@@ -330,6 +384,58 @@ public partial class ComposerViewModel : ViewModelBase
         await _chat.ShowLatestAsync();
         if (!_session.IsDisposed)
             await _session.Chat.SendAsync(_chat.Key, content);
+    }
+
+    // ---- 常用语 ----
+
+    /// <summary>全部常用语（Zulip 的 saved snippets），按创建时间先后。</summary>
+    public IReadOnlyList<SavedSnippetDto> Snippets => _session.Snippets.All;
+
+    /// <summary>新建常用语：内容为输入框中的文字，标题在对话框中输入。</summary>
+    public void ShowNewSnippetDialog()
+    {
+        var content = Text.Trim();
+        if (content.Length == 0)
+            return;
+        var host = _chat.Host;
+        TextInputDialogViewModel dialog = null!;
+        dialog = new TextInputDialogViewModel("新建常用语", "常用语标题", "", MaxSnippetTitleLength, async title =>
+        {
+            host.Dialogs.Remove(dialog);
+            if (title is null)
+                return;
+            try
+            {
+                await _session.Snippets.CreateAsync(title, content);
+                _showToast("已保存为常用语");
+            }
+            catch (Exception ex)
+            {
+                if (_session.IsDisposed)
+                    return;
+                Log.Warn("保存常用语失败", ex);
+                _showToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"保存失败：{api.Message}" : "保存失败");
+            }
+        });
+        host.Dialogs.Add(dialog);
+    }
+
+    /// <summary>删除常用语（先确认）。列表由 saved_snippets 事件更新。</summary>
+    public async Task DeleteSnippetAsync(SavedSnippetDto snippet)
+    {
+        if (!await _chat.Host.ConfirmAsync($"删除常用语「{snippet.Title}」？", "删除", isDanger: true))
+            return;
+        try
+        {
+            await _session.Snippets.DeleteAsync(snippet.Id);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"删除常用语失败：{snippet.Id}", ex);
+            _showToast("删除失败");
+        }
     }
 
     [RelayCommand]

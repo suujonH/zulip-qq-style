@@ -53,7 +53,7 @@
 
     <Panel>
         <!-- 主页面 -->
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !IsMemberListOpen}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsMainPage}">
             <StackPanel Margin="12" Spacing="12">
                 <!-- 信息卡（话题） -->
                 <Border Classes="card" Padding="14" IsVisible="{Binding IsTopic}">
@@ -178,6 +178,14 @@
                                 <c:TdIcon Grid.Column="1" Classes="chevron" />
                             </Grid>
                         </Button>
+                        <!-- 定时消息（有时才显示） -->
+                        <Border Classes="divider" IsVisible="{Binding HasScheduled}" />
+                        <Button Classes="item" IsVisible="{Binding HasScheduled}" Command="{Binding OpenScheduledListCommand}">
+                            <Grid Classes="item" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding ScheduledText}" />
+                                <c:TdIcon Grid.Column="1" Classes="chevron" />
+                            </Grid>
+                        </Button>
                     </StackPanel>
                 </Border>
 
@@ -236,6 +244,40 @@
                         IsVisible="{Binding CanDelete}" Command="{Binding DeleteTopicCommand}" />
             </StackPanel>
         </ScrollViewer>
+
+        <!-- 定时消息列表 -->
+        <DockPanel IsVisible="{Binding IsScheduledListOpen}">
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" Height="44" Margin="4,0,12,0">
+                <Button Theme="{StaticResource FlatButton}" Padding="8" Command="{Binding CloseScheduledListCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" Width="16" Height="16" />
+                </Button>
+                <TextBlock Grid.Column="1" Text="{Binding ScheduledText}" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
+            </Grid>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding ScheduledItems}" Margin="12,0,12,12">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ScheduledItemViewModel">
+                            <Border Classes="card" Padding="14,10" Margin="0,0,0,8">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <c:TdIcon Icon="{StaticResource Icon.Time}" Width="14" Height="14"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Classes="hint" Text="{Binding TimeText}" />
+                                        <TextBlock Classes="hint" Text="发送失败" Foreground="{DynamicResource DangerBrush}"
+                                                   IsVisible="{Binding IsFailed}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Grid.RowSpan="2" Theme="{StaticResource FlatButton}" Padding="8,4"
+                                            VerticalAlignment="Center" Foreground="{DynamicResource DangerBrush}" Content="删除"
+                                            Command="{Binding DeleteCommand}" />
+                                    <TextBlock Grid.Row="1" Text="{Binding Preview}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,6,0,0"
+                                               TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
 
         <!-- 完整成员列表 -->
         <DockPanel IsVisible="{Binding IsMemberListOpen}">

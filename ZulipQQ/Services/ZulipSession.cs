@@ -65,6 +65,8 @@ public sealed class ZulipSession : IAsyncDisposable
         Presence = new PresenceService(this);
         Notifications = new NotificationService(this);
         Emoji = new EmojiService(this, new SettingRepository(db, account.Id));
+        Scheduled = new ScheduledMessageStore(this);
+        Snippets = new SnippetStore(this);
 
         Messages.IsKeptOpen = Registry.IsOpen;
         Conversations.ConversationRekeyed += (_, e) => Registry.Rekey(e.Old, e.New);
@@ -93,6 +95,8 @@ public sealed class ZulipSession : IAsyncDisposable
     public PresenceService Presence { get; }
     public NotificationService Notifications { get; }
     public EmojiService Emoji { get; }
+    public ScheduledMessageStore Scheduled { get; }
+    public SnippetStore Snippets { get; }
 
     /// <summary>当前事件队列 id；发送消息时带上，服务器会在对应的 message 事件中返回 local_message_id。</summary>
     public string QueueId => _queueId;
@@ -331,6 +335,8 @@ public sealed class ZulipSession : IAsyncDisposable
         Settings.Load(reg);
         Emoji.LoadRealm(reg.RealmEmoji);
         Drafts.Load(reg);
+        Scheduled.Load(reg);
+        Snippets.Load(reg);
         Unread.Load(reg.UnreadMsgs);
         Messages.Clear();
 

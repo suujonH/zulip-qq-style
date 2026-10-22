@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.InviteDialogView"
+             x:DataType="vm:InviteDialogViewModel">
+
+    <Border Classes="dialog" Width="380">
+        <StackPanel>
+            <Grid Height="30">
+                <TextBlock Text="邀请成员" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CancelCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel Margin="20,14,20,20" Spacing="8">
+                <TextBlock Classes="sub" Text="邮箱" FontSize="{DynamicResource FontSizeSmall}" />
+                <TextBox x:Name="EmailsBox" Classes="input" PlaceholderText="多个邮箱用逗号或换行分隔" Text="{Binding Emails}"
+                         AcceptsReturn="True" TextWrapping="Wrap" Height="72" VerticalContentAlignment="Top" />
+
+                <TextBlock Classes="sub" Text="加入的频道" FontSize="{DynamicResource FontSizeSmall}" Margin="0,6,0,0"
+                           IsVisible="{Binding HasChannels}" />
+                <Border BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="4"
+                        MaxHeight="180" IsVisible="{Binding HasChannels}">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding Channels}" Margin="8,4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:InviteChannelOption">
+                                    <CheckBox IsChecked="{Binding IsChecked}" FontSize="{DynamicResource FontSizeSmall}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <c:TdIcon Icon="{StaticResource Icon.Lock}" Width="12" Height="12" IsVisible="{Binding IsPrivate}"
+                                                      Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </CheckBox>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+                    <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="发送邀请"
+                            Command="{Binding ConfirmCommand}" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                            Command="{Binding CancelCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

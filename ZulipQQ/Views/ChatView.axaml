@@ -62,6 +62,27 @@
             <Setter Property="Background" Value="{DynamicResource OwnBubbleBrush}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
+        <!-- 已读灰色、未读蓝色 -->
+        <Style Selector="TextBlock.readState">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+        </Style>
+        <Style Selector="TextBlock.readState.unread">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+
+        <!-- 投票 / 待办卡片：自己投过的选项为品牌色，完成的任务划线 -->
+        <Style Selector="TextBlock.widgetRow.highlighted">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.widgetRow.completed">
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="TextDecorations" Value="Strikethrough" />
+        </Style>
+
         <Style Selector="Border.bubble.selected">
             <Setter Property="Background" Value="{DynamicResource OtherBubbleSelectedBrush}" />
         </Style>
@@ -225,13 +246,64 @@
                             <Border Classes="bubble" Classes.selected="{Binding IsTimeShown}" Classes.bare="{Binding ShowsBare}"
                                     MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}">
                                 <Panel>
-                                    <StackPanel IsVisible="{Binding !IsMutedHidden}">
+                                    <StackPanel IsVisible="{Binding ShowsContent}">
                                         <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
                                         <TextBlock Text="(已编辑)" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Right" Margin="0,2,0,0"
                                                    Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsEdited}" />
                                     </StackPanel>
+                                    <!-- 投票 / 待办：只读，操作交给网页端 -->
+                                    <StackPanel Spacing="6" MinWidth="220" IsVisible="{Binding ShowsWidget}">
+                                        <TextBlock Text="{Binding Widget.Kind}" FontSize="{DynamicResource FontSizeCaption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <SelectableTextBlock Text="{Binding Widget.Title}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                             IsVisible="{Binding Widget.HasTitle}" />
+                                        <ItemsControl ItemsSource="{Binding Widget.Rows}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:WidgetRowViewModel">
+                                                    <DockPanel Margin="0,2" Background="Transparent" ToolTip.Tip="{Binding ToolTipText}">
+                                                        <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsCompleted, Mode=OneWay}"
+                                                                  IsVisible="{Binding IsTask}" IsHitTestVisible="False" Focusable="False"
+                                                                  MinWidth="0" MinHeight="0" Padding="0" Margin="0,0,6,0" VerticalAlignment="Top" />
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" Margin="12,0,0,0"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   IsVisible="{Binding !IsTask}" />
+                                                        <StackPanel>
+                                                            <TextBlock Classes="widgetRow" Classes.highlighted="{Binding IsHighlighted}"
+                                                                       Classes.completed="{Binding IsCompleted}" Text="{Binding Text}"
+                                                                       TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding Detail}" FontSize="{DynamicResource FontSizeSub}"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap">
+                                                                <TextBlock.IsVisible>
+                                                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                                        <Binding Path="IsTask" />
+                                                                        <Binding Path="HasDetail" />
+                                                                    </MultiBinding>
+                                                                </TextBlock.IsVisible>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="暂无内容" FontSize="{DynamicResource FontSizeSub}"
+                                                   Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding Widget.IsEmpty}" />
+                                        <Button Classes="link" Theme="{StaticResource FlatButton}" Content="在网页中打开"
+                                                HorizontalAlignment="Left" Padding="0" Foreground="{DynamicResource BrandBrush}"
+                                                Background="Transparent" Command="{Binding OpenInBrowserCommand}" />
+                                    </StackPanel>
                                     <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="{DynamicResource FontSizeBody}" Cursor="Hand"
                                                Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsMutedHidden}" />
+                                    <!-- 就地编辑：发送快捷键与输入框相同，Esc 取消 -->
+                                    <StackPanel Spacing="6" MinWidth="260" IsVisible="{Binding IsEditing}">
+                                        <TextBox Classes="input editBox" Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap"
+                                                 MaxHeight="240" VerticalContentAlignment="Top" IsEnabled="{Binding !IsSavingEdit}" />
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                                            <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                                                    Command="{Binding CancelEditCommand}" />
+                                            <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="保存"
+                                                    Command="{Binding SaveEditCommand}" />
+                                        </StackPanel>
+                                    </StackPanel>
                                 </Panel>
                             </Border>
                         </StackPanel>
@@ -256,6 +328,9 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <!-- 一对一私聊：自己最后一条消息的已读状态 -->
+                        <TextBlock Classes="readState" Classes.unread="{Binding IsReadStateUnread}" Text="{Binding ReadStateText}"
+                                   IsVisible="{Binding ReadStateText, Converter={x:Static ObjectConverters.IsNotNull}}" />
                     </StackPanel>
                 </DockPanel>
                 </DockPanel>
@@ -267,9 +342,14 @@
         <!-- 标题栏 -->
         <Border Grid.ColumnSpan="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold" Margin="20,0"
-                           HorizontalAlignment="Left" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                           Cursor="Hand" Background="Transparent" />
+                <StackPanel Margin="20,0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold"
+                               HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Cursor="Hand" Background="Transparent" />
+                    <!-- 正在输入 -->
+                    <TextBlock Text="{Binding TypingText}" FontSize="{DynamicResource FontSizeCaption}" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               IsVisible="{Binding TypingText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
                 <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,4,0"
                         ToolTip.Tip="群文件" IsVisible="{Binding IsTopic}" Click="OnGroupFilesClick">
                     <c:TdIcon Icon="{StaticResource Icon.Folder}" Width="20" Height="20" />

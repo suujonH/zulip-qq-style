@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             x:Class="ZulipQQ.Views.DateTimeDialogView"
+             x:DataType="vm:DateTimeDialogViewModel">
+
+    <Border Classes="dialog" Width="320">
+        <StackPanel>
+            <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" Margin="0,7" />
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel Margin="20" Spacing="12">
+                <Grid ColumnDefinitions="48,*" RowDefinitions="Auto,Auto" RowSpacing="10">
+                    <TextBlock Text="日期" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
+                    <CalendarDatePicker Grid.Column="1" HorizontalAlignment="Stretch" SelectedDate="{Binding Date}"
+                                        DisplayDateStart="{x:Static vm:DateTimeDialogViewModel.Today}" />
+                    <TextBlock Grid.Row="1" Text="时间" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
+                    <TimePicker Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" ClockIdentifier="24HourClock"
+                                MinuteIncrement="5" SelectedTime="{Binding Time}" />
+                </Grid>
+                <TextBlock Text="{Binding ErrorText}" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding ErrorText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button x:Name="ConfirmButton" Classes="primary" Theme="{StaticResource FlatButton}" Content="{Binding ConfirmText}"
+                            Command="{Binding ConfirmCommand}" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                            Command="{Binding CancelCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -11,6 +12,7 @@ using ZulipQQ.Controls;
 using ZulipQQ.Core;
 using ZulipQQ.Models;
 using ZulipQQ.Services;
+using ZulipQQ.Zulip;
 
 namespace ZulipQQ.ViewModels;
 
@@ -21,6 +23,9 @@ namespace ZulipQQ.ViewModels;
 public partial class ChatViewModel : ViewModelBase
 {
     private static readonly TimeSpan FlashDuration = TimeSpan.FromSeconds(1.5);
+
+    internal const string ReadStateText = "已读";
+    internal const string UnreadStateText = "未读";
 
     private readonly ZulipSession _session;
     private readonly Func<ConversationKey, long?, Task> _openChat;
@@ -50,6 +55,22 @@ public partial class ChatViewModel : ViewModelBase
     // 消息至少成功加载过一次；加载失败时什么都没显示，不能标记已读
     private bool _loaded;
     private bool _closed;
+
+    // 正在就地编辑的消息与编辑前的原文
+    private MessageItemViewModel? _editing;
+    private string _editOriginal = "";
+
+    // 一对一私聊中自己最后一条消息的已读状态；版本号丢弃过期的查询结果
+    private long _readStateId;
+    private string? _readState;
+    private int _readStateVersion;
+
+    // “从这里标为未读”之后，本次打开期间不再自动标记已读（与网页端一致）
+    private bool _autoReadSuspended;
+
+    // 正在输入的用户与其状态的过期时间（UTC）；超过 started_expiry 没有收到新的 start 即视为停止
+    private readonly Dictionary<long, DateTime> _typers = [];
+    private DispatcherTimer? _typingTimer;
 
     public ChatViewModel(ZulipSession session, MainViewModel main, ConversationKey key)
     {
@@ -120,6 +141,10 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty]
     public partial string Title { get; private set; } = "";
 
+    /// <summary>标题下方的“对方正在输入…”；没有人在输入时为 null。</summary>
+    [ObservableProperty]
+    public partial string? TypingText { get; private set; }
+
     public ObservableCollection<ViewModelBase> Items { get; } = [];
 
     [ObservableProperty]
@@ -149,6 +174,9 @@ public partial class ChatViewModel : ViewModelBase
     public Window? HostWindow { get; set; }
 
     public event EventHandler<ScrollRequest>? ScrollRequested;
+
+    /// <summary>开始就地编辑一条消息：视图把焦点放到它的输入框。</summary>
+    public event EventHandler<MessageItemViewModel>? EditStarted;
 
     /// <summary>打开完成时的滚动位置；视图在会话打开之后才挂载（或换到另一个窗口）时用它定位。</summary>
     public ScrollRequest? InitialScroll { get; private set; }
@@ -198,6 +226,7 @@ public partial class ChatViewModel : ViewModelBase
             Flash(flash);
         UpdateTopBanner();
         MarkReadIfViewing();
+        _ = RefreshReadStateAsync();
     }
 
     /// <summary>关闭会话（幂等）：取消订阅、从打开列表中移除，并等待草稿保存完成。</summary>
@@ -206,6 +235,7 @@ public partial class ChatViewModel : ViewModelBase
         if (_closed)
             return Task.CompletedTask;
         _closed = true;
+        ClearTyping();
         CloseMorePanel();
         ExitMultiSelect();
         Unsubscribe();
@@ -245,6 +275,7 @@ public partial class ChatViewModel : ViewModelBase
         ScrollRequested?.Invoke(this, ScrollRequest.Bottom);
         UpdateBottomBanner();
         MarkReadIfViewing();
+        _ = RefreshReadStateAsync();
     }
 
     /// <summary>话题被整体移动或改名：换成新键并重新加载。</summary>
@@ -252,11 +283,15 @@ public partial class ChatViewModel : ViewModelBase
     {
         var oldKey = Key;
         ExitMultiSelect();
+        ClearTyping();
         Key = newKey;
         RefreshTitle();
         Composer.OnKeyChanged(oldKey);
         _ = ReloadAsync();
     }
+
+    /// <summary>正在查看时自动标记已读；“从这里标为未读”之后为 false。</summary>
+    public bool AutoMarksRead => !_autoReadSuspended;
 
     /// <summary>新消息会出现在列表末尾：消息已加载，且当前窗口包含最新的消息。</summary>
     public bool ShowsLatest => _loaded && !_closed && _session.Messages.TryGet(Key) is { FoundNewest: true };
@@ -267,17 +302,113 @@ public partial class ChatViewModel : ViewModelBase
     /// </summary>
     public void OnIncomingMessage(ChatMessage m)
     {
+        // 对方发出了消息：不再显示正在输入
+        if (_typers.Remove(m.SenderId))
+            RefreshTyping();
         if (!_opened || _closed || m.SenderId == _session.SelfId || ShowsLatest)
             return;
         _newWhileScrolledUp++;
         UpdateBottomBanner();
     }
 
+    /// <summary>本会话的 typing 事件。</summary>
+    public void OnTyping(long userId, bool started)
+    {
+        if (_closed)
+            return;
+        if (started)
+            _typers[userId] = DateTime.UtcNow.AddMilliseconds(_session.Realm.TypingStartedExpiryMs);
+        else if (!_typers.Remove(userId))
+            return;
+        RefreshTyping();
+    }
+
+    // 一对一私聊显示“对方正在输入…”；其它会话显示名字（超过 3 人时显示“多人正在输入…”）
+    private void RefreshTyping()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var id in _typers.Where(p => p.Value <= now).Select(p => p.Key).ToList())
+            _typers.Remove(id);
+        if (_typers.Count == 0)
+        {
+            TypingText = null;
+            _typingTimer?.Stop();
+            return;
+        }
+        TypingText = Key is DmKey { OtherUserIds.Length: 1 } ? "对方正在输入…"
+            : _typers.Count > 3 ? "多人正在输入…"
+            : string.Join("、", _typers.Keys.Select(_session.Contacts.DisplayName)) + " 正在输入…";
+        if (_typingTimer is null)
+        {
+            _typingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _typingTimer.Tick += (_, _) => RefreshTyping();
+        }
+        _typingTimer.Start();
+    }
+
+    private void ClearTyping()
+    {
+        _typers.Clear();
+        _typingTimer?.Stop();
+        TypingText = null;
+    }
+
     /// <summary>所在窗口被激活：补标已读（打开时窗口不在前台，或在后台收到了新消息）。</summary>
     public void OnHostActivated()
     {
-        if (_snapshotTaken && !_closed)
-            MarkReadIfViewing();
+        if (!_snapshotTaken || _closed)
+            return;
+        MarkReadIfViewing();
+        // 对方可能在此期间看过了消息（已读没有事件通知）
+        if (_opened)
+            _ = RefreshReadStateAsync();
+    }
+
+    /// <summary>
+    /// 一对一私聊（组织开启已读回执时）：查询自己最后一条消息是否已被对方读过，显示在它下方。
+    /// 对方关闭了已读回执时服务器不返回对方，始终显示为未读。只在已加载到最新的消息时更新。
+    /// </summary>
+    private async Task RefreshReadStateAsync()
+    {
+        if (_closed || !_session.Realm.EnableReadReceipts || Key is not DmKey { OtherUserIds.Length: 1 } dm)
+        {
+            SetReadState(0, null);
+            return;
+        }
+        if (_session.Messages.TryGet(Key) is not { FoundNewest: true } timeline)
+            return;
+        var last = timeline.Messages.LastOrDefault(m => m.SenderId == _session.SelfId && m.Id > 0 && !m.IsHiddenByPlugin);
+        if (last is null)
+        {
+            SetReadState(0, null);
+            return;
+        }
+
+        var version = ++_readStateVersion;
+        IReadOnlyList<long> readers;
+        try
+        {
+            readers = await _session.Client.GetReadReceiptsAsync(last.Id, _session.Token);
+        }
+        catch (Exception ex)
+        {
+            if (!_session.IsDisposed)
+                Log.Debug($"查询已读状态失败：{last.Id}", ex);
+            return;
+        }
+        if (version != _readStateVersion || _closed || !Key.Equals(dm))
+            return;
+        SetReadState(last.Id, readers.Contains(dm.OtherUserIds[0]) ? ReadStateText : UnreadStateText);
+    }
+
+    private void SetReadState(long id, string? text)
+    {
+        if (_readStateId != id && _vms.TryGetValue(_readStateId, out var previous))
+            previous.ReadStateText = null;
+        _readStateId = id;
+        _readState = text;
+        if (_vms.TryGetValue(id, out var vm))
+            vm.ReadStateText = text;
     }
 
     /// <summary>视图报告滚动后的可见范围。</summary>
@@ -384,6 +515,20 @@ public partial class ChatViewModel : ViewModelBase
                 images.AddRange(ZulipHtml.ExtractInlineImages(m.ContentHtml).Select(i => (m.Id, i)));
         }
         return MessageLinks.LocateImage(images, new InlineImage(clicked.Src, clicked.Href), messageId);
+    }
+
+    /// <summary>用浏览器打开消息（不走客户端内部跳转）。</summary>
+    public void OpenInBrowser(MessageItemViewModel item)
+    {
+        var url = MessageLink(item.Id);
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"打开链接失败：{url}", ex);
+        }
     }
 
     /// <summary>消息链接（复制链接用）。</summary>
@@ -538,6 +683,143 @@ public partial class ChatViewModel : ViewModelBase
         }
     }
 
+    // ---- 编辑、编辑历史、已读成员、标为未读、提醒 ----
+
+    /// <summary>可以编辑：自己的消息，组织允许编辑，且在编辑时限内。</summary>
+    // 投票 / 待办消息的内容不能编辑（与网页端一致）
+    public bool CanEdit(MessageItemViewModel item) =>
+        item.Id > 0 && item.Widget is null && _session.Permissions.CanEditMessage(item.Message.SenderId, item.Message.Timestamp,
+            DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+    /// <summary>就地编辑：取 Markdown 原文后气泡换成输入框。同一时间只编辑一条。</summary>
+    public async Task BeginEditAsync(MessageItemViewModel item)
+    {
+        string raw;
+        try
+        {
+            raw = await _session.Chat.GetRawContentAsync(item.Id);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"获取消息原文失败：{item.Id}", ex);
+            _showToast("获取消息原文失败");
+            return;
+        }
+        if (_closed)
+            return;
+        if (_editing is { } previous)
+            CancelEdit(previous);
+        _editing = item;
+        _editOriginal = raw;
+        item.EditText = raw;
+        item.IsEditing = true;
+        EditStarted?.Invoke(this, item);
+    }
+
+    public void CancelEdit(MessageItemViewModel item)
+    {
+        item.IsEditing = false;
+        if (_editing == item)
+            _editing = null;
+    }
+
+    /// <summary>保存编辑：内容为空或过长时提示；没有修改时直接结束编辑。新内容由 update_message 事件显示。</summary>
+    public async Task SaveEditAsync(MessageItemViewModel item)
+    {
+        if (!item.IsEditing || item.IsSavingEdit)
+            return;
+        var text = item.EditText.TrimEnd();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _showToast("消息内容不能为空");
+            return;
+        }
+        if (_session.Realm.MaxMessageLength > 0 && text.Length > _session.Realm.MaxMessageLength)
+        {
+            _showToast("消息过长");
+            return;
+        }
+        if (text == _editOriginal.TrimEnd())
+        {
+            CancelEdit(item);
+            return;
+        }
+
+        item.IsSavingEdit = true;
+        try
+        {
+            await _session.Chat.EditAsync(item.Id, text);
+            CancelEdit(item);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"编辑消息失败：{item.Id}", ex);
+            _showToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"编辑失败：{api.Message}" : "编辑失败");
+        }
+        finally
+        {
+            item.IsSavingEdit = false;
+        }
+    }
+
+    /// <summary>编辑过的消息，且组织允许查看编辑历史。</summary>
+    public bool CanShowEditHistory(MessageItemViewModel item) =>
+        item.IsEdited && _session.Realm.EditHistoryVisibilityPolicy != "none";
+
+    public void ShowEditHistory(MessageItemViewModel item) =>
+        EditHistoryDialogViewModel.Show(_session, Host, item.Id, (target, top) => HandleLinkAsync(item, target, top));
+
+    /// <summary>话题和多人私聊，且组织开启了已读回执。</summary>
+    public bool CanShowReadReceipts => _session.Realm.EnableReadReceipts && Key is TopicKey or DmKey { IsGroupDm: true };
+
+    public void ShowReadReceipts(MessageItemViewModel item) =>
+        ReadReceiptsDialogViewModel.Show(_session, Host, item.Id, item.Message.SenderId);
+
+    /// <summary>从这条消息开始（含）全部标为未读；之后本次打开期间不再自动标记已读。</summary>
+    public async Task MarkUnreadFromAsync(MessageItemViewModel item)
+    {
+        _autoReadSuspended = true;
+        try
+        {
+            await _session.Chat.MarkUnreadFromAsync(Key, item.Id);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"标为未读失败：{item.Id}", ex);
+            _showToast("操作失败");
+        }
+    }
+
+    /// <summary>在 <paramref name="at"/>（本地时间）提醒自己这条消息；到时服务器发一条私信给自己。</summary>
+    public async Task RemindAsync(MessageItemViewModel item, DateTime at)
+    {
+        try
+        {
+            await _session.Chat.CreateReminderAsync(item.Id, new DateTimeOffset(at).ToUnixTimeSeconds());
+            _showToast($"将在 {at:yyyy/MM/dd HH:mm} 提醒你");
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"设置提醒失败：{item.Id}", ex);
+            _showToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"设置提醒失败：{api.Message}" : "设置提醒失败");
+        }
+    }
+
+    /// <summary>自定义提醒时间。</summary>
+    public async Task RemindCustomAsync(MessageItemViewModel item)
+    {
+        if (await DateTimeDialogViewModel.ShowAsync(Host, "提醒我", "设置提醒") is { } at && !_closed)
+            await RemindAsync(item, at);
+    }
+
     /// <summary>重发发送失败的消息。</summary>
     internal void Retry(MessageItemViewModel item)
     {
@@ -599,7 +881,7 @@ public partial class ChatViewModel : ViewModelBase
 
     private void MarkReadIfViewing()
     {
-        if (_loaded && _session.Unread.Count(Key) > 0 && _session.Registry.IsActivelyViewing(Key))
+        if (_loaded && !_autoReadSuspended && _session.Unread.Count(Key) > 0 && _session.Registry.IsActivelyViewing(Key))
             _session.Forget(_session.Chat.MarkConversationReadAsync(Key), "标记会话已读");
     }
 
@@ -680,6 +962,7 @@ public partial class ChatViewModel : ViewModelBase
                 vm = new MessageItemViewModel(this, _session, m);
             vm.IsTimeShown = m.Id == _timeShownMessageId;
             vm.IsChecked = _checked.Contains(m.Id);
+            vm.ReadStateText = m.Id == _readStateId ? _readState : null;
             vms[m.Id] = vm;
             desired.Add(vm);
             previous = m;
@@ -784,6 +1067,7 @@ public partial class ChatViewModel : ViewModelBase
                 return;
             case TimelineChangeKind.Appended when !_loadingNewer:
                 RebuildItems();
+                _ = RefreshReadStateAsync();
                 // 自己发送的消息总是滚动到底部
                 var last = _session.Messages.TryGet(Key)?.Messages.LastOrDefault();
                 if (_isAtBottom || last?.SenderId == _session.SelfId)
@@ -799,6 +1083,8 @@ public partial class ChatViewModel : ViewModelBase
             default:
                 // 向后加载、回显被替换、删除等：视图保持位置；原本在最新端的底部时继续停在底部
                 RebuildItems();
+                if (e.Change.Kind is TimelineChangeKind.Replaced or TimelineChangeKind.Removed)
+                    _ = RefreshReadStateAsync();
                 if (_isAtBottom && !_loadingNewer && _session.Messages.TryGet(Key) is { FoundNewest: true })
                     ScrollRequested?.Invoke(this, ScrollRequest.Bottom);
                 return;

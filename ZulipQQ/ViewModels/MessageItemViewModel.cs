@@ -53,10 +53,33 @@ public partial class MessageItemViewModel : ViewModelBase
 
     /// <summary>发送者被屏蔽：内容替换为“已屏蔽的消息（点击查看）”，点击后在本次打开期间显示。</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsBare))]
+    [NotifyPropertyChangedFor(nameof(ShowsBare), nameof(ShowsContent), nameof(ShowsWidget))]
     public partial bool IsMutedHidden { get; private set; }
 
-    public bool ShowsBare => IsBare && !IsMutedHidden;
+    public bool ShowsBare => IsBare && !IsMutedHidden && !IsEditing && Widget is null;
+
+    /// <summary>显示消息内容（没有被屏蔽，不在编辑中，也不是投票 / 待办）。</summary>
+    public bool ShowsContent => !IsMutedHidden && !IsEditing && Widget is null;
+
+    /// <summary>投票 / 待办消息：内容（“/poll …”）换成只读卡片。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsBare), nameof(ShowsContent), nameof(ShowsWidget))]
+    public partial WidgetCardViewModel? Widget { get; private set; }
+
+    public bool ShowsWidget => !IsMutedHidden && !IsEditing && Widget is not null;
+
+    /// <summary>正在就地编辑：气泡中的内容换成多行输入框。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsBare), nameof(ShowsContent), nameof(ShowsWidget))]
+    public partial bool IsEditing { get; set; }
+
+    /// <summary>编辑中的 Markdown 原文。</summary>
+    [ObservableProperty]
+    public partial string EditText { get; set; } = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveEditCommand))]
+    public partial bool IsSavingEdit { get; set; }
 
     private bool _revealed;
 
@@ -92,6 +115,13 @@ public partial class MessageItemViewModel : ViewModelBase
     /// <summary>时间格式（12 / 24 小时制）变化后重新取精确时间。</summary>
     public void RefreshTimeText() => OnPropertyChanged(nameof(PreciseTimeText));
 
+    /// <summary>一对一私聊中自己最后一条消息下方的“已读” / “未读”；其它消息为 null。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReadStateUnread))]
+    public partial string? ReadStateText { get; set; }
+
+    public bool IsReadStateUnread => ReadStateText == ChatViewModel.UnreadStateText;
+
     /// <summary>多选模式下是否勾选。</summary>
     [ObservableProperty]
     public partial bool IsChecked { get; set; }
@@ -116,6 +146,9 @@ public partial class MessageItemViewModel : ViewModelBase
         IsFailed = Message.SendState == MessageSendState.Failed;
         IsStarred = Message.IsStarred;
         IsMutedHidden = !IsOwn && !_revealed && _session.Users.IsMuted(Message.SenderId);
+        Widget = WidgetParser.Parse(Message.Submessages, Message.SenderId) is { } widget
+            ? WidgetCardViewModel.Create(widget, _session)
+            : null;
 
         // 同一表情合并为一项，按第一次出现的顺序
         Reactions = Message.Reactions
@@ -134,6 +167,18 @@ public partial class MessageItemViewModel : ViewModelBase
     }
 
     internal Task ToggleReactionAsync(ReactionViewModel reaction) => _chat.ToggleReactionAsync(this, reaction);
+
+    private bool CanSaveEdit => !IsSavingEdit;
+
+    [RelayCommand(CanExecute = nameof(CanSaveEdit))]
+    private Task SaveEditAsync() => _chat.SaveEditAsync(this);
+
+    [RelayCommand]
+    private void CancelEdit() => _chat.CancelEdit(this);
+
+    /// <summary>投票 / 待办卡片的“在网页中打开”：本客户端不能投票，交给网页端。</summary>
+    [RelayCommand]
+    private void OpenInBrowser() => _chat.OpenInBrowser(this);
 
     /// <summary>点击发送失败的红色感叹号：重发。</summary>
     [RelayCommand]

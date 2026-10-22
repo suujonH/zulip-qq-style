@@ -48,8 +48,8 @@ public sealed record RegisterResult
     public Dictionary<long, UserStatusDto> UserStatus { get; init; } = [];
     public UserSettingsDto UserSettings { get; init; } = new();
     public List<string> AlertWords { get; init; } = [];
-    public JsonElement ScheduledMessages { get; init; }
-    public JsonElement SavedSnippets { get; init; }
+    public List<ScheduledMessageDto> ScheduledMessages { get; init; } = [];
+    public List<SavedSnippetDto> SavedSnippets { get; init; } = [];
     public JsonElement Reminders { get; init; }
 
     // 组与表情

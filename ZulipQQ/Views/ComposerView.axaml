@@ -112,6 +112,8 @@
                                 <x:Boolean>False</x:Boolean>
                             </MenuItem.CommandParameter>
                         </MenuItem>
+                        <Separator />
+                        <MenuItem Header="定时发送…" Command="{Binding ScheduleCommand}" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>

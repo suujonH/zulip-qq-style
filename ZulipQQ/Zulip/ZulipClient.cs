@@ -293,11 +293,11 @@ public sealed class ZulipClient : IDisposable
     }
 
     /// <summary>
-    /// 移动消息或修改话题名（PATCH /messages/{id}）。<paramref name="propagateMode"/> 为 change_one / change_later / change_all。
+    /// 移动消息、修改话题名或编辑内容（PATCH /messages/{id}）。<paramref name="propagateMode"/> 为 change_one / change_later / change_all。
     /// 超出移动时限时抛出 code 为 MOVE_MESSAGES_TIME_LIMIT_EXCEEDED 的 <see cref="ZulipApiException"/>（一条都没有移动）。
     /// </summary>
     public Task UpdateMessageAsync(long messageId, string? topic = null, long? streamId = null, string? propagateMode = null,
-        CancellationToken ct = default)
+        string? content = null, CancellationToken ct = default)
     {
         var args = new FormBuilder();
         if (topic is not null)
@@ -306,7 +306,38 @@ public sealed class ZulipClient : IDisposable
             args.Add("stream_id", s);
         if (propagateMode is not null)
             args.Add("propagate_mode", propagateMode);
+        if (content is not null)
+            args.Add("content", content);
         return SendAsync(HttpMethod.Patch, $"api/v1/messages/{Id(messageId)}", args, DefaultTimeout, ct);
+    }
+
+    /// <summary>消息的编辑历史，第一项为原始版本。</summary>
+    public async Task<IReadOnlyList<MessageHistoryDto>> GetMessageHistoryAsync(long messageId, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().Add("allow_empty_topic_name", true);
+        var root = await SendAsync(HttpMethod.Get, $"api/v1/messages/{Id(messageId)}/history", args, DefaultTimeout, ct).ConfigureAwait(false);
+        return ZulipJson.Deserialize<List<MessageHistoryDto>>(root.GetProperty("message_history"));
+    }
+
+    /// <summary>已读这条消息、且允许查看已读状态的用户 id（关闭了已读回执的用户不会出现）。</summary>
+    public async Task<IReadOnlyList<long>> GetReadReceiptsAsync(long messageId, CancellationToken ct = default)
+    {
+        var root = await SendAsync(HttpMethod.Get, $"api/v1/messages/{Id(messageId)}/read_receipts", null, DefaultTimeout, ct).ConfigureAwait(false);
+        return ZulipJson.Deserialize<List<long>>(root.GetProperty("user_ids"));
+    }
+
+    /// <summary>
+    /// 正在输入通知。<paramref name="op"/> 为 start / stop；频道话题传 <paramref name="streamId"/> 与 <paramref name="topic"/>，
+    /// 私聊传 <paramref name="userIds"/>（收件人，不含自己）。
+    /// </summary>
+    public Task SendTypingAsync(string op, long? streamId, string? topic, IReadOnlyList<long>? userIds, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().Add("op", op);
+        if (streamId is { } s)
+            args.Add("type", "stream").Add("stream_id", s).Add("topic", topic ?? "");
+        else
+            args.Add("type", "direct").AddJson("to", userIds ?? []);
+        return SendAsync(HttpMethod.Post, "api/v1/typing", args, DefaultTimeout, ct);
     }
 
     /// <summary>删除话题中的消息（一次可能只删除一批），返回是否已全部删除。</summary>
@@ -355,6 +386,58 @@ public sealed class ZulipClient : IDisposable
     /// </summary>
     public Task UpdateChannelAsync(long streamId, FormBuilder args, CancellationToken ct = default) =>
         SendAsync(HttpMethod.Patch, $"api/v1/streams/{Id(streamId)}", args, DefaultTimeout, ct);
+
+    // ---- 定时消息、提醒、常用语、邀请 ----
+
+    /// <summary>创建定时消息（<paramref name="m"/> 的 QueueId、LocalId 不使用），返回定时消息 id。</summary>
+    public async Task<long> CreateScheduledMessageAsync(OutgoingMessage m, long deliverAt, CancellationToken ct = default)
+    {
+        var args = new FormBuilder();
+        if (m.StreamId is { } streamId)
+            args.Add("type", "stream").Add("to", streamId).Add("topic", m.Topic ?? "");
+        else
+            args.Add("type", "direct").AddJson("to", m.UserIds ?? []);
+        // 与立即发送一致：服务器按客户端名称猜测时不认识本客户端，送达后会成为自己的未读消息
+        args.Add("content", m.Content).Add("scheduled_delivery_timestamp", deliverAt).Add("read_by_sender", true);
+        var root = await SendAsync(HttpMethod.Post, "api/v1/scheduled_messages", args, DefaultTimeout, ct).ConfigureAwait(false);
+        return root.GetProperty("scheduled_message_id").GetInt64();
+    }
+
+    public Task DeleteScheduledMessageAsync(long id, CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Delete, $"api/v1/scheduled_messages/{Id(id)}", null, DefaultTimeout, ct);
+
+    /// <summary>在指定时间提醒自己这条消息（服务器到时发一条私信给自己），返回提醒 id。</summary>
+    public async Task<long> CreateReminderAsync(long messageId, long deliverAt, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().Add("message_id", messageId).Add("scheduled_delivery_timestamp", deliverAt);
+        var root = await SendAsync(HttpMethod.Post, "api/v1/reminders", args, DefaultTimeout, ct).ConfigureAwait(false);
+        return root.GetProperty("reminder_id").GetInt64();
+    }
+
+    /// <summary>新建常用语，返回 id。</summary>
+    public async Task<long> CreateSavedSnippetAsync(string title, string content, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().Add("title", title).Add("content", content);
+        var root = await SendAsync(HttpMethod.Post, "api/v1/saved_snippets", args, DefaultTimeout, ct).ConfigureAwait(false);
+        return root.GetProperty("saved_snippet_id").GetInt64();
+    }
+
+    public Task DeleteSavedSnippetAsync(long id, CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Delete, $"api/v1/saved_snippets/{Id(id)}", null, DefaultTimeout, ct);
+
+    /// <summary>
+    /// 邀请新成员加入组织（角色为成员）。<paramref name="emails"/> 用逗号或换行分隔；
+    /// 有邮箱无效时服务器不发送任何邀请，抛出 code 为 INVITATION_FAILED 的 <see cref="ZulipApiException"/>。
+    /// </summary>
+    public Task SendInvitesAsync(string emails, IReadOnlyList<long> streamIds, CancellationToken ct = default)
+    {
+        var args = new FormBuilder()
+            .Add("invitee_emails", emails)
+            .AddJson("stream_ids", streamIds)
+            .Add("invite_as", 400)
+            .Add("include_realm_default_subscriptions", false);
+        return SendAsync(HttpMethod.Post, "api/v1/invites", args, DefaultTimeout, ct);
+    }
 
     // ---- 用户 ----
 

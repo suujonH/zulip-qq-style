@@ -41,6 +41,9 @@ public static class EventRouter
             case "reaction":
                 s.Messages.OnReaction(ev);
                 break;
+            case "submessage":
+                s.Messages.OnSubmessage(ev);
+                break;
             case "subscription":
                 if (s.Channels.OnSubscriptionEvent(ev) is { } mutedStream)
                     s.Conversations.RecomputeLevels(mutedStream);
@@ -87,7 +90,18 @@ public static class EventRouter
             case "alert_words":
                 s.Settings.OnAlertWords(ZulipJson.Deserialize<List<string>>(ev.GetProperty("alert_words")));
                 break;
-            // 输入状态、定时消息等由后续阶段处理
+            case "typing":
+                s.Registry.OnTyping(ev);
+                break;
+            case "scheduled_messages":
+                s.Scheduled.OnEvent(ev);
+                break;
+            case "saved_snippets":
+                s.Snippets.OnEvent(ev);
+                break;
+            // 提醒到时由服务器发私信给自己；本客户端不显示提醒列表
+            case "reminders":
+                break;
             default:
                 Log.Debug($"忽略事件：{ev.GetProperty("type").GetString()}");
                 break;
