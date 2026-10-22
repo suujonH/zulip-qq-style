@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -22,16 +23,21 @@ public partial class MessagesPageViewModel : ViewModelBase
 
     private readonly ZulipSession _session;
     private readonly Action<ConversationKey> _openChat;
+    private readonly Func<ConversationKey, Task> _closeChat;
+    private readonly Action<string> _showToast;
     private readonly Dictionary<ConversationKey, ConversationItemViewModel> _items = [];
     private bool _refreshPending;
     private bool _selecting;
     // 当前打开的会话；列表刷新后按它恢复选中（条目可能稍后才出现在列表中）
     private ConversationKey? _selectedKey;
 
-    public MessagesPageViewModel(ZulipSession session, Action<ConversationKey> openChat)
+    public MessagesPageViewModel(ZulipSession session, Action<ConversationKey> openChat,
+        Func<ConversationKey, Task> closeChat, Action<string> showToast)
     {
         _session = session;
         _openChat = openChat;
+        _closeChat = closeChat;
+        _showToast = showToast;
 
         session.Conversations.EntryChanged += (_, _) => RequestRefresh();
         session.Conversations.ListChanged += (_, _) => RequestRefresh();
@@ -103,6 +109,70 @@ public partial class MessagesPageViewModel : ViewModelBase
 
     [RelayCommand]
     private void CloseHelper() => IsHelperOpen = false;
+
+    // ---- 会话右键菜单 ----
+
+    /// <summary>话题和多人私聊有四级“群消息设置”；一对一私聊只有“消息免打扰”开关。</summary>
+    public static bool HasGroupLevels(ConversationItemViewModel item) => item.Key is TopicKey or DmKey { IsGroupDm: true };
+
+    public bool CanMarkRead(ConversationItemViewModel item) => !item.IsHelper && _session.Unread.Count(item.Key) > 0;
+
+    public bool CanMarkUnread(ConversationItemViewModel item) =>
+        !item.IsHelper && !item.IsBlocked && _session.Unread.Count(item.Key) == 0
+        && _session.Conversations.Get(item.Key) is { LastMessageId: > 0 };
+
+    public void TogglePin(ConversationItemViewModel item) => _session.Conversations.SetPinned(item.Key, !item.IsPinned);
+
+    public async Task MarkReadAsync(ConversationItemViewModel item)
+    {
+        try
+        {
+            await _session.Chat.MarkConversationReadAsync(item.Key);
+        }
+        catch (Exception ex) when (!_session.IsDisposed)
+        {
+            Log.Warn($"标为已读失败：{item.Key.ToStorageString()}", ex);
+            _showToast("操作失败");
+        }
+    }
+
+    /// <summary>把最后一条消息标为未读（未读数和提示由 update_message_flags 事件更新）。</summary>
+    public async Task MarkUnreadAsync(ConversationItemViewModel item)
+    {
+        if (_session.Conversations.Get(item.Key) is not { LastMessageId: > 0 and var id })
+            return;
+        try
+        {
+            await _session.Client.UpdateFlagsAsync([id], "remove", "read", _session.Token);
+        }
+        catch (Exception ex) when (!_session.IsDisposed)
+        {
+            Log.Warn($"标为未读失败：{item.Key.ToStorageString()}", ex);
+            _showToast("操作失败");
+        }
+    }
+
+    public async Task SetLevelAsync(ConversationItemViewModel item, DndLevel level)
+    {
+        if (item.Level == level)
+            return;
+        try
+        {
+            await _session.Conversations.SetLevelAsync(item.Key, level);
+        }
+        catch (Exception ex) when (!_session.IsDisposed)
+        {
+            Log.Warn($"设置免打扰失败：{item.Key.ToStorageString()}", ex);
+            _showToast("设置失败");
+        }
+    }
+
+    /// <summary>从消息列表中移除；正在右侧打开时同时关闭聊天。</summary>
+    public async Task RemoveAsync(ConversationItemViewModel item)
+    {
+        _session.Conversations.Remove(item.Key);
+        await _closeChat(item.Key);
+    }
 
     partial void OnSelectedConversationChanged(ConversationItemViewModel? value)
     {

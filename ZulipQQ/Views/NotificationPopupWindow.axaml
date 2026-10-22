@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:s="using:ZulipQQ.Services"
+        xmlns:c="using:ZulipQQ.Controls"
+        x:Class="ZulipQQ.Views.NotificationPopupWindow"
+        x:DataType="s:NotificationRequest"
+        Title="ZulipQQ"
+        Width="320" Height="88" CanResize="False"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        ShowActivated="False" ShowInTaskbar="False" Topmost="True"
+        Background="{DynamicResource CardBrush}">
+
+    <!-- 新消息通知：头像、会话标题、单行正文；点击打开会话 -->
+    <Panel Cursor="Hand" Background="Transparent" PointerReleased="OnPanelReleased">
+        <DockPanel Margin="16,0,8,0">
+            <c:Avatar x:Name="AvatarView" DockPanel.Dock="Left" Width="44" Height="44" VerticalAlignment="Center" Margin="0,0,12,0"
+                      Source="{Binding AvatarUrl}" Text="{Binding AvatarText}" />
+            <StackPanel VerticalAlignment="Center" Spacing="4" Margin="0,0,24,0">
+                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Text="{Binding Body}" FontSize="13" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+        </DockPanel>
+        <Button x:Name="CloseButton" Theme="{StaticResource FlatButton}" Width="24" Height="24"
+                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0" ToolTip.Tip="关闭">
+            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="12" Height="12"
+                      Foreground="{DynamicResource TextSecondaryBrush}" />
+        </Button>
+    </Panel>
+</Window>

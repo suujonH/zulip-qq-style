@@ -63,6 +63,7 @@ public sealed class ZulipSession : IAsyncDisposable
         Files = new FileService(this, new DownloadRepository(db, account.Id));
         Registry = new ChatRegistry(this);
         Presence = new PresenceService(this);
+        Notifications = new NotificationService(this);
         Emoji = new EmojiService(this, new SettingRepository(db, account.Id));
 
         Messages.IsKeptOpen = Registry.IsOpen;
@@ -90,6 +91,7 @@ public sealed class ZulipSession : IAsyncDisposable
     public FileService Files { get; }
     public ChatRegistry Registry { get; }
     public PresenceService Presence { get; }
+    public NotificationService Notifications { get; }
     public EmojiService Emoji { get; }
 
     /// <summary>当前事件队列 id；发送消息时带上，服务器会在对应的 message 事件中返回 local_message_id。</summary>
