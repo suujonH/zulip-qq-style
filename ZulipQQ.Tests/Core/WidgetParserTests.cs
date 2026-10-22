@@ -23,6 +23,25 @@ public class WidgetParserTests
     public void BrokenDefinition_ReturnsNull() => Assert.Null(WidgetParser.Parse([Sub(Owner, "{")], Owner));
 
     [Fact]
+    public void NonStringWidgetType_ReturnsNull() =>
+        Assert.Null(WidgetParser.Parse([Sub(Owner, """{"widget_type":1}""")], Owner));
+
+    [Fact]
+    public void NonIntegerFields_AreIgnored()
+    {
+        var poll = Assert.IsType<PollWidget>(WidgetParser.Parse(
+        [
+            Sub(Owner, """{"widget_type":"poll","extra_data":{"question":"Q","options":["A"]}}"""),
+            Sub(9, """{"type":"new_option","idx":1.5,"option":"B"}"""),
+            Sub(9, """{"type":"vote","key":"canned,0","vote":"1"}"""),
+            Sub(9, """{"type":"vote","key":"canned,0","vote":1e40}"""),
+        ], Owner));
+
+        Assert.Single(poll.Options);
+        Assert.Empty(poll.Options[0].Voters);
+    }
+
+    [Fact]
     public void Poll_CountsVotesAndNewOptions()
     {
         var poll = Assert.IsType<PollWidget>(WidgetParser.Parse(

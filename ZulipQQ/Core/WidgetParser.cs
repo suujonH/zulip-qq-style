@@ -41,10 +41,10 @@ public static class WidgetParser
         {
             using var definition = JsonDocument.Parse(ordered[0].Content);
             var root = definition.RootElement;
-            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("widget_type", out var type))
+            if (root.ValueKind != JsonValueKind.Object)
                 return null;
             var extra = root.TryGetProperty("extra_data", out var e) && e.ValueKind == JsonValueKind.Object ? e : default;
-            return type.GetString() switch
+            return String(root, "widget_type") switch
             {
                 "poll" => ParsePoll(extra, ordered.Skip(1), messageSenderId),
                 "todo" => ParseTodo(extra, ordered.Skip(1), messageSenderId),
@@ -87,15 +87,15 @@ public static class WidgetParser
                 continue;
             switch (String(ev, "type"))
             {
-                case "new_option" when ev.TryGetProperty("idx", out var idx) && idx.ValueKind == JsonValueKind.Number:
-                    AddOption($"{s.SenderId},{idx.GetInt64()}", String(ev, "option"));
+                case "new_option" when Integer(ev, "idx") is { } idx:
+                    AddOption($"{s.SenderId},{idx}", String(ev, "option"));
                     break;
-                case "vote" when ev.TryGetProperty("vote", out var vote) && vote.ValueKind == JsonValueKind.Number:
+                case "vote" when Integer(ev, "vote") is { } vote:
                     var key = String(ev, "key");
                     if (options.Find(o => o.Key == key).Option is not { } option)
                         break;
                     option.Voters.Remove(s.SenderId);
-                    if (vote.GetInt32() == 1)
+                    if (vote == 1)
                         option.Voters.Add(s.SenderId);
                     break;
                 case "question" when s.SenderId == messageSenderId:
@@ -130,8 +130,8 @@ public static class WidgetParser
                 continue;
             switch (String(ev, "type"))
             {
-                case "new_task" when ev.TryGetProperty("key", out var key) && key.ValueKind == JsonValueKind.Number:
-                    AddTask($"{key.GetInt64()},{s.SenderId}", String(ev, "task"), String(ev, "desc"),
+                case "new_task" when Integer(ev, "key") is { } key:
+                    AddTask($"{key},{s.SenderId}", String(ev, "task"), String(ev, "desc"),
                         ev.TryGetProperty("completed", out var c) && c.ValueKind == JsonValueKind.True);
                     break;
                 case "strike":
@@ -161,6 +161,10 @@ public static class WidgetParser
             return null;
         }
     }
+
+    // 整数字段；缺失、不是数字或不是整数时为 null（不抛异常）
+    private static long? Integer(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : null;
 
     private static string String(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String

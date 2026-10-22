@@ -326,20 +326,27 @@ public partial class ComposerViewModel : ViewModelBase
 
             if (scheduleAt is { } at)
             {
+                // 会话的键在 await 之后取：话题可能在获取引用原文或插件过滤期间被移动
+                var scheduledKey = _chat.Key;
                 try
                 {
-                    await _session.Scheduled.CreateAsync(key, text, new DateTimeOffset(at).ToUnixTimeSeconds());
+                    await _session.Scheduled.CreateAsync(scheduledKey, text, new DateTimeOffset(at).ToUnixTimeSeconds());
                 }
                 catch (Exception ex)
                 {
                     if (_session.IsDisposed)
                         return;
-                    Log.Warn($"定时发送失败：{key}", ex);
+                    Log.Warn($"定时发送失败：{scheduledKey}", ex);
                     _showToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"定时发送失败：{api.Message}" : "定时发送失败");
                     return;
                 }
                 if (_closed)
+                {
+                    // 请求期间聊天被关闭，关闭时把内容存成了草稿：已经定时发送，删除草稿，避免重新打开后再发一次
+                    if (!_session.IsDisposed)
+                        _session.Forget(_session.Drafts.DeleteAsync(scheduledKey), "删除草稿");
                     return;
+                }
                 _showToast($"将在 {at:yyyy/MM/dd HH:mm} 发送");
             }
 
