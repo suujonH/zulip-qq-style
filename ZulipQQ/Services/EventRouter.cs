@@ -142,6 +142,9 @@ public static class EventRouter
         s.Messages.OnDeleted(ids);
         s.Unread.OnDeleted(ids);
         s.Conversations.OnDeleted(ids);
+        // 频道消息被删除（含删除话题）后，话题列表可能变化，重新加载
+        if (ev.TryGetProperty("stream_id", out var streamId))
+            s.Channels.InvalidateTopics(streamId.GetInt64());
     }
 
     private static void OnUserSettings(ZulipSession s, JsonElement ev)
