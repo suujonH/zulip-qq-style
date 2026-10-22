@@ -171,6 +171,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
         Session.Users.UserChanged += OnUserChanged;
         Session.Contacts.Changed += OnNamesChanged;
         Session.PermissionsChanged += OnChanged;
+        Session.Resynced += OnResynced;
         Refresh();
         _ = LoadMembersAsync();
     }
@@ -189,9 +190,17 @@ public partial class ChatMorePanelViewModel : ViewModelBase
         Session.Users.UserChanged -= OnUserChanged;
         Session.Contacts.Changed -= OnNamesChanged;
         Session.PermissionsChanged -= OnChanged;
+        Session.Resynced -= OnResynced;
     }
 
     private void OnChanged(object? sender, EventArgs e) => Refresh();
+
+    // 重新 register 后频道、成员整体重建，不会逐个触发变化事件
+    private void OnResynced(object? sender, EventArgs e)
+    {
+        Refresh();
+        _ = LoadMembersAsync();
+    }
 
     private void OnEntryChanged(object? sender, ConversationKey key)
     {
@@ -351,24 +360,24 @@ public partial class ChatMorePanelViewModel : ViewModelBase
             _main.Dialogs.Remove(picker);
             if (ids is not null)
                 _ = ChangeSubscribersAsync(channel, ids, add: true);
-        }, id => !members.Contains(id));
+        }, Session.Users.ActiveHumans(excludeSelf: true).Where(u => !members.Contains(u.Id)));
         _main.Dialogs.Add(picker);
     }
 
-    /// <summary>移出：只列出成员（不含自己），确认后为他们退订频道。</summary>
+    /// <summary>移出：列出全部成员（含机器人，不含自己），确认后为他们退订频道。</summary>
     [RelayCommand]
     private void RemoveMembers()
     {
         if (Key is not TopicKey t || Session.Channels.Get(t.StreamId) is not { } channel)
             return;
-        var members = _members.Select(m => m.UserId).ToHashSet();
+        var members = _members.Select(m => Session.Users.Get(m.UserId)).OfType<ZulipUser>().ToList();
         UserPickerDialogViewModel picker = null!;
         picker = new UserPickerDialogViewModel(Session, "移出成员", 1, null, async ids =>
         {
             _main.Dialogs.Remove(picker);
             if (ids is not null && await _main.ConfirmAsync($"将从频道 #{channel.Name} 中移出所选成员", "移出", isDanger: true))
                 await ChangeSubscribersAsync(channel, ids, add: false);
-        }, members.Contains);
+        }, members);
         _main.Dialogs.Add(picker);
     }
 

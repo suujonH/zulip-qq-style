@@ -58,6 +58,8 @@ public partial class ChatView : UserControl
         SizeChanged += (_, _) => UpdateSizes();
         LayoutUpdated += OnLayoutUpdated;
         MessageList.AddHandler(MessageContent.LinkClickedEvent, OnLinkClicked);
+        // 右侧栏群公告中的链接
+        SidebarView.AddHandler(MessageContent.LinkClickedEvent, OnLinkClicked);
         TitleText.PointerReleased += OnTitlePointerReleased;
         MorePanelDismiss.PointerPressed += (_, _) => _vm?.CloseMorePanelCommand.Execute(null);
         MessageList.AddHandler(PointerReleasedEvent, OnMessagePointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);

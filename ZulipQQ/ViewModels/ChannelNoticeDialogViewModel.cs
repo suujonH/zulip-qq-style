@@ -65,9 +65,20 @@ public partial class ChannelNoticeDialogViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     public partial bool IsBusy { get; private set; }
 
-    private void Attach() => _session.Channels.ChannelChanged += OnChannelChanged;
+    private void Attach()
+    {
+        _session.Channels.ChannelChanged += OnChannelChanged;
+        _session.Resynced += OnResynced;
+    }
 
-    private void Detach() => _session.Channels.ChannelChanged -= OnChannelChanged;
+    private void Detach()
+    {
+        _session.Channels.ChannelChanged -= OnChannelChanged;
+        _session.Resynced -= OnResynced;
+    }
+
+    // 重新 register 后频道整体重建，不会逐个触发 ChannelChanged
+    private void OnResynced(object? sender, EventArgs e) => Refresh();
 
     private void OnChannelChanged(object? sender, long streamId)
     {

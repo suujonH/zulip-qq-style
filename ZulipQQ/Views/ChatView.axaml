@@ -127,6 +127,8 @@
             <Setter Property="Opacity" Value="0" />
             <Setter Property="RenderTransform" Value="translateX(320px)" />
             <Setter Property="IsHitTestVisible" Value="False" />
+            <!-- 关闭后不能再用键盘聚焦或操作其中的控件 -->
+            <Setter Property="IsEnabled" Value="False" />
             <Setter Property="Transitions">
                 <Transitions>
                     <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
@@ -138,6 +140,7 @@
             <Setter Property="Opacity" Value="1" />
             <Setter Property="RenderTransform" Value="none" />
             <Setter Property="IsHitTestVisible" Value="True" />
+            <Setter Property="IsEnabled" Value="True" />
         </Style>
     </UserControl.Styles>
 

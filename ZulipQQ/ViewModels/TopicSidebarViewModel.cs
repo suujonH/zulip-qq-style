@@ -59,6 +59,7 @@ public partial class TopicSidebarViewModel : ViewModelBase
         Session.Users.UserChanged += OnUserChanged;
         Session.Contacts.Changed += OnNamesChanged;
         Session.PermissionsChanged += OnNamesChanged;
+        Session.Resynced += OnResynced;
         Refresh();
         _ = LoadMembersAsync();
     }
@@ -74,6 +75,7 @@ public partial class TopicSidebarViewModel : ViewModelBase
         Session.Users.UserChanged -= OnUserChanged;
         Session.Contacts.Changed -= OnNamesChanged;
         Session.PermissionsChanged -= OnNamesChanged;
+        Session.Resynced -= OnResynced;
     }
 
     // 话题被移动到其他频道：公告和成员都换成新频道的
@@ -108,6 +110,13 @@ public partial class TopicSidebarViewModel : ViewModelBase
     }
 
     private void OnNamesChanged(object? sender, EventArgs e) => _ = LoadMembersAsync();
+
+    // 重新 register 后频道整体重建，不会逐个触发 ChannelChanged
+    private void OnResynced(object? sender, EventArgs e)
+    {
+        Refresh();
+        _ = LoadMembersAsync();
+    }
 
     private void Refresh()
     {
