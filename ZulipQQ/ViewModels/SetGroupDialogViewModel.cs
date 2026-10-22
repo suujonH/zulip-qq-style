@@ -24,12 +24,12 @@ public sealed record GroupChoice(FriendGroup? Group)
 /// </summary>
 public partial class SetGroupDialogViewModel : ViewModelBase
 {
-    private readonly FriendStore _store;
+    private readonly ContactStore _store;
     private readonly IReadOnlyCollection<long> _userIds;
     private readonly Action<Action<FriendGroup>> _showAddGroupDialog;
     private readonly Action<bool> _onClosed;
 
-    public SetGroupDialogViewModel(FriendStore store, IReadOnlyCollection<long> userIds,
+    public SetGroupDialogViewModel(ContactStore store, IReadOnlyCollection<long> userIds,
         Action<Action<FriendGroup>> showAddGroupDialog, Action<bool> onClosed)
     {
         _store = store;
@@ -65,7 +65,7 @@ public partial class SetGroupDialogViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanConfirm))]
     private void Confirm()
     {
-        _store.MoveFriends(_userIds, SelectedChoice!.Group!.Id);
+        _store.MoveUsers(_userIds, SelectedChoice!.Group!.Id);
         _onClosed(true);
     }
 

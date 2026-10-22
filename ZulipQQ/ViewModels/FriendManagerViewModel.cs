@@ -21,16 +21,16 @@ public partial class FriendManagerViewModel : ViewModelBase
     private static readonly StringComparer NicknameComparer =
         StringComparer.Create(CultureInfo.GetCultureInfo("zh-CN"), CompareOptions.None);
 
-    private readonly FriendStore _store;
+    private readonly ContactStore _store;
+    private readonly UserStore _users;
 
-    public FriendManagerViewModel() : this(FriendStore.Instance)
+    public FriendManagerViewModel(ZulipSession session)
     {
-    }
-
-    public FriendManagerViewModel(FriendStore store)
-    {
-        _store = store;
+        _store = session.Contacts;
+        _users = session.Users;
         _store.Changed += OnStoreChanged;
+        _users.UserChanged += OnUserChanged;
+        _users.Reset += OnStoreChanged;
         RefreshGroupFilters();
         RefreshRows();
     }
@@ -44,7 +44,7 @@ public partial class FriendManagerViewModel : ViewModelBase
     /// <summary>打开中的对话框，后打开的显示在上层。</summary>
     public ObservableCollection<ViewModelBase> Dialogs { get; } = [];
 
-    public int TotalCount => _store.Friends.Count;
+    public int TotalCount => _users.ActiveHumans(excludeSelf: true).Count();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsAllFriendsFilter))]
@@ -65,7 +65,12 @@ public partial class FriendManagerViewModel : ViewModelBase
     public bool IsAllVisibleSelected => Rows.Count > 0 && Rows.All(r => r.IsSelected);
 
     /// <summary>界面关闭时调用，停止监听数据变化。</summary>
-    public void Detach() => _store.Changed -= OnStoreChanged;
+    public void Detach()
+    {
+        _store.Changed -= OnStoreChanged;
+        _users.UserChanged -= OnUserChanged;
+        _users.Reset -= OnStoreChanged;
+    }
 
     partial void OnSelectedGroupFilterChanged(GroupFilterItemViewModel? value)
     {
@@ -140,18 +145,24 @@ public partial class FriendManagerViewModel : ViewModelBase
         RefreshRows();
     }
 
-    // 分组只会新增、不会删除或重排，按位置更新即可
+    private void OnUserChanged(object? sender, long userId) => OnStoreChanged(sender, EventArgs.Empty);
+
+    // 分组可能被删除或改名：按分组 id 复用原对象；正在筛选的分组被删除时回到“全部好友”
     private void RefreshGroupFilters()
     {
-        var groups = _store.Groups;
-        for (var i = 0; i < groups.Count; i++)
+        var existing = GroupFilters.ToDictionary(f => f.GroupId);
+        var desired = _store.Groups.Select(g =>
         {
-            var count = _store.CountInGroup(groups[i].Id);
-            if (i < GroupFilters.Count)
-                GroupFilters[i].Update(groups[i], count);
-            else
-                GroupFilters.Add(new GroupFilterItemViewModel(groups[i], count));
-        }
+            var count = _store.CountInGroup(g.Id);
+            if (!existing.TryGetValue(g.Id, out var filter))
+                return new GroupFilterItemViewModel(g, count);
+            filter.Update(g, count);
+            return filter;
+        }).ToList();
+
+        if (SelectedGroupFilter is not null && !desired.Contains(SelectedGroupFilter))
+            SelectedGroupFilter = null;
+        CollectionSync.SyncTo(GroupFilters, desired);
 
         OnPropertyChanged(nameof(TotalCount));
     }
@@ -166,12 +177,13 @@ public partial class FriendManagerViewModel : ViewModelBase
         var groupId = SelectedGroupFilter?.GroupId;
         var existing = Rows.ToDictionary(r => r.UserId);
 
-        var desired = _store.Friends
+        var desired = _users.ActiveHumans(excludeSelf: true)
+            .Select(u => new Friend(u, _store.GetGroupId(u.Id), _store.GetRemark(u.Id)))
             .Where(f => groupId is null || f.GroupId == groupId)
             .Where(f => keyword.Length == 0
-                        || f.User.Nickname.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                        || f.User.FullName.Contains(keyword, StringComparison.OrdinalIgnoreCase)
                         || (f.Remark?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false))
-            .OrderBy(f => f.User.Nickname, NicknameComparer)
+            .OrderBy(f => f.User.FullName, NicknameComparer)
             .ThenBy(f => f.User.Id)
             .Select(f =>
             {

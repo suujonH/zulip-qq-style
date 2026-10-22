@@ -16,12 +16,6 @@
         ExtendClientAreaToDecorationsHint="True"
         Background="{DynamicResource WindowBackgroundBrush}">
 
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainViewModel />
-    </Design.DataContext>
-
     <Window.Styles>
         <!-- 标题栏右侧窗口按钮 -->
         <Style Selector="Button.caption">
@@ -85,20 +79,11 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                         Margin="22,0,0,0" VerticalAlignment="Center">
                 <Panel Width="24" Height="24">
-                    <c:Avatar Text="{Binding CurrentUser.Nickname}" />
-                    <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2"
-                             IsVisible="{Binding CurrentUser.IsOnline}" />
+                    <c:Avatar Text="{Binding SelfName}" />
+                    <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2" />
                 </Panel>
-                <TextBlock Text="{Binding CurrentUser.Nickname}" FontSize="14" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding SelfName}" FontSize="14" VerticalAlignment="Center" />
                 <TextBlock Classes="sub" Text="{Binding SignatureText}" VerticalAlignment="Center" />
-            </StackPanel>
-
-            <!-- 天气为静态占位 -->
-            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
-                        Margin="0,0,20,0" VerticalAlignment="Center">
-                <c:TdIcon Icon="{StaticResource Icon.Moon}" Width="18" Height="18"
-                          Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Text="晴" FontSize="13" VerticalAlignment="Center" />
             </StackPanel>
 
             <StackPanel Grid.Column="4" Orientation="Horizontal">
@@ -129,8 +114,17 @@
                 <Border Grid.Column="0" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
                     <DockPanel Margin="0,8">
                         <StackPanel DockPanel.Dock="Bottom">
-                            <Button Classes="nav" Theme="{StaticResource FlatButton}">
+                            <Button Classes="nav" Theme="{StaticResource FlatButton}" ToolTip.Tip="主菜单">
                                 <c:TdIcon Icon="{StaticResource Icon.ViewList}" />
+                                <Button.Flyout>
+                                    <MenuFlyout Placement="RightEdgeAlignedBottom">
+                                        <MenuItem Header="退出账号" Command="{Binding LogoutCommand}">
+                                            <MenuItem.Icon>
+                                                <c:TdIcon Icon="{StaticResource Icon.Logout}" Width="14" Height="14" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </MenuFlyout>
+                                </Button.Flyout>
                             </Button>
                         </StackPanel>
 
@@ -189,5 +183,7 @@
                           Foreground="{DynamicResource PlaceholderLogoBrush}" />
             </Grid>
         </Border>
+
+        <c:DialogLayer Grid.Row="0" Grid.RowSpan="2" Dialogs="{Binding Dialogs}" />
     </Grid>
 </Window>

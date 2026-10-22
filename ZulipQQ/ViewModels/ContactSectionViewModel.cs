@@ -5,9 +5,8 @@ using CommunityToolkit.Mvvm.Input;
 namespace ZulipQQ.ViewModels;
 
 /// <summary>
-/// 联系人页中可折叠的一个分组（好友分组、我的设备、群聊分类共用）。
-/// <see cref="Items"/> 中可以是 <see cref="FriendItemViewModel"/>、<see cref="DeviceItemViewModel"/> 或
-/// <see cref="GroupItemViewModel"/>，由界面按类型选择模板。
+/// 联系人页中可折叠的一个分组（好友分组、频道共用）。
+/// <see cref="Items"/> 中的条目由界面按类型选择模板。
 /// </summary>
 public partial class ContactSectionViewModel(long id, string name, string countText, IReadOnlyList<ViewModelBase> items)
     : ViewModelBase

@@ -1,11 +1,11 @@
 using System;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
+using ZulipQQ.Services;
 using ZulipQQ.ViewModels;
 
 namespace ZulipQQ.Views;
 
-public partial class FriendManagerWindow : Window
+public partial class FriendManagerWindow : Window, ISessionWindow
 {
     // 好友管理器只允许打开一个
     private static FriendManagerWindow? _current;
@@ -16,7 +16,7 @@ public partial class FriendManagerWindow : Window
     }
 
     /// <summary>打开好友管理器；已打开时把它还原并激活。</summary>
-    public static void ShowSingle(Window owner)
+    public static void ShowSingle(Window owner, ZulipSession session)
     {
         if (_current is not null)
         {
@@ -26,7 +26,7 @@ public partial class FriendManagerWindow : Window
             return;
         }
 
-        _current = new FriendManagerWindow { DataContext = new FriendManagerViewModel() };
+        _current = new FriendManagerWindow { DataContext = new FriendManagerViewModel(session) };
         _current.Show(owner);
     }
 
@@ -37,11 +37,4 @@ public partial class FriendManagerWindow : Window
         if (_current == this)
             _current = null;
     }
-
-    private void OnMinimizeClick(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-
-    private void OnMaximizeClick(object? sender, RoutedEventArgs e) =>
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-
-    private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
 }
