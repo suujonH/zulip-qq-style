@@ -6,6 +6,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ZulipQQ.Core;
+using ZulipQQ.Models;
 using ZulipQQ.Services;
 
 namespace ZulipQQ.ViewModels;
@@ -28,6 +29,7 @@ public partial class UserPickerItem(long userId, string displayName, string? ava
 /// <summary>
 /// 选择用户对话框：左侧搜索并勾选，右侧显示已选用户（可移除）。
 /// 至少选择 <paramref name="minCount"/> 人才能确定。关闭时调用 onClosed：确定传入所选用户 id（按选择顺序），取消传入 null。
+/// <paramref name="candidates"/> 为可选的用户（不含自己），为 null 时为全部真人用户。
 /// </summary>
 public partial class UserPickerDialogViewModel : ViewModelBase
 {
@@ -39,12 +41,13 @@ public partial class UserPickerDialogViewModel : ViewModelBase
     private readonly Action<IReadOnlyList<long>?> _onClosed;
 
     public UserPickerDialogViewModel(ZulipSession session, string title, int minCount, IEnumerable<long>? preselected,
-        Action<IReadOnlyList<long>?> onClosed)
+        Action<IReadOnlyList<long>?> onClosed, IEnumerable<ZulipUser>? candidates = null)
     {
         Title = title;
         _minCount = minCount;
         _onClosed = onClosed;
-        _all = session.Users.ActiveHumans(excludeSelf: true)
+        _all = (candidates ?? session.Users.ActiveHumans(excludeSelf: true))
+            .Where(u => u.Id != session.SelfId)
             .Select(u => new UserPickerItem(u.Id, session.Contacts.DisplayName(u.Id), u.AvatarUrl, u.Email))
             .OrderBy(i => i.DisplayName, NameComparer)
             .ToList();

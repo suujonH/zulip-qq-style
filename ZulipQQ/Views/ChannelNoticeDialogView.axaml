@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.ChannelNoticeDialogView"
+             x:DataType="vm:ChannelNoticeDialogViewModel">
+
+    <Border Classes="dialog" Width="440">
+        <StackPanel>
+            <Grid Height="30">
+                <TextBlock Text="{Binding Title}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" Margin="36,0" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CloseCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel Margin="20,14,20,20" Spacing="12">
+                <Panel IsVisible="{Binding !IsEditing}">
+                    <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
+                        <c:MessageContent Html="{Binding Html}" TextElement.FontSize="14" />
+                    </ScrollViewer>
+                    <TextBlock Classes="sub" Text="暂无公告" FontSize="13" IsVisible="{Binding IsEmpty}" />
+                </Panel>
+                <TextBox Classes="input" IsVisible="{Binding IsEditing}" Text="{Binding Draft}"
+                         AcceptsReturn="True" TextWrapping="Wrap" Height="160" VerticalContentAlignment="Top"
+                         MaxLength="{x:Static vm:CreateChannelDialogViewModel.MaxDescriptionLength}"
+                         PlaceholderText="支持 Markdown" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="编辑"
+                            IsVisible="{Binding ShowEditButton}" Command="{Binding BeginEditCommand}" />
+                    <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="保存"
+                            IsVisible="{Binding IsEditing}" Command="{Binding SaveCommand}" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                            IsVisible="{Binding IsEditing}" Command="{Binding CancelEditCommand}" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="关闭"
+                            IsVisible="{Binding !IsEditing}" Command="{Binding CloseCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

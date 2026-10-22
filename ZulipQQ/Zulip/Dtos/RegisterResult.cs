@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ZulipQQ.Core;
 
 namespace ZulipQQ.Zulip.Dtos;
 
@@ -118,6 +119,31 @@ public sealed record RegisterResult
             || settings.ValueKind != JsonValueKind.Object)
             return [];
         return settings.EnumerateObject().Select(p => p.Name).ToList();
+    }
+
+    /// <summary>每个 (范围, 设置名) 可以设置的组的限制。</summary>
+    public Dictionary<(string Scope, string Name), PermissionSettingInfo> PermissionSettingInfos()
+    {
+        Dictionary<(string, string), PermissionSettingInfo> result = [];
+        if (ServerSupportedPermissionSettings.ValueKind != JsonValueKind.Object)
+            return result;
+        foreach (var scope in ServerSupportedPermissionSettings.EnumerateObject())
+        {
+            if (scope.Value.ValueKind != JsonValueKind.Object)
+                continue;
+            foreach (var setting in scope.Value.EnumerateObject())
+            {
+                var v = setting.Value;
+                List<string> allowed = v.TryGetProperty("allowed_system_groups", out var groups) && groups.ValueKind == JsonValueKind.Array
+                    ? groups.EnumerateArray().Select(g => g.GetString() ?? "").ToList()
+                    : [];
+                result[(scope.Name, setting.Name)] = new PermissionSettingInfo(
+                    !v.TryGetProperty("allow_nobody_group", out var nobody) || nobody.ValueKind == JsonValueKind.True,
+                    !v.TryGetProperty("allow_everyone_group", out var everyone) || everyone.ValueKind == JsonValueKind.True,
+                    allowed);
+            }
+        }
+        return result;
     }
 
     /// <summary>每个 (范围, 设置名) 是否允许设为“所有人”组（含访客）。</summary>

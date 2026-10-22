@@ -27,6 +27,7 @@ public partial class ChatView : UserControl
 {
     private const double BottomTolerance = 20;
     private const double LoadMoreDistance = 300;
+    private const double SidebarMinChatWidth = 640;
 
     private readonly DispatcherTimer _viewportTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private ChatViewModel? _vm;
@@ -57,7 +58,10 @@ public partial class ChatView : UserControl
         SizeChanged += (_, _) => UpdateSizes();
         LayoutUpdated += OnLayoutUpdated;
         MessageList.AddHandler(MessageContent.LinkClickedEvent, OnLinkClicked);
+        // 右侧栏群公告中的链接
+        SidebarView.AddHandler(MessageContent.LinkClickedEvent, OnLinkClicked);
         TitleText.PointerReleased += OnTitlePointerReleased;
+        MorePanelDismiss.PointerPressed += (_, _) => _vm?.CloseMorePanelCommand.Execute(null);
         MessageList.AddHandler(PointerReleasedEvent, OnMessagePointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         // 隧道阶段处理：SelectableTextBlock 自带的“Copy”菜单会在冒泡阶段先处理
         MessageList.AddHandler(ContextRequestedEvent, OnMessageContextRequested, RoutingStrategies.Tunnel);
@@ -285,6 +289,8 @@ public partial class ChatView : UserControl
 
     private void UpdateSizes()
     {
+        // 右侧栏只在显示后消息区仍不小于 640 时显示
+        SidebarView.IsVisible = _vm?.Sidebar is not null && Bounds.Width - SidebarView.Width >= SidebarMinChatWidth;
         if (_vm is not null && MessageScroller.Bounds.Width > 0)
             _vm.BubbleMaxWidth = Math.Max(200, MessageScroller.Bounds.Width * 0.65);
         if (Bounds.Height > 0)
@@ -316,7 +322,7 @@ public partial class ChatView : UserControl
     }
 
     /// <summary>弹出名片；名片中点击“发消息”后关闭。没有名片（例如多人私聊的标题）时不弹出。</summary>
-    private static void ShowCard(Func<Action, ViewModelBase?> create, Control anchor, PlacementMode placement)
+    internal static void ShowCard(Func<Action, ViewModelBase?> create, Control anchor, PlacementMode placement)
     {
         var flyout = new Flyout { Placement = placement };
         flyout.FlyoutPresenterClasses.Add("card");
@@ -469,7 +475,10 @@ public partial class ChatView : UserControl
             }
             if (v is Border border && border.Classes.Contains("bubble") && border.DataContext is MessageItemViewModel m)
             {
-                _vm.ShowTime(m.Id);
+                if (m.IsMutedHidden)
+                    m.Reveal();
+                else
+                    _vm.ShowTime(m.Id);
                 return;
             }
         }

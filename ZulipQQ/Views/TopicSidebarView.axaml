@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.TopicSidebarView"
+             x:DataType="vm:TopicSidebarViewModel"
+             Background="{DynamicResource PanelBackgroundBrush}">
+
+    <DockPanel>
+        <!-- 群公告：最多显示约 6 行，点击 > 查看全部 -->
+        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1"
+                Padding="12,10,8,12">
+            <StackPanel Spacing="6">
+                <Button Theme="{StaticResource FlatButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        Padding="0,2" Command="{Binding ShowNoticeCommand}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="群公告" FontSize="13" FontWeight="SemiBold" />
+                        <c:TdIcon Grid.Column="1" Icon="{StaticResource Icon.ChevronRight}" Width="14" Height="14"
+                                  Foreground="{DynamicResource TextTertiaryBrush}" />
+                    </Grid>
+                </Button>
+                <Border MaxHeight="120" ClipToBounds="True" IsVisible="{Binding HasNotice}">
+                    <c:MessageContent Html="{Binding NoticeHtml}" TextElement.FontSize="12" />
+                </Border>
+                <TextBlock Classes="sub" Text="暂无公告" FontSize="12" IsVisible="{Binding !HasNotice}" />
+            </StackPanel>
+        </Border>
+
+        <!-- 群聊成员 -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Height="36" Margin="12,4,6,0">
+            <TextBlock Text="{Binding MembersTitle}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="26" Height="26"
+                    ToolTip.Tip="搜索群成员" Command="{Binding ToggleSearchCommand}">
+                <c:TdIcon Icon="{StaticResource Icon.Search}" Width="14" Height="14" />
+            </Button>
+        </Grid>
+        <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Classes="search" Margin="8,0,8,6" PlaceholderText="搜索"
+                 Text="{Binding Query}" IsVisible="{Binding IsSearching}" />
+        <ListBox x:Name="MemberList" Classes="members" ItemsSource="{Binding Members}" Background="Transparent">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ChatMemberItem">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Height="34">
+                        <c:Avatar Width="24" Height="24" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
+                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" Margin="8,0,4,0" FontSize="12"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Border Grid.Column="2" Classes="badge" Classes.owner="{Binding IsOwner}" IsVisible="{Binding HasBadge}">
+                            <TextBlock Text="{Binding Badge}" />
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+</UserControl>

@@ -52,17 +52,53 @@ public partial class ChatViewModel : ViewModelBase
     private bool _loaded;
     private bool _closed;
 
-    public ChatViewModel(ZulipSession session, ConversationKey key, Func<ConversationKey, long?, Task> openChat, Action<string> showToast)
+    public ChatViewModel(ZulipSession session, MainViewModel main, ConversationKey key)
     {
         _session = session;
-        _openChat = openChat;
-        _showToast = showToast;
+        Main = main;
+        _openChat = (k, f) => main.OpenChatAsync(k, f);
+        _showToast = main.ShowToast;
         Key = key;
-        Composer = new ComposerViewModel(this, session, showToast);
+        Composer = new ComposerViewModel(this, session, _showToast);
+        Sidebar = key is TopicKey ? new TopicSidebarViewModel(this) : null;
         RefreshTitle();
     }
 
+    public MainViewModel Main { get; }
+
+    /// <summary>话题聊天的右侧栏（群公告、群聊成员）；私聊为 null。</summary>
+    public TopicSidebarViewModel? Sidebar { get; }
+
     public ComposerViewModel Composer { get; }
+
+    /// <summary>
+    /// 标题栏“…”打开的更多面板。每次打开新建（回到主页面）；关闭后保留到滑出动画结束，但不再随数据刷新。
+    /// </summary>
+    [ObservableProperty]
+    public partial ChatMorePanelViewModel? MorePanel { get; private set; }
+
+    [ObservableProperty]
+    public partial bool IsMorePanelOpen { get; private set; }
+
+    [RelayCommand]
+    private void ToggleMorePanel()
+    {
+        if (IsMorePanelOpen)
+        {
+            CloseMorePanel();
+            return;
+        }
+        // 先标记打开：视图换上新面板时据此开始刷新
+        IsMorePanelOpen = true;
+        MorePanel = new ChatMorePanelViewModel(this, Main);
+    }
+
+    [RelayCommand]
+    private void CloseMorePanel()
+    {
+        IsMorePanelOpen = false;
+        MorePanel?.Detach();
+    }
 
     /// <summary>话题被整体移动时会被替换。</summary>
     public ConversationKey Key { get; private set; }
@@ -161,6 +197,7 @@ public partial class ChatViewModel : ViewModelBase
         if (_closed)
             return Task.CompletedTask;
         _closed = true;
+        CloseMorePanel();
         Unsubscribe();
         _session.Registry.Unregister(this);
         return Composer.CloseAsync();
@@ -602,6 +639,7 @@ public partial class ChatViewModel : ViewModelBase
         _session.Conversations.EntryChanged += OnEntryChanged;
         _session.Contacts.Changed += OnNamesChanged;
         _session.Users.UserChanged += OnUserChanged;
+        _session.Users.MutedChanged += OnMutedChanged;
         _session.Channels.ChannelChanged += OnChannelChanged;
     }
 
@@ -613,8 +651,11 @@ public partial class ChatViewModel : ViewModelBase
         _session.Conversations.EntryChanged -= OnEntryChanged;
         _session.Contacts.Changed -= OnNamesChanged;
         _session.Users.UserChanged -= OnUserChanged;
+        _session.Users.MutedChanged -= OnMutedChanged;
         _session.Channels.ChannelChanged -= OnChannelChanged;
     }
+
+    private void OnMutedChanged(object? sender, EventArgs e) => RefreshMessages();
 
     private void OnTimelineChanged(object? sender, (ConversationKey Key, TimelineChange Change) e)
     {

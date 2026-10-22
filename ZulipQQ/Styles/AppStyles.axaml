@@ -116,6 +116,36 @@
         <Setter Property="Background" Value="{DynamicResource CardBrush}" />
     </Style>
 
+    <!-- 群成员列表：紧凑行高，悬停、选中都只变灰 -->
+    <Style Selector="ListBox.members ListBoxItem">
+        <Setter Property="Padding" Value="12,0,8,0" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="ListBox.members ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+    </Style>
+    <Style Selector="ListBox.members ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+    </Style>
+
+    <!-- 群成员徽标：默认为“管理员”的蓝色，.owner 为“群主”的橙色 -->
+    <Style Selector="Border.badge">
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Padding" Value="4,1" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Background" Value="{DynamicResource AdminBadgeFillBrush}" />
+    </Style>
+    <Style Selector="Border.badge > TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+    </Style>
+    <Style Selector="Border.badge.owner">
+        <Setter Property="Background" Value="{DynamicResource OwnerBadgeFillBrush}" />
+    </Style>
+    <Style Selector="Border.badge.owner > TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource OwnerBadgeBrush}" />
+    </Style>
+
     <Style Selector="ToolTip">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Padding" Value="6,3" />

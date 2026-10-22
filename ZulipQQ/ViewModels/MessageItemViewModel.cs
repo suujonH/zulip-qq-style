@@ -48,7 +48,17 @@ public partial class MessageItemViewModel : ViewModelBase
 
     /// <summary>只有图片 / 文件：不显示气泡背景。</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsBare))]
     public partial bool IsBare { get; private set; }
+
+    /// <summary>发送者被屏蔽：内容替换为“已屏蔽的消息（点击查看）”，点击后在本次打开期间显示。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsBare))]
+    public partial bool IsMutedHidden { get; private set; }
+
+    public bool ShowsBare => IsBare && !IsMutedHidden;
+
+    private bool _revealed;
 
     [ObservableProperty]
     public partial bool IsEdited { get; private set; }
@@ -98,6 +108,7 @@ public partial class MessageItemViewModel : ViewModelBase
         IsPending = Message.SendState == MessageSendState.Pending;
         IsFailed = Message.SendState == MessageSendState.Failed;
         IsStarred = Message.IsStarred;
+        IsMutedHidden = !IsOwn && !_revealed && _session.Users.IsMuted(Message.SenderId);
 
         // 同一表情合并为一项，按第一次出现的顺序
         Reactions = Message.Reactions
@@ -106,6 +117,13 @@ public partial class MessageItemViewModel : ViewModelBase
                 g.Select(r => r.UserId).ToList(), _session))
             .ToList();
         ReactionCount = Reactions.Count;
+    }
+
+    /// <summary>点击已屏蔽的消息：显示原内容。</summary>
+    public void Reveal()
+    {
+        _revealed = true;
+        IsMutedHidden = false;
     }
 
     internal Task ToggleReactionAsync(ReactionViewModel reaction) => _chat.ToggleReactionAsync(this, reaction);
