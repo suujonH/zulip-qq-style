@@ -159,12 +159,17 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
         });
         if (file is null || session.IsDisposed)
             return true;
+        // 选中了已下载的文件本身：打开写入流会先把它清空，而内容本来就已经在那里
+        var local = LocalPath(link.Path);
+        if (local is not null && file.TryGetLocalPath() is { } chosen
+            && string.Equals(Path.GetFullPath(chosen), Path.GetFullPath(local), StringComparison.OrdinalIgnoreCase))
+            return true;
 
         try
         {
             await using (var target = await file.OpenWriteAsync())
             {
-                if (LocalPath(link.Path) is { } local)
+                if (local is not null)
                 {
                     await using var source = File.OpenRead(local);
                     await source.CopyToAsync(target, session.Token);

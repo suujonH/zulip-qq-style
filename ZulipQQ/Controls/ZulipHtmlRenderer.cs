@@ -327,13 +327,7 @@ internal static partial class ZulipHtmlRenderer
         return block;
     }
 
-    private static UploadLink UploadOf(string path, string text)
-    {
-        text = text.Trim();
-        if (text.Length == 0 || text.Contains("/user_uploads/", StringComparison.Ordinal))
-            text = Uri.UnescapeDataString(path[(path.LastIndexOf('/') + 1)..]);
-        return new UploadLink(path, text, ZulipHtml.IsImagePath(path));
-    }
+    private static UploadLink UploadOf(string path, string text) => ZulipHtml.UploadLinkOf(path, text);
 
     private static void BindResource(AvaloniaObject target, AvaloniaProperty property, IResourceHost host, string key) =>
         target.Bind(property, host.GetResourceObservable(key));
@@ -421,9 +415,13 @@ internal static partial class ZulipHtmlRenderer
 
         public void AddText(string text, InlineStyle style, MessageLinkTarget? link)
         {
-            text = Whitespace().Replace(text, " ");
-            if (_atLineStart || _endsWithSpace)
-                text = text.TrimStart(' ');
+            // 行内代码原样保留空白（字符串字面量、命令中的空格有意义）
+            if (!style.Code)
+            {
+                text = Whitespace().Replace(text, " ");
+                if (_atLineStart || _endsWithSpace)
+                    text = text.TrimStart(' ');
+            }
             if (text.Length == 0)
                 return;
 

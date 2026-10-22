@@ -308,8 +308,7 @@ public partial class ChatViewModel : ViewModelBase
                 // 图片查看器在后续分支实现，目前上传的图片下载后用系统程序打开
                 if (ZulipHtml.NormalizeUploadPath(image.Href) is { } upload)
                 {
-                    var name = Uri.UnescapeDataString(upload[(upload.LastIndexOf('/') + 1)..]);
-                    if (!await _session.Files.OpenAsync(new UploadLink(upload, name, true), Key, messageId) && !_session.IsDisposed)
+                    if (!await _session.Files.OpenAsync(ZulipHtml.UploadLinkOf(upload, null), Key, messageId) && !_session.IsDisposed)
                         _showToast("图片下载失败");
                 }
                 else
@@ -442,6 +441,9 @@ public partial class ChatViewModel : ViewModelBase
                 _loadingNewer = false;
             if (!_closed && older)
                 RebuildItems();
+            // 向后翻到最新端：查看较早历史期间收到、保持未读的消息现在显示出来了
+            if (!older && ShowsLatest)
+                MarkReadIfViewing();
         }
     }
 

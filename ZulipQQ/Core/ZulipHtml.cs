@@ -136,13 +136,24 @@ public static partial class ZulipHtml
             var path = NormalizeUploadPath(a.GetAttribute("href"));
             if (path is null || !seen.Add(path))
                 continue;
-
-            var text = a.TextContent.Trim();
-            if (text.Length == 0 || text.Contains(UploadsPrefix, StringComparison.Ordinal) || text.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                text = Uri.UnescapeDataString(path[(path.LastIndexOf('/') + 1)..]);
-            result.Add(new UploadLink(path, text, IsImagePath(path)));
+            result.Add(UploadLinkOf(path, a.TextContent));
         }
         return result;
+    }
+
+    /// <summary>
+    /// 由规范化的上传路径和链接文字生成 <see cref="UploadLink"/>。文件名优先用链接文字；
+    /// 链接文字为空、是地址、或扩展名与上传路径不同（例如 <c>[报告](…/report.pdf)</c>）时，
+    /// 用路径的最后一段，保证下载后的文件扩展名正确。
+    /// </summary>
+    public static UploadLink UploadLinkOf(string path, string? linkText)
+    {
+        var pathName = Uri.UnescapeDataString(path[(path.LastIndexOf('/') + 1)..]);
+        var text = linkText?.Trim() ?? "";
+        if (text.Length == 0 || text.Contains(UploadsPrefix, StringComparison.Ordinal) || text.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(Path.GetExtension(text), Path.GetExtension(pathName), StringComparison.OrdinalIgnoreCase))
+            text = pathName;
+        return new UploadLink(path, text, IsImagePath(path));
     }
 
     /// <summary>

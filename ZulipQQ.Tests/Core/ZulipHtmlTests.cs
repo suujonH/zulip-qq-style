@@ -103,6 +103,13 @@ public class ZulipHtmlTests
         Assert.True(ZulipHtml.HasFileAttachment(html));
     }
 
+    [Theory]
+    [InlineData("报告", "report.pdf")]
+    [InlineData("季度报告.PDF", "季度报告.PDF")]
+    [InlineData("", "report.pdf")]
+    public void UploadLinkOf_KeepsExtension(string text, string expected) =>
+        Assert.Equal(expected, ZulipHtml.UploadLinkOf("/user_uploads/2/id/report.pdf", text).FileName);
+
     [Fact]
     public void ExtractUploads_OtherServer_IsIgnored() => Assert.Empty(ZulipHtml.ExtractUploads(
         "<p><a href=\"https://other.example/user_uploads/2/ab/x/report.pdf\">report.pdf</a></p>"));
