@@ -469,7 +469,10 @@ public partial class ChatView : UserControl
             }
             if (v is Border border && border.Classes.Contains("bubble") && border.DataContext is MessageItemViewModel m)
             {
-                _vm.ShowTime(m.Id);
+                if (m.IsMutedHidden)
+                    m.Reveal();
+                else
+                    _vm.ShowTime(m.Id);
                 return;
             }
         }

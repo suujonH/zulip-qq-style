@@ -164,13 +164,17 @@
                                 <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.ErrorCircle}"
                                           Foreground="{DynamicResource DangerBrush}" />
                             </Button>
-                            <Border Classes="bubble" Classes.selected="{Binding IsTimeShown}" Classes.bare="{Binding IsBare}"
+                            <Border Classes="bubble" Classes.selected="{Binding IsTimeShown}" Classes.bare="{Binding ShowsBare}"
                                     MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}">
-                                <StackPanel>
-                                    <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
-                                    <TextBlock Text="(已编辑)" FontSize="11" HorizontalAlignment="Right" Margin="0,2,0,0"
-                                               Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsEdited}" />
-                                </StackPanel>
+                                <Panel>
+                                    <StackPanel IsVisible="{Binding !IsMutedHidden}">
+                                        <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
+                                        <TextBlock Text="(已编辑)" FontSize="11" HorizontalAlignment="Right" Margin="0,2,0,0"
+                                                   Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsEdited}" />
+                                    </StackPanel>
+                                    <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="14" Cursor="Hand"
+                                               Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsMutedHidden}" />
+                                </Panel>
                             </Border>
                         </StackPanel>
                         <ItemsControl Classes="reactions" ItemsSource="{Binding Reactions}" IsVisible="{Binding HasReactions}"

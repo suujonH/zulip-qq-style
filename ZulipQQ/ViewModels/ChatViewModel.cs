@@ -602,6 +602,7 @@ public partial class ChatViewModel : ViewModelBase
         _session.Conversations.EntryChanged += OnEntryChanged;
         _session.Contacts.Changed += OnNamesChanged;
         _session.Users.UserChanged += OnUserChanged;
+        _session.Users.MutedChanged += OnMutedChanged;
         _session.Channels.ChannelChanged += OnChannelChanged;
     }
 
@@ -613,8 +614,11 @@ public partial class ChatViewModel : ViewModelBase
         _session.Conversations.EntryChanged -= OnEntryChanged;
         _session.Contacts.Changed -= OnNamesChanged;
         _session.Users.UserChanged -= OnUserChanged;
+        _session.Users.MutedChanged -= OnMutedChanged;
         _session.Channels.ChannelChanged -= OnChannelChanged;
     }
+
+    private void OnMutedChanged(object? sender, EventArgs e) => RefreshMessages();
 
     private void OnTimelineChanged(object? sender, (ConversationKey Key, TimelineChange Change) e)
     {
