@@ -62,6 +62,37 @@
         <Style Selector="Button.nav:pressed Panel.press, Button.nav.active c|TdIcon.outline">
             <Setter Property="Opacity" Value="0.3" />
         </Style>
+
+        <!-- 导航按钮右上角的未读总数 -->
+        <Style Selector="Border.navBadge">
+            <Setter Property="Height" Value="16" />
+            <Setter Property="MinWidth" Value="16" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,-3,-9,0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Border.navBadge > TextBlock">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 提示条：顶部居中的黑色半透明文字 -->
+        <Style Selector="Border.toast">
+            <Setter Property="Background" Value="#CC000000" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,56,0,0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="38,*">
@@ -79,7 +110,7 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                         Margin="22,0,0,0" VerticalAlignment="Center">
                 <Panel Width="24" Height="24">
-                    <c:Avatar Text="{Binding SelfName}" />
+                    <c:Avatar Width="24" Height="24" Source="{Binding SelfAvatarUrl}" Text="{Binding SelfName}" />
                     <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2" />
                 </Panel>
                 <TextBlock Text="{Binding SelfName}" FontSize="14" VerticalAlignment="Center" />
@@ -139,6 +170,9 @@
                                     <c:CircleReveal IsRevealed="{Binding IsMessagesActive}">
                                         <c:TdIcon Icon="{StaticResource Icon.ChatFilled}" />
                                     </c:CircleReveal>
+                                    <Border Classes="navBadge" IsVisible="{Binding Messages.HasTotalUnread}">
+                                        <TextBlock Text="{Binding Messages.TotalUnreadText}" />
+                                    </Border>
                                 </Panel>
                             </Button>
                             <Button Classes="nav" Classes.active="{Binding IsContactsActive}" ToolTip.Tip="联系人"
@@ -177,11 +211,18 @@
                     </DockPanel>
                 </Border>
 
-                <!-- 右侧内容区：暂未实现，显示企鹅占位 -->
-                <c:TdIcon Grid.Column="2" Icon="{StaticResource Icon.QqFilled}" Width="90" Height="90"
-                          HorizontalAlignment="Center" VerticalAlignment="Center"
-                          Foreground="{DynamicResource PlaceholderLogoBrush}" />
+                <!-- 右侧内容区：聊天、资料面板等；没有内容时显示企鹅占位 -->
+                <Panel Grid.Column="2">
+                    <c:TdIcon Icon="{StaticResource Icon.QqFilled}" Width="90" Height="90"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Foreground="{DynamicResource PlaceholderLogoBrush}" IsVisible="{Binding !HasRightPane}" />
+                    <ContentControl Content="{Binding RightPane}" IsVisible="{Binding HasRightPane}" />
+                </Panel>
             </Grid>
+        </Border>
+
+        <Border Grid.Row="0" Grid.RowSpan="2" Classes="toast" IsVisible="{Binding HasToast}">
+            <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="13" />
         </Border>
 
         <c:DialogLayer Grid.Row="0" Grid.RowSpan="2" Dialogs="{Binding Dialogs}" />

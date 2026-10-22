@@ -1,17 +1,22 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ZulipQQ.Core;
 using ZulipQQ.Services;
 
 namespace ZulipQQ.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
+    private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+
     public MainViewModel(ZulipSession session)
     {
         Session = session;
-        Messages = new MessagesPageViewModel(session);
+        Messages = new MessagesPageViewModel(session, key => _ = OpenChatAsync(key));
         Contacts = new ContactsPageViewModel(session);
         CurrentPage = Messages;
 
@@ -21,11 +26,18 @@ public partial class MainViewModel : ViewModelBase
                 OnSelfChanged();
         };
         session.Users.Reset += (_, _) => OnSelfChanged();
+        _toastTimer.Tick += (_, _) =>
+        {
+            _toastTimer.Stop();
+            ToastText = null;
+        };
     }
 
     public ZulipSession Session { get; }
 
     public string SelfName => Session.Users.Get(Session.SelfId)?.FullName ?? Session.Account.FullName;
+
+    public string? SelfAvatarUrl => Session.Users.Get(Session.SelfId)?.AvatarUrl ?? Session.Account.AvatarUrl;
 
     /// <summary>签名为空时显示引导文字（与 QQ 一致）。</summary>
     public string SignatureText => Session.Users.GetStatusText(Session.SelfId) is { Length: > 0 } text ? text : "编辑个性签名";
@@ -45,6 +57,40 @@ public partial class MainViewModel : ViewModelBase
     public bool IsMessagesActive => CurrentPage == Messages;
 
     public bool IsContactsActive => CurrentPage == Contacts;
+
+    /// <summary>右侧内容区：聊天、资料面板等；为 null 时显示企鹅占位图标。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRightPane))]
+    public partial ViewModelBase? RightPane { get; set; }
+
+    public bool HasRightPane => RightPane is not null;
+
+    /// <summary>窗口顶部居中的提示文字，3 秒后消失。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasToast))]
+    public partial string? ToastText { get; private set; }
+
+    public bool HasToast => ToastText is not null;
+
+    public void ShowToast(string text)
+    {
+        ToastText = text;
+        _toastTimer.Stop();
+        _toastTimer.Start();
+    }
+
+    /// <summary>
+    /// 打开会话：切换到消息页并选中该会话。会话已有消息时确保它在消息列表中；
+    /// 没有任何消息的新会话等第一条消息发出后再由新消息加入列表。
+    /// </summary>
+    public Task OpenChatAsync(ConversationKey key, long? focusMessageId = null)
+    {
+        CurrentPage = Messages;
+        if (Session.Conversations.Get(key) is { LastMessageId: > 0 })
+            Session.Conversations.EnsureInList(key);
+        Messages.Select(key);
+        return Task.CompletedTask;
+    }
 
     /// <summary>显示确认对话框，返回用户是否点击了确定。</summary>
     public Task<bool> ConfirmAsync(string message, string confirmText = "确定", bool isDanger = false)
@@ -72,6 +118,7 @@ public partial class MainViewModel : ViewModelBase
     private void OnSelfChanged()
     {
         OnPropertyChanged(nameof(SelfName));
+        OnPropertyChanged(nameof(SelfAvatarUrl));
         OnPropertyChanged(nameof(SignatureText));
     }
 }
