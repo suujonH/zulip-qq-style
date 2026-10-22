@@ -22,6 +22,13 @@
     <SolidColorBrush x:Key="MutedBadgeBrush" Color="#C8C8C8" />
     <SolidColorBrush x:Key="PlaceholderLogoBrush" Color="#EBEBEB" />
     <SolidColorBrush x:Key="HelperAvatarBrush" Color="#FA9D3B" />
+    <SolidColorBrush x:Key="CardBrush" Color="White" />
+    <!-- 聊天气泡：自己浅蓝、别人白色；点击后的选中色；跳转高亮 -->
+    <SolidColorBrush x:Key="OwnBubbleBrush" Color="#CCE4FF" />
+    <SolidColorBrush x:Key="OwnBubbleSelectedBrush" Color="#B3D7FF" />
+    <SolidColorBrush x:Key="OtherBubbleBrush" Color="White" />
+    <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#E5E5E5" />
+    <SolidColorBrush x:Key="FlashBrush" Color="#E3E3E3" />
 
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A" />
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#999999" />
