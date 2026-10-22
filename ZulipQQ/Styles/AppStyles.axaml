@@ -110,7 +110,9 @@
         <Setter Property="Padding" Value="0" />
         <Setter Property="MaxWidth" Value="400" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="BorderThickness" Value="0" />
+        <!-- 弹出层窗口不显示超出自身的阴影，用细边框与背景区分 -->
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
         <Setter Property="Background" Value="{DynamicResource CardBrush}" />
     </Style>
 
