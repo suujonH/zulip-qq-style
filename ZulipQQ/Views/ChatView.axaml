@@ -62,6 +62,17 @@
             <Setter Property="Background" Value="{DynamicResource OwnBubbleBrush}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
+        <!-- 已读灰色、未读蓝色 -->
+        <Style Selector="TextBlock.readState">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+        </Style>
+        <Style Selector="TextBlock.readState.unread">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+
         <Style Selector="Border.bubble.selected">
             <Setter Property="Background" Value="{DynamicResource OtherBubbleSelectedBrush}" />
         </Style>
@@ -267,6 +278,9 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <!-- 一对一私聊：自己最后一条消息的已读状态 -->
+                        <TextBlock Classes="readState" Classes.unread="{Binding IsReadStateUnread}" Text="{Binding ReadStateText}"
+                                   IsVisible="{Binding ReadStateText, Converter={x:Static ObjectConverters.IsNotNull}}" />
                     </StackPanel>
                 </DockPanel>
                 </DockPanel>

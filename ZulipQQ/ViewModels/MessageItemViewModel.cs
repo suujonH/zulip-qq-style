@@ -108,6 +108,13 @@ public partial class MessageItemViewModel : ViewModelBase
     /// <summary>时间格式（12 / 24 小时制）变化后重新取精确时间。</summary>
     public void RefreshTimeText() => OnPropertyChanged(nameof(PreciseTimeText));
 
+    /// <summary>一对一私聊中自己最后一条消息下方的“已读” / “未读”；其它消息为 null。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReadStateUnread))]
+    public partial string? ReadStateText { get; set; }
+
+    public bool IsReadStateUnread => ReadStateText == ChatViewModel.UnreadStateText;
+
     /// <summary>多选模式下是否勾选。</summary>
     [ObservableProperty]
     public partial bool IsChecked { get; set; }

@@ -23,6 +23,9 @@ public partial class ChatViewModel : ViewModelBase
 {
     private static readonly TimeSpan FlashDuration = TimeSpan.FromSeconds(1.5);
 
+    internal const string ReadStateText = "已读";
+    internal const string UnreadStateText = "未读";
+
     private readonly ZulipSession _session;
     private readonly Func<ConversationKey, long?, Task> _openChat;
     private readonly Action<string> _showToast;
@@ -55,6 +58,11 @@ public partial class ChatViewModel : ViewModelBase
     // 正在就地编辑的消息与编辑前的原文
     private MessageItemViewModel? _editing;
     private string _editOriginal = "";
+
+    // 一对一私聊中自己最后一条消息的已读状态；版本号丢弃过期的查询结果
+    private long _readStateId;
+    private string? _readState;
+    private int _readStateVersion;
 
     // “从这里标为未读”之后，本次打开期间不再自动标记已读（与网页端一致）
     private bool _autoReadSuspended;
@@ -217,6 +225,7 @@ public partial class ChatViewModel : ViewModelBase
             Flash(flash);
         UpdateTopBanner();
         MarkReadIfViewing();
+        _ = RefreshReadStateAsync();
     }
 
     /// <summary>关闭会话（幂等）：取消订阅、从打开列表中移除，并等待草稿保存完成。</summary>
@@ -265,6 +274,7 @@ public partial class ChatViewModel : ViewModelBase
         ScrollRequested?.Invoke(this, ScrollRequest.Bottom);
         UpdateBottomBanner();
         MarkReadIfViewing();
+        _ = RefreshReadStateAsync();
     }
 
     /// <summary>话题被整体移动或改名：换成新键并重新加载。</summary>
@@ -345,8 +355,59 @@ public partial class ChatViewModel : ViewModelBase
     /// <summary>所在窗口被激活：补标已读（打开时窗口不在前台，或在后台收到了新消息）。</summary>
     public void OnHostActivated()
     {
-        if (_snapshotTaken && !_closed)
-            MarkReadIfViewing();
+        if (!_snapshotTaken || _closed)
+            return;
+        MarkReadIfViewing();
+        // 对方可能在此期间看过了消息（已读没有事件通知）
+        if (_opened)
+            _ = RefreshReadStateAsync();
+    }
+
+    /// <summary>
+    /// 一对一私聊（组织开启已读回执时）：查询自己最后一条消息是否已被对方读过，显示在它下方。
+    /// 对方关闭了已读回执时服务器不返回对方，始终显示为未读。只在已加载到最新的消息时更新。
+    /// </summary>
+    private async Task RefreshReadStateAsync()
+    {
+        if (_closed || !_session.Realm.EnableReadReceipts || Key is not DmKey { OtherUserIds.Length: 1 } dm)
+        {
+            SetReadState(0, null);
+            return;
+        }
+        if (_session.Messages.TryGet(Key) is not { FoundNewest: true } timeline)
+            return;
+        var last = timeline.Messages.LastOrDefault(m => m.SenderId == _session.SelfId && m.Id > 0 && !m.IsHiddenByPlugin);
+        if (last is null)
+        {
+            SetReadState(0, null);
+            return;
+        }
+
+        var version = ++_readStateVersion;
+        IReadOnlyList<long> readers;
+        try
+        {
+            readers = await _session.Client.GetReadReceiptsAsync(last.Id, _session.Token);
+        }
+        catch (Exception ex)
+        {
+            if (!_session.IsDisposed)
+                Log.Debug($"查询已读状态失败：{last.Id}", ex);
+            return;
+        }
+        if (version != _readStateVersion || _closed || !Key.Equals(dm))
+            return;
+        SetReadState(last.Id, readers.Contains(dm.OtherUserIds[0]) ? ReadStateText : UnreadStateText);
+    }
+
+    private void SetReadState(long id, string? text)
+    {
+        if (_readStateId != id && _vms.TryGetValue(_readStateId, out var previous))
+            previous.ReadStateText = null;
+        _readStateId = id;
+        _readState = text;
+        if (_vms.TryGetValue(id, out var vm))
+            vm.ReadStateText = text;
     }
 
     /// <summary>视图报告滚动后的可见范围。</summary>
@@ -884,6 +945,7 @@ public partial class ChatViewModel : ViewModelBase
                 vm = new MessageItemViewModel(this, _session, m);
             vm.IsTimeShown = m.Id == _timeShownMessageId;
             vm.IsChecked = _checked.Contains(m.Id);
+            vm.ReadStateText = m.Id == _readStateId ? _readState : null;
             vms[m.Id] = vm;
             desired.Add(vm);
             previous = m;
@@ -988,6 +1050,7 @@ public partial class ChatViewModel : ViewModelBase
                 return;
             case TimelineChangeKind.Appended when !_loadingNewer:
                 RebuildItems();
+                _ = RefreshReadStateAsync();
                 // 自己发送的消息总是滚动到底部
                 var last = _session.Messages.TryGet(Key)?.Messages.LastOrDefault();
                 if (_isAtBottom || last?.SenderId == _session.SelfId)
@@ -1003,6 +1066,8 @@ public partial class ChatViewModel : ViewModelBase
             default:
                 // 向后加载、回显被替换、删除等：视图保持位置；原本在最新端的底部时继续停在底部
                 RebuildItems();
+                if (e.Change.Kind is TimelineChangeKind.Replaced or TimelineChangeKind.Removed)
+                    _ = RefreshReadStateAsync();
                 if (_isAtBottom && !_loadingNewer && _session.Messages.TryGet(Key) is { FoundNewest: true })
                     ScrollRequested?.Invoke(this, ScrollRequest.Bottom);
                 return;
