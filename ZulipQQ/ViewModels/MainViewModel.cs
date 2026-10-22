@@ -17,7 +17,7 @@ public partial class MainViewModel : ViewModelBase
     public MainViewModel(ZulipSession session)
     {
         Session = session;
-        Messages = new MessagesPageViewModel(session, key => _ = OpenChatAsync(key));
+        Messages = new MessagesPageViewModel(session, key => _ = OpenChatAsync(key), CloseChatAsync, ShowToast);
         Contacts = new ContactsPageViewModel(session);
         CurrentPage = Messages;
 
@@ -111,6 +111,17 @@ public partial class MainViewModel : ViewModelBase
         var chat = new ChatViewModel(Session, key, (k, f) => OpenChatAsync(k, f), ShowToast);
         RightPane = chat;
         await chat.OpenAsync(focusMessageId);
+    }
+
+    /// <summary>右侧正在显示该会话时关闭聊天，恢复企鹅占位图标。</summary>
+    public async Task CloseChatAsync(ConversationKey key)
+    {
+        if (RightPane is not ChatViewModel chat || !chat.Key.Equals(key))
+            return;
+        ++_openVersion;
+        RightPane = null;
+        Messages.Select(null);
+        await chat.CloseAsync();
     }
 
     /// <summary>显示确认对话框，返回用户是否点击了确定。</summary>
