@@ -8,7 +8,7 @@
     <Border Classes="dialog" Width="440">
         <StackPanel>
             <Grid Height="30">
-                <TextBlock Text="{Binding Title}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" Margin="36,0" />
                 <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
                         HorizontalAlignment="Right" Command="{Binding CloseCommand}">
@@ -20,9 +20,9 @@
             <StackPanel Margin="20,14,20,20" Spacing="12">
                 <Panel IsVisible="{Binding !IsEditing}">
                     <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
-                        <c:MessageContent Html="{Binding Html}" TextElement.FontSize="14" />
+                        <c:MessageContent Html="{Binding Html}" TextElement.FontSize="{DynamicResource FontSizeBody}" />
                     </ScrollViewer>
-                    <TextBlock Classes="sub" Text="暂无公告" FontSize="13" IsVisible="{Binding IsEmpty}" />
+                    <TextBlock Classes="sub" Text="暂无公告" FontSize="{DynamicResource FontSizeSmall}" IsVisible="{Binding IsEmpty}" />
                 </Panel>
                 <TextBox Classes="input" IsVisible="{Binding IsEditing}" Text="{Binding Draft}"
                          AcceptsReturn="True" TextWrapping="Wrap" Height="160" VerticalContentAlignment="Top"

@@ -7,7 +7,7 @@
 
     <Border Classes="dialog" Width="320">
         <StackPanel>
-            <TextBlock Text="添加分组" FontSize="13" HorizontalAlignment="Center" Margin="0,7" />
+            <TextBlock Text="添加分组" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" Margin="0,7" />
             <Border Height="1" Background="{DynamicResource DividerBrush}" />
 
             <StackPanel Margin="20" Spacing="14">

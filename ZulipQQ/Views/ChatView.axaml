@@ -46,7 +46,7 @@
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
         <Style Selector="StackPanel.nameRow > TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
             <Setter Property="Margin" Value="0,0,0,4" />
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         </Style>
@@ -96,7 +96,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
         </Style>
         <Style Selector="Button.reaction TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -118,7 +118,7 @@
             <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
         </Style>
         <Style Selector="Button.banner TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
         </Style>
 
@@ -148,7 +148,7 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.multiAction TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
 
@@ -178,21 +178,21 @@
         <DataTemplate DataType="vm:TimeSeparatorItem">
             <Border HorizontalAlignment="Center" Margin="0,12" Padding="8,2" CornerRadius="4"
                     Background="{DynamicResource FillBrush}">
-                <TextBlock Text="{Binding Text}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Text="{Binding Text}" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextSecondaryBrush}" />
             </Border>
         </DataTemplate>
 
         <DataTemplate DataType="vm:NewMessagesDividerItem">
             <Grid ColumnDefinitions="*,Auto,*" Margin="16,8,16,0">
                 <Border Height="1" Background="{DynamicResource PressedBrush}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" Text="新消息" FontSize="12" Margin="12,0"
+                <TextBlock Grid.Column="1" Text="新消息" FontSize="{DynamicResource FontSizeSub}" Margin="12,0"
                            Foreground="{DynamicResource BrandBrush}" />
                 <Border Grid.Column="2" Height="1" Background="{DynamicResource PressedBrush}" VerticalAlignment="Center" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate DataType="vm:LoadingItem">
-            <TextBlock Text="加载中…" FontSize="12" HorizontalAlignment="Center" Margin="0,8"
+            <TextBlock Text="加载中…" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Center" Margin="0,8"
                        Foreground="{DynamicResource TextSecondaryBrush}" />
         </DataTemplate>
 
@@ -227,10 +227,10 @@
                                 <Panel>
                                     <StackPanel IsVisible="{Binding !IsMutedHidden}">
                                         <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
-                                        <TextBlock Text="(已编辑)" FontSize="11" HorizontalAlignment="Right" Margin="0,2,0,0"
+                                        <TextBlock Text="(已编辑)" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Right" Margin="0,2,0,0"
                                                    Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsEdited}" />
                                     </StackPanel>
-                                    <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="14" Cursor="Hand"
+                                    <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="{DynamicResource FontSizeBody}" Cursor="Hand"
                                                Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsMutedHidden}" />
                                 </Panel>
                             </Border>
@@ -267,7 +267,7 @@
         <!-- 标题栏 -->
         <Border Grid.ColumnSpan="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" Margin="20,0"
+                <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold" Margin="20,0"
                            HorizontalAlignment="Left" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                            Cursor="Hand" Background="Transparent" />
                 <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,4,0"
@@ -323,7 +323,7 @@
 
                 <!-- 多选模式的操作栏，替代输入区 -->
                 <Grid IsVisible="{Binding IsMultiSelect}">
-                    <TextBlock Classes="sub" Text="{Binding CheckedCount, StringFormat='已选择{0}条消息'}" FontSize="12"
+                    <TextBlock Classes="sub" Text="{Binding CheckedCount, StringFormat='已选择{0}条消息'}" FontSize="{DynamicResource FontSizeSub}"
                                Margin="20,14,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" />
                     <Button Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,8,12,0"
                             HorizontalAlignment="Right" VerticalAlignment="Top" ToolTip.Tip="退出多选"

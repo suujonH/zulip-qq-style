@@ -34,7 +34,7 @@
             <Setter Property="Height" Value="16" />
         </Style>
         <Style Selector="Button.nav TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -66,7 +66,7 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="14,0,0,0" VerticalAlignment="Center"
                     IsHitTestVisible="False">
             <c:TdIcon Icon="{StaticResource Icon.Folder}" Width="16" Height="16" />
-            <TextBlock Text="文件" FontSize="13" VerticalAlignment="Center" />
+            <TextBlock Text="文件" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
         </StackPanel>
         <TextBox x:Name="SearchBox" Grid.Row="0" Classes="search" Width="240" HorizontalAlignment="Right"
                  VerticalAlignment="Center" Margin="0,0,136,0" PlaceholderText="搜索文件名、聊天或发送人"
@@ -127,7 +127,7 @@
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <c:Avatar Width="32" Height="32" Source="{Binding AvatarUrl}"
                                                       Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
-                                            <TextBlock Text="{Binding Title}" FontSize="13" MaxWidth="112"
+                                            <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" MaxWidth="112"
                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </Button>
@@ -140,12 +140,12 @@
                 <!-- 右栏：标题、筛选或排序、文件列表、群文件底栏 -->
                 <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto">
                     <Grid ColumnDefinitions="*,Auto" Margin="24,14,16,8">
-                        <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
+                        <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeH3}" FontWeight="SemiBold" VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
                         <Button x:Name="FilterButton" Grid.Column="1" Theme="{StaticResource FlatButton}" Padding="8,4"
                                 IsVisible="{Binding ShowFilter}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
-                                <TextBlock Text="{Binding FilterText}" FontSize="12" VerticalAlignment="Center"
+                                <TextBlock Text="{Binding FilterText}" FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextSecondaryBrush}" />
                                 <c:TdIcon Icon="{StaticResource Icon.Filter}" Width="14" Height="14"
                                           Foreground="{DynamicResource TextSecondaryBrush}" />
@@ -155,7 +155,7 @@
                                 BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
                                 IsVisible="{Binding IsGroupView}">
                             <StackPanel Orientation="Horizontal" Spacing="16">
-                                <TextBlock Text="{Binding SortText}" FontSize="12" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SortText}" FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center" />
                                 <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" Width="14" Height="14" />
                             </StackPanel>
                         </Button>
@@ -168,7 +168,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:FileGroup">
                                             <StackPanel>
-                                                <TextBlock Text="{Binding Header}" FontSize="12" Margin="24,8,0,4"
+                                                <TextBlock Text="{Binding Header}" FontSize="{DynamicResource FontSizeSub}" Margin="24,8,0,4"
                                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                                            IsVisible="{Binding HasHeader}" />
                                                 <ItemsControl ItemsSource="{Binding Entries}">
@@ -194,17 +194,17 @@
                                                                               IsVisible="{Binding !IsImage}" />
                                                                 </Panel>
                                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                                                                    <TextBlock Text="{Binding FileName}" FontSize="14"
+                                                                    <TextBlock Text="{Binding FileName}" FontSize="{DynamicResource FontSizeBody}"
                                                                                TextTrimming="CharacterEllipsis" />
-                                                                    <TextBlock Text="{Binding StatusText}" FontSize="12"
+                                                                    <TextBlock Text="{Binding StatusText}" FontSize="{DynamicResource FontSizeSub}"
                                                                                Foreground="{DynamicResource TextSecondaryBrush}" />
                                                                 </StackPanel>
                                                                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="4"
                                                                             Margin="16,0,16,0">
-                                                                    <TextBlock Text="{Binding TimeText}" FontSize="12"
+                                                                    <TextBlock Text="{Binding TimeText}" FontSize="{DynamicResource FontSizeSub}"
                                                                                HorizontalAlignment="Right"
                                                                                Foreground="{DynamicResource TextSecondaryBrush}" />
-                                                                    <TextBlock Text="{Binding SourceText}" FontSize="12" MaxWidth="220"
+                                                                    <TextBlock Text="{Binding SourceText}" FontSize="{DynamicResource FontSizeSub}" MaxWidth="220"
                                                                                HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
                                                                                Foreground="{DynamicResource TextSecondaryBrush}" />
                                                                 </StackPanel>
@@ -216,7 +216,7 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <TextBlock Text="加载中…" FontSize="12" HorizontalAlignment="Center" Margin="0,12"
+                                <TextBlock Text="加载中…" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Center" Margin="0,12"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            IsVisible="{Binding IsLoadingMore}" />
                             </StackPanel>
@@ -227,7 +227,7 @@
                         <Border Background="#CC000000" CornerRadius="6" Padding="16,8" HorizontalAlignment="Center"
                                 VerticalAlignment="Top" Margin="0,16,0,0"
                                 IsVisible="{Binding ToastText, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="13" />
+                            <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="{DynamicResource FontSizeSmall}" />
                         </Border>
                     </Panel>
 
@@ -235,7 +235,7 @@
                     <Border Grid.Row="2" IsVisible="{Binding IsGroupView}" Padding="24,10,16,12"
                             BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
                         <Grid ColumnDefinitions="*,Auto,Auto">
-                            <TextBlock Text="{Binding FooterText}" FontSize="12" VerticalAlignment="Center"
+                            <TextBlock Text="{Binding FooterText}" FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextSecondaryBrush}" />
                             <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="32" Height="32"
                                     Margin="0,0,8,0" ToolTip.Tip="刷新" Command="{Binding RefreshCommand}">

@@ -19,7 +19,7 @@
     <Border Classes="dialog" Width="640" Height="500">
         <DockPanel>
             <Grid DockPanel.Dock="Top" Height="30">
-                <TextBlock Text="转发" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Text="转发" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
                         HorizontalAlignment="Right" Command="{Binding CancelCommand}">
                     <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
@@ -32,10 +32,10 @@
                 <DockPanel Margin="16,12,8,12">
                     <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Classes="input" PlaceholderText="搜索"
                              Text="{Binding Query}" Margin="0,0,0,8" />
-                    <TextBlock DockPanel.Dock="Top" Classes="sub" Text="最近聊天" FontSize="12" Margin="0,0,0,4"
+                    <TextBlock DockPanel.Dock="Top" Classes="sub" Text="最近聊天" FontSize="{DynamicResource FontSizeSub}" Margin="0,0,0,4"
                                IsVisible="{Binding ShowsRecent}" />
                     <Panel>
-                        <TextBlock Classes="sub" Text="未找到相关结果" FontSize="13" HorizontalAlignment="Center"
+                        <TextBlock Classes="sub" Text="未找到相关结果" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center"
                                    Margin="0,40,0,0" IsVisible="{Binding IsEmpty}" />
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                             <ItemsControl ItemsSource="{Binding Results}">
@@ -45,10 +45,10 @@
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}"
                                                           Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
-                                                <TextBlock FontSize="13" MaxWidth="220"
+                                                <TextBlock FontSize="{DynamicResource FontSizeSmall}" MaxWidth="220"
                                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
                                                     <Run Text="{Binding Title}" />
-                                                    <Run Text="{Binding ChannelText}" FontSize="12"
+                                                    <Run Text="{Binding ChannelText}" FontSize="{DynamicResource FontSizeSub}"
                                                          Foreground="{DynamicResource TextSecondaryBrush}" />
                                                 </TextBlock>
                                             </StackPanel>
@@ -64,7 +64,7 @@
 
                 <!-- 右侧：已选择、预览、留言 -->
                 <DockPanel Grid.Column="2" Margin="12,12,16,14">
-                    <TextBlock DockPanel.Dock="Top" Classes="sub" Text="{Binding SelectedText}" FontSize="13"
+                    <TextBlock DockPanel.Dock="Top" Classes="sub" Text="{Binding SelectedText}" FontSize="{DynamicResource FontSizeSmall}"
                                Margin="0,8,0,6" />
 
                     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"
@@ -77,7 +77,7 @@
                     <TextBox DockPanel.Dock="Bottom" Classes="input" PlaceholderText="给朋友留言" Text="{Binding Note}"
                              MaxLength="{Binding NoteMaxLength}" Margin="0,8,0,0" />
                     <Border DockPanel.Dock="Bottom" Padding="10,8" CornerRadius="4" Background="{DynamicResource FillBrush}">
-                        <TextBlock Text="{Binding Preview}" FontSize="12" TextWrapping="Wrap" MaxLines="3"
+                        <TextBlock Text="{Binding Preview}" FontSize="{DynamicResource FontSizeSub}" TextWrapping="Wrap" MaxLines="3"
                                    TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
                     </Border>
 
@@ -88,10 +88,10 @@
                                     <Grid Classes="picked" ColumnDefinitions="Auto,*,Auto">
                                         <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}"
                                                   Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
-                                        <TextBlock Grid.Column="1" FontSize="13" Margin="8,0"
+                                        <TextBlock Grid.Column="1" FontSize="{DynamicResource FontSizeSmall}" Margin="8,0"
                                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
                                             <Run Text="{Binding Title}" />
-                                            <Run Text="{Binding ChannelText}" FontSize="12"
+                                            <Run Text="{Binding ChannelText}" FontSize="{DynamicResource FontSizeSub}"
                                                  Foreground="{DynamicResource TextSecondaryBrush}" />
                                         </TextBlock>
                                         <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="24" Height="24"

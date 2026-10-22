@@ -87,7 +87,10 @@ public partial class MessageItemViewModel : ViewModelBase
     public partial bool IsTimeShown { get; set; }
 
     public string PreciseTimeText =>
-        TimeText.PreciseTime(TimeText.FromUnix(Message.Timestamp), System.DateTime.Now);
+        TimeText.PreciseTime(TimeText.FromUnix(Message.Timestamp), System.DateTime.Now, _session.Settings.Zulip.TwentyFourHourTime);
+
+    /// <summary>时间格式（12 / 24 小时制）变化后重新取精确时间。</summary>
+    public void RefreshTimeText() => OnPropertyChanged(nameof(PreciseTimeText));
 
     /// <summary>多选模式下是否勾选。</summary>
     [ObservableProperty]

@@ -25,8 +25,8 @@ internal static partial class ZulipHtmlRenderer
     private const double MaxImageSize = 240;
 
     private static readonly FontFamily Mono = new("Cascadia Mono, Consolas, Microsoft YaHei UI");
-    private static readonly IBrush HighlightBrush = new SolidColorBrush(Color.Parse("#FFE58F"));
-    private static readonly double[] HeadingSizes = [18, 16, 15, 14, 14, 14];
+    // h1～h6 的字号资源（随设置中的字体大小变化）
+    private static readonly string[] HeadingSizes = ["FontSizeLarge", "FontSizeH2", "FontSizeH3", "FontSizeBody", "FontSizeBody", "FontSizeBody"];
 
     private static readonly HashSet<string> BlockTags = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -201,9 +201,9 @@ internal static partial class ZulipHtmlRenderer
         {
             Text = text.TrimEnd('\n'),
             FontFamily = Mono,
-            FontSize = 13,
             TextWrapping = TextWrapping.NoWrap,
         };
+        BindResource(block, TextBlock.FontSizeProperty, block, "FontSizeSmall");
         var scroller = new ScrollViewer
         {
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -307,11 +307,11 @@ internal static partial class ZulipHtmlRenderer
         return border;
     }
 
-    private static MessageTextBlock Paragraph(IEnumerable<INode> nodes, Context ctx, double? fontSize = null, bool bold = false)
+    private static MessageTextBlock Paragraph(IEnumerable<INode> nodes, Context ctx, string? fontSizeKey = null, bool bold = false)
     {
         var block = new MessageTextBlock { TextWrapping = TextWrapping.Wrap };
-        if (fontSize is { } size)
-            block.FontSize = size;
+        if (fontSizeKey is not null)
+            BindResource(block, TextBlock.FontSizeProperty, block, fontSizeKey);
         if (bold)
             block.FontWeight = FontWeight.Bold;
 
@@ -438,7 +438,7 @@ internal static partial class ZulipHtmlRenderer
                 BindResource(run, TextElement.BackgroundProperty, block, "FillBrush");
             }
             if (style.Highlight)
-                run.Background = HighlightBrush;
+                BindResource(run, TextElement.BackgroundProperty, block, "SearchHighlightBrush");
             if (style.Accent)
                 BindResource(run, TextElement.ForegroundProperty, block, "BrandBrush");
 

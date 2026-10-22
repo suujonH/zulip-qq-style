@@ -8,7 +8,7 @@
     <Border Classes="dialog" Width="360">
         <StackPanel>
             <Grid Height="30">
-                <TextBlock Text="创建频道" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Text="创建频道" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
                         HorizontalAlignment="Right" Command="{Binding CancelCommand}">
                     <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
@@ -17,20 +17,20 @@
             <Border Height="1" Background="{DynamicResource DividerBrush}" />
 
             <StackPanel Margin="20,14,20,20" Spacing="8">
-                <TextBlock Classes="sub" Text="名称" FontSize="13" />
+                <TextBlock Classes="sub" Text="名称" FontSize="{DynamicResource FontSizeSmall}" />
                 <TextBox x:Name="NameBox" Classes="input" PlaceholderText="频道名称" Text="{Binding Name}"
                          MaxLength="{x:Static vm:CreateChannelDialogViewModel.MaxNameLength}" />
 
-                <TextBlock Classes="sub" Text="描述" FontSize="13" Margin="0,6,0,0" />
+                <TextBlock Classes="sub" Text="描述" FontSize="{DynamicResource FontSizeSmall}" Margin="0,6,0,0" />
                 <TextBox Classes="input" PlaceholderText="选填，将作为群公告显示" Text="{Binding Description}"
                          AcceptsReturn="True" TextWrapping="Wrap" Height="72" VerticalContentAlignment="Top"
                          MaxLength="{x:Static vm:CreateChannelDialogViewModel.MaxDescriptionLength}" />
 
-                <CheckBox Content="私有频道（仅受邀成员可见）" FontSize="13" Margin="0,4,0,0"
+                <CheckBox Content="私有频道（仅受邀成员可见）" FontSize="{DynamicResource FontSizeSmall}" Margin="0,4,0,0"
                           IsChecked="{Binding IsPrivate}" IsEnabled="{Binding CanChoosePrivacy}" />
 
                 <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
-                    <TextBlock Classes="sub" Text="{Binding MembersText}" FontSize="13" VerticalAlignment="Center" />
+                    <TextBlock Classes="sub" Text="{Binding MembersText}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
                     <Button Grid.Column="1" Classes="secondary" Theme="{StaticResource FlatButton}" Content="选择成员"
                             Command="{Binding ChooseMembersCommand}" />
                 </Grid>

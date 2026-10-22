@@ -19,7 +19,7 @@
         </Style>
 
         <Style Selector="TextBlock.notice">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
             <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
         </Style>
         <Style Selector="c|TdIcon.draft">
@@ -61,7 +61,7 @@
             <Setter Property="Background" Value="{DynamicResource MutedBadgeBrush}" />
         </Style>
         <Style Selector="Border.badge > TextBlock">
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="HorizontalAlignment" Value="Center" />
@@ -156,8 +156,8 @@
 
     <DockPanel>
         <!-- 连接状态提示条：连接正常时隐藏 -->
-        <Border DockPanel.Dock="Top" Background="#FFF4DB" Padding="12,6" IsVisible="{Binding IsConnectionBannerVisible}">
-            <TextBlock Text="{Binding ConnectionText}" FontSize="12" Foreground="#B26B00" TextWrapping="Wrap" />
+        <Border DockPanel.Dock="Top" Background="{DynamicResource WarningFillBrush}" Padding="12,6" IsVisible="{Binding IsConnectionBannerVisible}">
+            <TextBlock Text="{Binding ConnectionText}" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource WarningTextBrush}" TextWrapping="Wrap" />
         </Border>
 
         <Panel ClipToBounds="True">
@@ -178,11 +178,11 @@
                             Foreground="{DynamicResource TextSecondaryBrush}" Command="{Binding CloseHelperCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="2">
                             <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" Width="14" Height="14" />
-                            <TextBlock Text="返回" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                            <TextBlock Text="返回" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextSecondaryBrush}"
                                        VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <TextBlock Text="群助手" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                    <TextBlock Text="群助手" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextSecondaryBrush}"
                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </DockPanel>
 

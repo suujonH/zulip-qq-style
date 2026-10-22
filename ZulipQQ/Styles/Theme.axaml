@@ -1,42 +1,106 @@
 <!-- 颜色取自 QQ 截图；无样式的扁平控件主题 -->
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#EBEBEB" />
-    <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#F5F5F5" />
-    <SolidColorBrush x:Key="PanelBorderBrush" Color="#DCDCDC" />
-    <SolidColorBrush x:Key="DividerBrush" Color="#E6E6E6" />
-    <SolidColorBrush x:Key="FillBrush" Color="#EBEBEB" />
-    <SolidColorBrush x:Key="HoverBrush" Color="#E3E3E3" />
-    <SolidColorBrush x:Key="PressedBrush" Color="#D9D9D9" />
+    <!-- 字号：以正文字号 n（设置 > 通用 > 字体大小，默认 14）为基准，由 ThemeService 统一调整 -->
+    <x:Double x:Key="FontSizeLarge">18</x:Double>
+    <x:Double x:Key="FontSizeH2">16</x:Double>
+    <x:Double x:Key="FontSizeH3">15</x:Double>
+    <x:Double x:Key="FontSizeBody">14</x:Double>
+    <x:Double x:Key="FontSizeSmall">13</x:Double>
+    <x:Double x:Key="FontSizeSub">12</x:Double>
+    <x:Double x:Key="FontSizeCaption">11</x:Double>
 
-    <SolidColorBrush x:Key="BrandBrush" Color="#0099FF" />
-    <SolidColorBrush x:Key="BrandHoverBrush" Color="#1AA3FF" />
-    <SolidColorBrush x:Key="BrandDisabledBrush" Color="#A3D7FF" />
-    <SolidColorBrush x:Key="InputBorderBrush" Color="#DCDCDC" />
-    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#EFEFEF" />
-    <SolidColorBrush x:Key="SelectedRowBrush" Color="#EBEBEB" />
-    <SolidColorBrush x:Key="RowDividerBrush" Color="#F0F0F0" />
-    <SolidColorBrush x:Key="DialogMaskBrush" Color="#66000000" />
-    <SolidColorBrush x:Key="DangerBrush" Color="#F74C30" />
-    <SolidColorBrush x:Key="OnlineBrush" Color="#2BD158" />
-    <SolidColorBrush x:Key="MutedBadgeBrush" Color="#C8C8C8" />
-    <SolidColorBrush x:Key="PlaceholderLogoBrush" Color="#EBEBEB" />
-    <SolidColorBrush x:Key="HelperAvatarBrush" Color="#FA9D3B" />
-    <SolidColorBrush x:Key="CardBrush" Color="White" />
-    <!-- 聊天气泡：自己浅蓝、别人白色；点击后的选中色；跳转高亮 -->
-    <SolidColorBrush x:Key="OwnBubbleBrush" Color="#CCE4FF" />
-    <SolidColorBrush x:Key="OwnBubbleSelectedBrush" Color="#B3D7FF" />
-    <SolidColorBrush x:Key="OtherBubbleBrush" Color="White" />
-    <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#E5E5E5" />
-    <SolidColorBrush x:Key="FlashBrush" Color="#E3E3E3" />
-    <!-- 群成员徽标：群主橙色、管理员蓝色（浅底深字） -->
-    <SolidColorBrush x:Key="OwnerBadgeBrush" Color="#F5A623" />
-    <SolidColorBrush x:Key="OwnerBadgeFillBrush" Color="#FFF4E0" />
-    <SolidColorBrush x:Key="AdminBadgeFillBrush" Color="#E0F2FF" />
+    <!-- 颜色按主题变体分两组；超级调色盘的强调色、背景图透明度由 ThemeService 在顶层覆盖 -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#EBEBEB" />
+            <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#F5F5F5" />
+            <SolidColorBrush x:Key="PanelBorderBrush" Color="#DCDCDC" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#E6E6E6" />
+            <SolidColorBrush x:Key="FillBrush" Color="#EBEBEB" />
+            <SolidColorBrush x:Key="HoverBrush" Color="#E3E3E3" />
+            <SolidColorBrush x:Key="PressedBrush" Color="#D9D9D9" />
 
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#999999" />
-    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#B3B3B3" />
+            <SolidColorBrush x:Key="BrandBrush" Color="#0099FF" />
+            <SolidColorBrush x:Key="BrandHoverBrush" Color="#1AA3FF" />
+            <SolidColorBrush x:Key="BrandDisabledBrush" Color="#A3D7FF" />
+            <SolidColorBrush x:Key="InputBorderBrush" Color="#DCDCDC" />
+            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#EFEFEF" />
+            <SolidColorBrush x:Key="SelectedRowBrush" Color="#EBEBEB" />
+            <SolidColorBrush x:Key="RowDividerBrush" Color="#F0F0F0" />
+            <SolidColorBrush x:Key="FilterActiveBrush" Color="#E0E0E0" />
+            <SolidColorBrush x:Key="CheckBorderBrush" Color="#C8C8C8" />
+            <SolidColorBrush x:Key="DialogMaskBrush" Color="#66000000" />
+            <SolidColorBrush x:Key="DangerBrush" Color="#F74C30" />
+            <SolidColorBrush x:Key="OnlineBrush" Color="#2BD158" />
+            <SolidColorBrush x:Key="MutedBadgeBrush" Color="#C8C8C8" />
+            <SolidColorBrush x:Key="PlaceholderLogoBrush" Color="#EBEBEB" />
+            <SolidColorBrush x:Key="HelperAvatarBrush" Color="#FA9D3B" />
+            <SolidColorBrush x:Key="CardBrush" Color="White" />
+            <!-- 聊天气泡：自己浅蓝、别人白色；点击后的选中色；跳转高亮 -->
+            <SolidColorBrush x:Key="OwnBubbleBrush" Color="#CCE4FF" />
+            <SolidColorBrush x:Key="OwnBubbleSelectedBrush" Color="#B3D7FF" />
+            <SolidColorBrush x:Key="OtherBubbleBrush" Color="White" />
+            <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#E5E5E5" />
+            <SolidColorBrush x:Key="FlashBrush" Color="#E3E3E3" />
+            <!-- 群成员徽标：群主橙色、管理员蓝色（浅底深字）；名片中的角色徽标 -->
+            <SolidColorBrush x:Key="OwnerBadgeBrush" Color="#F5A623" />
+            <SolidColorBrush x:Key="OwnerBadgeFillBrush" Color="#FFF4E0" />
+            <SolidColorBrush x:Key="AdminBadgeFillBrush" Color="#E0F2FF" />
+            <SolidColorBrush x:Key="RoleBadgeFillBrush" Color="#E6F4FF" />
+            <!-- 连接状态提示条；搜索命中高亮 -->
+            <SolidColorBrush x:Key="WarningFillBrush" Color="#FFF4DB" />
+            <SolidColorBrush x:Key="WarningTextBrush" Color="#B26B00" />
+            <SolidColorBrush x:Key="SearchHighlightBrush" Color="#FFE58F" />
+
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#999999" />
+            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#B3B3B3" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#1F1F1F" />
+            <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#262626" />
+            <SolidColorBrush x:Key="PanelBorderBrush" Color="#383838" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#333333" />
+            <SolidColorBrush x:Key="FillBrush" Color="#333333" />
+            <SolidColorBrush x:Key="HoverBrush" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="PressedBrush" Color="#454545" />
+
+            <SolidColorBrush x:Key="BrandBrush" Color="#0099FF" />
+            <SolidColorBrush x:Key="BrandHoverBrush" Color="#33ADFF" />
+            <SolidColorBrush x:Key="BrandDisabledBrush" Color="#1F4F73" />
+            <SolidColorBrush x:Key="InputBorderBrush" Color="#454545" />
+            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#232323" />
+            <SolidColorBrush x:Key="SelectedRowBrush" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="RowDividerBrush" Color="#2E2E2E" />
+            <SolidColorBrush x:Key="FilterActiveBrush" Color="#404040" />
+            <SolidColorBrush x:Key="CheckBorderBrush" Color="#5C5C5C" />
+            <SolidColorBrush x:Key="DialogMaskBrush" Color="#99000000" />
+            <SolidColorBrush x:Key="DangerBrush" Color="#F25C45" />
+            <SolidColorBrush x:Key="OnlineBrush" Color="#2BD158" />
+            <SolidColorBrush x:Key="MutedBadgeBrush" Color="#5C5C5C" />
+            <SolidColorBrush x:Key="PlaceholderLogoBrush" Color="#333333" />
+            <SolidColorBrush x:Key="HelperAvatarBrush" Color="#FA9D3B" />
+            <SolidColorBrush x:Key="CardBrush" Color="#2B2B2B" />
+            <SolidColorBrush x:Key="OwnBubbleBrush" Color="#1D4E7A" />
+            <SolidColorBrush x:Key="OwnBubbleSelectedBrush" Color="#24609A" />
+            <SolidColorBrush x:Key="OtherBubbleBrush" Color="#2E2E2E" />
+            <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="FlashBrush" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="OwnerBadgeBrush" Color="#F5A623" />
+            <SolidColorBrush x:Key="OwnerBadgeFillBrush" Color="#4A3A1A" />
+            <SolidColorBrush x:Key="AdminBadgeFillBrush" Color="#1A3A55" />
+            <SolidColorBrush x:Key="RoleBadgeFillBrush" Color="#1A3A55" />
+            <SolidColorBrush x:Key="WarningFillBrush" Color="#3D3218" />
+            <SolidColorBrush x:Key="WarningTextBrush" Color="#E0A040" />
+            <SolidColorBrush x:Key="SearchHighlightBrush" Color="#6B5A1E" />
+
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E6E6E6" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#8C8C8C" />
+            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#666666" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
 
     <!-- 只有内容和背景的按钮，悬停/按下变灰 -->
     <ControlTheme x:Key="FlatButton" TargetType="Button">

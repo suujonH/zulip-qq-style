@@ -9,7 +9,7 @@
     <UserControl.Styles>
         <Style Selector="ComboBox.channel">
             <Setter Property="Height" Value="34" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
@@ -21,7 +21,7 @@
     <Border Classes="dialog" Width="340">
         <StackPanel>
             <Grid Height="30">
-                <TextBlock Text="新建话题" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Text="新建话题" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
                         HorizontalAlignment="Right" Command="{Binding CancelCommand}">
                     <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
@@ -30,7 +30,7 @@
             <Border Height="1" Background="{DynamicResource DividerBrush}" />
 
             <StackPanel Margin="20,14,20,20" Spacing="8">
-                <TextBlock Classes="sub" Text="频道" FontSize="13" />
+                <TextBlock Classes="sub" Text="频道" FontSize="{DynamicResource FontSizeSmall}" />
                 <ComboBox Classes="channel" PlaceholderText="请选择"
                           ItemsSource="{Binding Channels}" SelectedItem="{Binding SelectedChannel}">
                     <ComboBox.ItemTemplate>
@@ -40,7 +40,7 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
 
-                <TextBlock Classes="sub" Text="话题" FontSize="13" Margin="0,6,0,0" />
+                <TextBlock Classes="sub" Text="话题" FontSize="{DynamicResource FontSizeSmall}" Margin="0,6,0,0" />
                 <TextBox x:Name="TopicBox" Classes="input" PlaceholderText="输入话题名称"
                          Text="{Binding Topic}" MaxLength="{Binding MaxLength}" />
 

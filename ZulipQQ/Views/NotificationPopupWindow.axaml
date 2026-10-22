@@ -17,9 +17,9 @@
             <c:Avatar x:Name="AvatarView" DockPanel.Dock="Left" Width="44" Height="44" VerticalAlignment="Center" Margin="0,0,12,0"
                       Source="{Binding AvatarUrl}" Text="{Binding AvatarText}" />
             <StackPanel VerticalAlignment="Center" Spacing="4" Margin="0,0,24,0">
-                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource TextPrimaryBrush}" />
-                <TextBlock Text="{Binding Body}" FontSize="13" TextTrimming="CharacterEllipsis"
+                <TextBlock Text="{Binding Body}" FontSize="{DynamicResource FontSizeSmall}" TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource TextSecondaryBrush}" />
             </StackPanel>
         </DockPanel>

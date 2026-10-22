@@ -659,7 +659,7 @@ public partial class ChatViewModel : ViewModelBase
             {
                 if (!_separators.TryGetValue(m.Id, out var separator))
                     separator = new TimeSeparatorItem();
-                separator.Text = TimeText.SeparatorTime(TimeText.FromUnix(m.Timestamp), now);
+                separator.Text = TimeText.SeparatorTime(TimeText.FromUnix(m.Timestamp), now, _session.Settings.Zulip.TwentyFourHourTime);
                 separators[m.Id] = separator;
                 desired.Add(separator);
             }
@@ -733,6 +733,7 @@ public partial class ChatViewModel : ViewModelBase
         _session.Users.UserChanged += OnUserChanged;
         _session.Users.MutedChanged += OnMutedChanged;
         _session.Channels.ChannelChanged += OnChannelChanged;
+        _session.Settings.Changed += OnSettingChanged;
     }
 
     private void Unsubscribe()
@@ -745,9 +746,20 @@ public partial class ChatViewModel : ViewModelBase
         _session.Users.UserChanged -= OnUserChanged;
         _session.Users.MutedChanged -= OnMutedChanged;
         _session.Channels.ChannelChanged -= OnChannelChanged;
+        _session.Settings.Changed -= OnSettingChanged;
     }
 
     private void OnMutedChanged(object? sender, EventArgs e) => RefreshMessages();
+
+    // 12 / 24 小时制变化：时间条和精确时间重新格式化
+    private void OnSettingChanged(object? sender, string name)
+    {
+        if (name != "twenty_four_hour_time" || !_opened || _closed)
+            return;
+        RebuildItems();
+        foreach (var vm in _vms.Values)
+            vm.RefreshTimeText();
+    }
 
     private void OnTimelineChanged(object? sender, (ConversationKey Key, TimelineChange Change) e)
     {

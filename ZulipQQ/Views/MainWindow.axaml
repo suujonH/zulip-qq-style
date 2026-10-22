@@ -88,7 +88,7 @@
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.menuTile TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.menuRow">
@@ -104,7 +104,7 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.menuRow TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -149,7 +149,7 @@
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="1"
                         Margin="10,0,0,0" VerticalAlignment="Center">
                 <c:TdIcon Icon="{StaticResource Icon.QqFilled}" Width="14" Height="14" />
-                <TextBlock Text="QQ" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="QQ" FontSize="{DynamicResource FontSizeSub}" FontWeight="SemiBold" VerticalAlignment="Center" />
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
@@ -158,7 +158,7 @@
                     <c:Avatar Width="24" Height="24" Source="{Binding SelfAvatarUrl}" Text="{Binding SelfName}" />
                     <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2" />
                 </Panel>
-                <TextBlock Text="{Binding SelfName}" FontSize="14" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding SelfName}" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
                 <!-- 个性签名：点击就地编辑 -->
                 <Panel VerticalAlignment="Center">
                     <Button Classes="signature" Theme="{StaticResource FlatButton}" ToolTip.Tip="编辑个性签名"
@@ -304,7 +304,7 @@
         </Border>
 
         <Border Grid.Row="0" Grid.RowSpan="2" Classes="toast" IsVisible="{Binding HasToast}">
-            <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="13" />
+            <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="{DynamicResource FontSizeSmall}" />
         </Border>
 
         <c:DialogLayer Grid.Row="0" Grid.RowSpan="2" Dialogs="{Binding Dialogs}" />

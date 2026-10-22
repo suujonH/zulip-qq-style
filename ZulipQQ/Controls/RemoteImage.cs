@@ -33,6 +33,12 @@ public class RemoteImage : Control
         AffectsRender<RemoteImage>(CornerRadiusProperty);
     }
 
+    public RemoteImage()
+    {
+        // 占位底色取自主题
+        ActualThemeVariantChanged += (_, _) => InvalidateVisual();
+    }
+
     public string? Source
     {
         get => GetValue(SourceProperty);

@@ -23,7 +23,7 @@
             <Setter Property="Header" Value="{Binding}" />
             <Setter Property="HeaderTemplate">
                 <DataTemplate x:DataType="vm:GroupOptionViewModel">
-                    <TextBlock Text="{Binding Name}" FontSize="13" />
+                    <TextBlock Text="{Binding Name}" FontSize="{DynamicResource FontSizeSmall}" />
                 </DataTemplate>
             </Setter>
             <Setter Property="ToggleType" Value="CheckBox" />
@@ -39,7 +39,7 @@
             <Setter Property="HeaderTemplate">
                 <DataTemplate x:DataType="vm:GroupOptionViewModel">
                     <Grid ColumnDefinitions="*,Auto" MinWidth="64">
-                        <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Name}" FontSize="{DynamicResource FontSizeSmall}" TextTrimming="CharacterEllipsis" />
                         <c:TdIcon Grid.Column="1" Icon="{StaticResource Icon.Check}" Width="14" Height="14"
                                   Margin="8,0,0,0" IsVisible="{Binding IsCurrent}" />
                     </Grid>
@@ -56,7 +56,7 @@
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
         </Style>
         <Style Selector="Border.filter">
             <Setter Property="Height" Value="36" />
@@ -69,17 +69,17 @@
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
         </Style>
         <Style Selector="Button.filter.active">
-            <Setter Property="Background" Value="#E0E0E0" />
+            <Setter Property="Background" Value="{DynamicResource FilterActiveBrush}" />
         </Style>
         <Style Selector="ListBoxItem:selected Border.filter">
-            <Setter Property="Background" Value="#E0E0E0" />
+            <Setter Property="Background" Value="{DynamicResource FilterActiveBrush}" />
         </Style>
         <Style Selector="Button.outline">
             <Setter Property="Height" Value="32" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#C8C8C8" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CheckBorderBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
         </Style>
 
         <!-- 表格行：悬停浅灰，选中灰色 -->
@@ -103,8 +103,8 @@
             <Setter Property="Height" Value="16" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#C8C8C8" />
-            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CheckBorderBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="HorizontalAlignment" Value="Left" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
@@ -134,7 +134,7 @@
         <Style Selector="TextBox.inline">
             <Setter Property="MinHeight" Value="26" />
             <Setter Property="Height" Value="26" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="Padding" Value="7,0" />
             <Setter Property="Margin" Value="-8,0,16,0" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -143,7 +143,7 @@
         <Style Selector="TextBox.inline /template/ Border#PART_BorderElement,
                          TextBox.inline:pointerover /template/ Border#PART_BorderElement,
                          TextBox.inline:focus /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
@@ -162,7 +162,7 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
         <Style Selector="Button.dropdown:flyout-open">
-            <Setter Property="Background" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
         </Style>
         <Style Selector="MenuFlyoutPresenter.dropdown">
@@ -175,7 +175,7 @@
             <Setter Property="Width" Value="48" />
             <Setter Property="Height" Value="48" />
             <Setter Property="CornerRadius" Value="24" />
-            <Setter Property="Background" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.action:pointerover">
@@ -213,7 +213,7 @@
                         </DockPanel>
                     </Button>
 
-                    <TextBlock DockPanel.Dock="Top" Classes="caption" Text="分组" FontSize="12" Margin="8,14,0,4" />
+                    <TextBlock DockPanel.Dock="Top" Classes="caption" Text="分组" FontSize="{DynamicResource FontSizeSub}" Margin="8,14,0,4" />
 
                     <ListBox ItemsSource="{Binding GroupFilters}"
                              SelectedItem="{Binding SelectedGroupFilter}"
@@ -226,7 +226,7 @@
                                     <DockPanel>
                                         <TextBlock DockPanel.Dock="Right" Classes="caption" Text="{Binding Count}"
                                                    VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Name}" FontSize="14" VerticalAlignment="Center"
+                                        <TextBlock Text="{Binding Name}" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" />
                                     </DockPanel>
                                 </Border>
@@ -239,7 +239,7 @@
             <!-- 右侧：标题 + 搜索 / 好友表格 / 多选操作栏 -->
             <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
                 <Grid ColumnDefinitions="*,Auto" Margin="36,32,20,20">
-                    <TextBlock Text="好友管理器" FontSize="18" VerticalAlignment="Center" />
+                    <TextBlock Text="好友管理器" FontSize="{DynamicResource FontSizeLarge}" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1" Classes="search" Width="200" PlaceholderText="搜索"
                              Text="{Binding SearchText}">
                         <TextBox.InnerLeftContent>
@@ -249,7 +249,7 @@
                     </TextBox>
                 </Grid>
 
-                <Border Grid.Row="1" Margin="20,0" Background="White" CornerRadius="8" ClipToBounds="True">
+                <Border Grid.Row="1" Margin="20,0" Background="{DynamicResource CardBrush}" CornerRadius="8" ClipToBounds="True">
                     <DockPanel>
                         <!-- 表头：点击复选框全选 / 取消全选当前可见的好友 -->
                         <Grid DockPanel.Dock="Top" Height="44" Margin="16,0" ColumnDefinitions="Auto,*,140,140">
@@ -259,11 +259,11 @@
                                     <Border Classes="check" Classes.checked="{Binding IsAllVisibleSelected}">
                                         <c:TdIcon Icon="{StaticResource Icon.Check}" />
                                     </Border>
-                                    <TextBlock Text="昵称" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="昵称" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
-                            <TextBlock Grid.Column="2" Text="备注" FontSize="13" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="3" Text="分组" FontSize="13" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="备注" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="分组" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
                         </Grid>
 
                         <ListBox ItemsSource="{Binding Rows}"
@@ -293,7 +293,7 @@
                                                 </Border>
                                                 <c:Avatar Grid.Column="1" Width="24" Height="24"
                                                           HorizontalAlignment="Left" Text="{Binding Nickname}" />
-                                                <TextBlock Grid.Column="2" Text="{Binding Nickname}" FontSize="13"
+                                                <TextBlock Grid.Column="2" Text="{Binding Nickname}" FontSize="{DynamicResource FontSizeSmall}"
                                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                            Margin="0,0,12,0" />
 
@@ -301,7 +301,7 @@
                                                     <Button Classes="cell" Theme="{StaticResource FlatButton}"
                                                             Command="{Binding BeginEditRemarkCommand}"
                                                             IsVisible="{Binding !IsEditingRemark}">
-                                                        <TextBlock Text="{Binding Remark}" FontSize="13"
+                                                        <TextBlock Text="{Binding Remark}" FontSize="{DynamicResource FontSizeSmall}"
                                                                    TextTrimming="CharacterEllipsis" Margin="0,0,16,0" />
                                                     </Button>
                                                     <c:InlineEditBox Classes="inline" Text="{Binding EditingRemark}"
@@ -318,7 +318,7 @@
                                                                     ItemContainerTheme="{StaticResource GroupDropdownMenuItem}" />
                                                     </Button.Flyout>
                                                     <StackPanel Orientation="Horizontal" Spacing="4">
-                                                        <TextBlock Text="{Binding GroupName}" FontSize="13" MaxWidth="72"
+                                                        <TextBlock Text="{Binding GroupName}" FontSize="{DynamicResource FontSizeSmall}" MaxWidth="72"
                                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                         <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" Width="12" Height="12"
                                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
@@ -346,7 +346,7 @@
                                         Command="{Binding OpenSetGroupDialogCommand}">
                                     <c:TdIcon Icon="{StaticResource Icon.UserSetting}" Width="20" Height="20" />
                                 </Button>
-                                <TextBlock Text="设置分组" FontSize="12" HorizontalAlignment="Center" />
+                                <TextBlock Text="设置分组" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Center" />
                             </StackPanel>
                             <Button Classes="dismiss" Theme="{StaticResource FlatButton}" VerticalAlignment="Top"
                                     Margin="0,4,0,0" Command="{Binding ClearSelectionCommand}">

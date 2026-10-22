@@ -47,7 +47,7 @@ public sealed partial class FileEntry : ViewModelBase
     private readonly FilesViewModel _owner;
 
     public FileEntry(FilesViewModel owner, UploadLink link, long messageId, ConversationKey key, long timestamp,
-        string sourceText, long? size, DateTime now)
+        string sourceText, long? size, DateTime now, bool use24h)
     {
         _owner = owner;
         Link = link;
@@ -57,7 +57,7 @@ public sealed partial class FileEntry : ViewModelBase
         SourceText = sourceText;
         Size = size;
         var time = Core.TimeText.FromUnix(timestamp);
-        TimeText = Core.TimeText.ListTime(time, now);
+        TimeText = Core.TimeText.ListTime(time, now, use24h);
         GroupHeader = Core.TimeText.MonthGroup(time, now);
     }
 
@@ -640,7 +640,7 @@ public partial class FilesViewModel : ViewModelBase
             var link = ZulipHtml.UploadLinkOf(record.UploadPath, record.FileName);
             var senderId = _session.Messages.Get(record.MessageId)?.SenderId;
             AddEntry(new FileEntry(this, link, record.MessageId, key, record.LastOpenedAt ?? record.DownloadedAt,
-                SourceText(senderId, key), record.Size, now));
+                SourceText(senderId, key), record.Size, now, _session.Settings.Zulip.TwentyFourHourTime));
         }
         _foundOldest = true;
         Rebuild();
@@ -686,7 +686,7 @@ public partial class FilesViewModel : ViewModelBase
             foreach (var link in ZulipHtml.ExtractUploads(dto.Content))
             {
                 if (!_paths.Contains(link.Path))
-                    AddEntry(new FileEntry(this, link, dto.Id, key, dto.Timestamp, SourceText(dto.SenderId, key), null, now));
+                    AddEntry(new FileEntry(this, link, dto.Id, key, dto.Timestamp, SourceText(dto.SenderId, key), null, now, _session.Settings.Zulip.TwentyFourHourTime));
             }
         }
         if (result.Messages.Count > 0)

@@ -73,12 +73,12 @@
                 <Button x:Name="ZoomOutButton" Classes="tool" ToolTip.Tip="缩小">
                     <c:TdIcon Icon="{StaticResource Icon.ZoomOut}" />
                 </Button>
-                <TextBlock x:Name="ScaleText" Width="48" TextAlignment="Center" VerticalAlignment="Center" FontSize="12"
+                <TextBlock x:Name="ScaleText" Width="48" TextAlignment="Center" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeSub}"
                            Foreground="{DynamicResource TextSecondaryBrush}" />
                 <Button x:Name="ZoomInButton" Classes="tool" ToolTip.Tip="放大">
                     <c:TdIcon Icon="{StaticResource Icon.ZoomIn}" />
                 </Button>
-                <Button x:Name="ActualSizeButton" Classes="tool" ToolTip.Tip="原始大小" Content="1:1" FontSize="13" />
+                <Button x:Name="ActualSizeButton" Classes="tool" ToolTip.Tip="原始大小" Content="1:1" FontSize="{DynamicResource FontSizeSmall}" />
                 <Button x:Name="FitButton" Classes="tool" ToolTip.Tip="适应窗口">
                     <c:TdIcon Icon="{StaticResource Icon.Fullscreen}" />
                 </Button>
@@ -97,7 +97,7 @@
         <Border Grid.Row="1" Background="#CC000000" CornerRadius="6" Padding="16,8" HorizontalAlignment="Center"
                 VerticalAlignment="Top" Margin="0,16,0,0"
                 IsVisible="{Binding ToastText, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="13" />
+            <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="{DynamicResource FontSizeSmall}" />
         </Border>
     </Grid>
 </Window>

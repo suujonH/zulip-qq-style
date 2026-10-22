@@ -20,7 +20,7 @@
             <Setter Property="FontFamily" Value="Segoe UI Emoji" />
         </Style>
         <Style Selector="TextBlock.groupTitle">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="Margin" Value="4,6,0,4" />
         </Style>
