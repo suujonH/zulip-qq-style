@@ -9,7 +9,7 @@ using ZulipQQ.Services;
 
 namespace ZulipQQ.ViewModels;
 
-public partial class MainViewModel : ViewModelBase
+public partial class MainViewModel : ViewModelBase, IDialogHost
 {
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private int _openVersion;
@@ -20,7 +20,7 @@ public partial class MainViewModel : ViewModelBase
         Session = session;
         Messages = new MessagesPageViewModel(session, key => _ = OpenChatAsync(key), CloseChatAsync, ShowToast);
         Contacts = new ContactsPageViewModel(session, this);
-        Topics = new TopicActions(this);
+        Topics = new TopicActions(this, this);
         Search = new SearchViewModel(session, this);
         CurrentPage = Messages;
 

@@ -259,7 +259,7 @@ public partial class FavoritesViewModel : ViewModelBase
         var session = _session;
         var id = item.MessageId;
         MainWindowRequested?.Invoke(this, EventArgs.Empty);
-        ForwardDialogViewModel.Show(_main, $"{item.SenderName}：{ZulipHtml.ToPreview(item.Content)}",
+        ForwardDialogViewModel.Show(_main, _main, $"{item.SenderName}：{ZulipHtml.ToPreview(item.Content)}",
             async () => [await session.Chat.GetRawContentAsync(id)]);
     }
 

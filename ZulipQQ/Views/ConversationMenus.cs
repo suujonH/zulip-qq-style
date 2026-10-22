@@ -71,14 +71,14 @@ internal static class ConversationMenus
     }
 
     /// <summary>复制链接到剪贴板并提示。</summary>
-    public static async Task CopyAsync(Visual anchor, string text, MainViewModel main)
+    public static async Task CopyAsync(Visual anchor, string text, IDialogHost host)
     {
         if (TopLevel.GetTopLevel(anchor)?.Clipboard is not { } clipboard)
             return;
         try
         {
             await clipboard.SetTextAsync(text);
-            main.ShowToast("链接已复制");
+            host.ShowToast("链接已复制");
         }
         catch (Exception ex)
         {

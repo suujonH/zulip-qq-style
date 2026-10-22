@@ -410,7 +410,7 @@ public partial class ChatView : UserControl
         menu.Items.Add(MenuItem("引用", () => vm.Composer.Quote(item)));
         menu.Items.Add(MenuItem("转发", () => vm.Forward(item)));
         menu.Items.Add(MenuItem("多选", () => vm.BeginMultiSelect(item)));
-        menu.Items.Add(MenuItem("复制链接", () => _ = ConversationMenus.CopyAsync(this, vm.MessageLink(item.Id), vm.Main)));
+        menu.Items.Add(MenuItem("复制链接", () => _ = ConversationMenus.CopyAsync(this, vm.MessageLink(item.Id), vm.Host)));
         menu.Open(bubble);
     }
 

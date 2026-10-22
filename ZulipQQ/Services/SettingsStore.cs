@@ -13,11 +13,11 @@ namespace ZulipQQ.Services;
 /// 用户设置：Zulip 用户设置（修改时先乐观更新本地值，再提交服务器；收到 user_settings 事件时同步）、
 /// 提醒词，以及只保存在本机的 <see cref="Local"/>。
 /// </summary>
-public sealed class SettingsStore(ZulipSession session, SettingRepository localRepository)
+public sealed class SettingsStore(ZulipSession session, SettingRepository localRepository, SettingRepository appRepository)
 {
     public UserSettingsDto Zulip { get; private set; } = new();
 
-    public LocalSettings Local { get; } = new(localRepository);
+    public LocalSettings Local { get; } = new(localRepository, appRepository);
 
     /// <summary>提醒词（服务器保存，按添加顺序）。</summary>
     public IReadOnlyList<string> AlertWords { get; private set; } = [];

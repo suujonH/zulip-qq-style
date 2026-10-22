@@ -15,7 +15,7 @@ namespace ZulipQQ.ViewModels;
 /// 话题操作：移动到其他频道、标记已解决、重命名、删除、关注、复制链接。联系人页和消息页的右键菜单共用。
 /// 各操作的 Can… 方法返回 false 时，界面完全不显示对应菜单项。结果由服务器事件更新到各 Store。
 /// </summary>
-public sealed class TopicActions(MainViewModel main)
+public sealed class TopicActions(MainViewModel main, IDialogHost host)
 {
     /// <summary>Zulip 已解决话题的前缀。</summary>
     public const string ResolvedPrefix = "✔ ";
@@ -61,7 +61,7 @@ public sealed class TopicActions(MainViewModel main)
     public async Task MoveAsync(TopicKey key, Channel target)
     {
         var topic = Session.Conversations.GetTitle(key);
-        if (!await main.ConfirmAsync($"将话题「{topic}」移动到 #{target.Name}？"))
+        if (!await host.ConfirmAsync($"将话题「{topic}」移动到 #{target.Name}？"))
             return;
         await ChangeAsync(key, null, target.StreamId, "移动");
     }
@@ -81,17 +81,17 @@ public sealed class TopicActions(MainViewModel main)
         TextInputDialogViewModel dialog = null!;
         dialog = new TextInputDialogViewModel("重命名话题", "填写话题名称", name, Session.Realm.MaxTopicLength, newName =>
         {
-            main.Dialogs.Remove(dialog);
+            host.Dialogs.Remove(dialog);
             if (newName is not null)
                 _ = ChangeAsync(key, newName, null, "重命名");
         });
-        main.Dialogs.Add(dialog);
+        host.Dialogs.Add(dialog);
     }
 
     /// <summary>删除话题（先确认，确认按钮为红色）。服务器可能分批删除，直到返回全部完成。</summary>
     public async Task DeleteAsync(TopicKey key)
     {
-        if (!await main.ConfirmAsync("删除后话题中的所有消息将被永久删除，且无法恢复", "删除", isDanger: true))
+        if (!await host.ConfirmAsync("删除后话题中的所有消息将被永久删除，且无法恢复", "删除", isDanger: true))
             return;
         var name = Session.Conversations.GetTopicName(key);
         try
@@ -105,7 +105,7 @@ public sealed class TopicActions(MainViewModel main)
         catch (Exception ex) when (!Session.IsDisposed)
         {
             Log.Warn($"删除话题失败：{key.ToStorageString()}", ex);
-            main.ShowToast(FailureText("删除", ex));
+            host.ShowToast(FailureText("删除", ex));
             return;
         }
         if (Session.IsDisposed)
@@ -132,7 +132,7 @@ public sealed class TopicActions(MainViewModel main)
         catch (Exception ex) when (!Session.IsDisposed)
         {
             Log.Warn($"设置关注失败：{key.ToStorageString()}", ex);
-            main.ShowToast("设置失败");
+            host.ShowToast("设置失败");
             return;
         }
         if (Session.IsDisposed)
@@ -170,11 +170,11 @@ public sealed class TopicActions(MainViewModel main)
                 if (allowed == 0 || !body.TryGetProperty("first_message_id_allowed_to_move", out var first)
                                  || first.ValueKind != JsonValueKind.Number)
                 {
-                    main.ShowToast("所有消息都已超出可移动的时间限制");
+                    host.ShowToast("所有消息都已超出可移动的时间限制");
                     return;
                 }
                 if (Session.IsDisposed
-                    || !await main.ConfirmAsync($"只有 {allowed}/{total} 条消息可以{action}（更早的消息已超出时间限制），是否{action}这 {allowed} 条？"))
+                    || !await host.ConfirmAsync($"只有 {allowed}/{total} 条消息可以{action}（更早的消息已超出时间限制），是否{action}这 {allowed} 条？"))
                     return;
                 await Session.Client.UpdateMessageAsync(first.GetInt64(), newTopic, newStreamId, "change_later", Session.Token);
             }
@@ -182,7 +182,7 @@ public sealed class TopicActions(MainViewModel main)
         catch (Exception ex) when (!Session.IsDisposed)
         {
             Log.Warn($"话题{action}失败：{key.ToStorageString()}", ex);
-            main.ShowToast(FailureText(action, ex));
+            host.ShowToast(FailureText(action, ex));
         }
     }
 

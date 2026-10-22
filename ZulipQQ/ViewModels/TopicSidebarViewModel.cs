@@ -168,7 +168,7 @@ public partial class TopicSidebarViewModel : ViewModelBase
     private void ShowNotice()
     {
         if (StreamId is { } id)
-            ChannelNoticeDialogViewModel.Show(_chat.Main, id);
+            ChannelNoticeDialogViewModel.Show(_chat.Main, _chat.Host, id);
     }
 
     /// <summary>点击成员弹出的名片。</summary>

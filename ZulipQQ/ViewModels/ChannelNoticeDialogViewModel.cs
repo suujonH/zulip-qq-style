@@ -13,30 +13,30 @@ namespace ZulipQQ.ViewModels;
 public partial class ChannelNoticeDialogViewModel : ViewModelBase
 {
     private readonly ZulipSession _session;
-    private readonly MainViewModel _main;
+    private readonly IDialogHost _host;
     private readonly long _streamId;
     private readonly Action _onClosed;
 
-    private ChannelNoticeDialogViewModel(MainViewModel main, long streamId, Action onClosed)
+    private ChannelNoticeDialogViewModel(MainViewModel main, IDialogHost host, long streamId, Action onClosed)
     {
         _session = main.Session;
-        _main = main;
+        _host = host;
         _streamId = streamId;
         _onClosed = onClosed;
         Refresh();
     }
 
     /// <summary>在主窗口的对话框层中打开。</summary>
-    public static void Show(MainViewModel main, long streamId)
+    public static void Show(MainViewModel main, IDialogHost host, long streamId)
     {
         ChannelNoticeDialogViewModel dialog = null!;
-        dialog = new ChannelNoticeDialogViewModel(main, streamId, () =>
+        dialog = new ChannelNoticeDialogViewModel(main, host, streamId, () =>
         {
-            main.Dialogs.Remove(dialog);
+            host.Dialogs.Remove(dialog);
             dialog.Detach();
         });
         dialog.Attach();
-        main.Dialogs.Add(dialog);
+        host.Dialogs.Add(dialog);
     }
 
     [ObservableProperty]
@@ -122,7 +122,7 @@ public partial class ChannelNoticeDialogViewModel : ViewModelBase
         catch (Exception ex) when (!_session.IsDisposed)
         {
             Log.Warn($"修改群公告失败：{_streamId}", ex);
-            _main.ShowToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"保存失败：{api.Message}" : "保存失败");
+            _host.ShowToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"保存失败：{api.Message}" : "保存失败");
         }
         finally
         {

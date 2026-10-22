@@ -403,7 +403,7 @@ public partial class FilesViewModel : ViewModelBase
     {
         var markdown = ComposerViewModel.LinkMarkdown(entry.FileName, entry.Path);
         MainWindowRequested?.Invoke(this, EventArgs.Empty);
-        ForwardDialogViewModel.Show(_main, $"[文件]{entry.FileName}", () => Task.FromResult<IReadOnlyList<string>>([markdown]));
+        ForwardDialogViewModel.Show(_main, _main, $"[文件]{entry.FileName}", () => Task.FromResult<IReadOnlyList<string>>([markdown]));
     }
 
     public void Locate(FileEntry entry) => _ = LocateAsync(entry);

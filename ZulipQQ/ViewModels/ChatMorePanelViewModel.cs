@@ -42,6 +42,12 @@ public partial class ChatMorePanelViewModel : ViewModelBase
 
     public MainViewModel Main => _main;
 
+    /// <summary>对话框和提示显示在聊天所在的窗口。</summary>
+    public IDialogHost Host => _chat.Host;
+
+    // 话题操作的确认框同样显示在聊天所在的窗口
+    private TopicActions Topics => new(_main, Host);
+
     public ConversationKey Key => _chat.Key;
 
     public bool IsTopic => Key is TopicKey;
@@ -268,7 +274,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
 
             if (key is TopicKey topic)
             {
-                var topics = _main.Topics;
+                var topics = Topics;
                 IsFollowed = topics.IsFollowed(topic);
                 CanResolve = topics.CanResolve(topic);
                 ResolveText = topics.IsResolved(topic) ? "取消已解决" : "标记为已解决";
@@ -357,11 +363,11 @@ public partial class ChatMorePanelViewModel : ViewModelBase
         UserPickerDialogViewModel picker = null!;
         picker = new UserPickerDialogViewModel(Session, "邀请成员", 1, null, ids =>
         {
-            _main.Dialogs.Remove(picker);
+            Host.Dialogs.Remove(picker);
             if (ids is not null)
                 _ = ChangeSubscribersAsync(channel, ids, add: true);
         }, Session.Users.ActiveHumans(excludeSelf: true).Where(u => !members.Contains(u.Id)));
-        _main.Dialogs.Add(picker);
+        Host.Dialogs.Add(picker);
     }
 
     /// <summary>移出：列出全部成员（含机器人，不含自己），确认后为他们退订频道。</summary>
@@ -374,11 +380,11 @@ public partial class ChatMorePanelViewModel : ViewModelBase
         UserPickerDialogViewModel picker = null!;
         picker = new UserPickerDialogViewModel(Session, "移出成员", 1, null, async ids =>
         {
-            _main.Dialogs.Remove(picker);
-            if (ids is not null && await _main.ConfirmAsync($"将从频道 #{channel.Name} 中移出所选成员", "移出", isDanger: true))
+            Host.Dialogs.Remove(picker);
+            if (ids is not null && await Host.ConfirmAsync($"将从频道 #{channel.Name} 中移出所选成员", "移出", isDanger: true))
                 await ChangeSubscribersAsync(channel, ids, add: false);
         }, members);
-        _main.Dialogs.Add(picker);
+        Host.Dialogs.Add(picker);
     }
 
     private async Task ChangeSubscribersAsync(Channel channel, IReadOnlyList<long> userIds, bool add)
@@ -391,12 +397,12 @@ public partial class ChatMorePanelViewModel : ViewModelBase
             else
                 await Session.Client.UnsubscribeAsync([channel.Name], userIds, Session.Token);
             // 成员列表由 peer_add / peer_remove 事件更新
-            _main.ShowToast(add ? "已邀请" : "已移出");
+            Host.ShowToast(add ? "已邀请" : "已移出");
         }
         catch (Exception ex) when (!Session.IsDisposed)
         {
             Log.Warn($"{action}成员失败：{channel.StreamId}", ex);
-            _main.ShowToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"{action}失败：{api.Message}" : $"{action}失败");
+            Host.ShowToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"{action}失败：{api.Message}" : $"{action}失败");
         }
     }
 
@@ -404,14 +410,14 @@ public partial class ChatMorePanelViewModel : ViewModelBase
     private void ShowChannelSettings()
     {
         if (Key is TopicKey t)
-            ChannelSettingsDialogViewModel.Show(_main, t.StreamId);
+            ChannelSettingsDialogViewModel.Show(_main, Host, t.StreamId);
     }
 
     [RelayCommand]
     private void ShowNotice()
     {
         if (Key is TopicKey t)
-            ChannelNoticeDialogViewModel.Show(_main, t.StreamId);
+            ChannelNoticeDialogViewModel.Show(_main, Host, t.StreamId);
     }
 
     // ---- 备注 ----
@@ -467,7 +473,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
             catch (Exception ex) when (!Session.IsDisposed)
             {
                 Log.Warn($"设置免打扰失败：{key.ToStorageString()}", ex);
-                _main.ShowToast("设置失败");
+                Host.ShowToast("设置失败");
             }
         }
         // 失败时恢复显示
@@ -483,7 +489,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
 
     private async Task ToggleFollowAsync(TopicKey key)
     {
-        await _main.Topics.ToggleFollowAsync(key);
+        await Topics.ToggleFollowAsync(key);
         if (_attached)
             Refresh();
     }
@@ -499,7 +505,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
     {
         try
         {
-            if (muted && !await _main.ConfirmAsync("屏蔽后将不再显示对方的消息", "屏蔽"))
+            if (muted && !await Host.ConfirmAsync("屏蔽后将不再显示对方的消息", "屏蔽"))
                 return;
             if (muted)
                 await Session.Client.MuteUserAsync(userId, Session.Token);
@@ -509,7 +515,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
         catch (Exception ex) when (!Session.IsDisposed)
         {
             Log.Warn($"设置屏蔽失败：{userId}", ex);
-            _main.ShowToast("设置失败");
+            Host.ShowToast("设置失败");
         }
         finally
         {
@@ -524,32 +530,32 @@ public partial class ChatMorePanelViewModel : ViewModelBase
     private void ToggleResolved()
     {
         if (Key is TopicKey t)
-            _ = _main.Topics.ToggleResolvedAsync(t);
+            _ = Topics.ToggleResolvedAsync(t);
     }
 
     [RelayCommand]
     private void Rename()
     {
         if (Key is TopicKey t)
-            _main.Topics.ShowRenameDialog(t);
+            Topics.ShowRenameDialog(t);
     }
 
     [RelayCommand]
     private void DeleteTopic()
     {
         if (Key is TopicKey t)
-            _ = _main.Topics.DeleteAsync(t);
+            _ = Topics.DeleteAsync(t);
     }
 
-    public IEnumerable<Channel> MoveTargets() => Key is TopicKey t ? _main.Topics.MoveTargets(t) : [];
+    public IEnumerable<Channel> MoveTargets() => Key is TopicKey t ? Topics.MoveTargets(t) : [];
 
     public void MoveTo(Channel target)
     {
         if (Key is TopicKey t)
-            _ = _main.Topics.MoveAsync(t, target);
+            _ = Topics.MoveAsync(t, target);
     }
 
-    public string Link => Key is TopicKey t ? _main.Topics.Link(t) : "";
+    public string Link => Key is TopicKey t ? Topics.Link(t) : "";
 
     /// <summary>点击成员弹出的名片。</summary>
     public UserCardViewModel? CreateUserCard(long userId, Action onOpened) => _chat.CreateUserCard(userId, onOpened);
