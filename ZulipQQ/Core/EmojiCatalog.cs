@@ -86,7 +86,27 @@ public sealed class EmojiCatalog
                 continue;
             result.Add(new EmojiEntry(names[0], p.Name, EmojiEntry.UnicodeType, names.Skip(1).ToList(), text, null));
         }
-        return result;
+        // 数据按码点排序，键帽和国旗（Windows 上显示为字母）会排在最前面；按区块调整为表情脸在前
+        return [.. result.OrderBy(e => BlockRank(e.Code))];
+    }
+
+    // 数据中没有分类，按首个码点所在的 Unicode 区块排序（OrderBy 是稳定排序，区块内保持原顺序）
+    private static int BlockRank(string code)
+    {
+        var dash = code.IndexOf('-');
+        if (!int.TryParse(dash < 0 ? code : code[..dash], System.Globalization.NumberStyles.HexNumber, null, out var cp))
+            return 7;
+        return cp switch
+        {
+            >= 0x1F600 and <= 0x1F64F => 0, // 表情脸
+            >= 0x1F900 and <= 0x1F9FF => 1, // 补充表情与人物
+            >= 0x1F440 and <= 0x1F4FF => 2, // 手势、人物、物品
+            >= 0x1F300 and <= 0x1F43F => 3, // 自然、天气、动物、食物
+            >= 0x1F680 and <= 0x1F6FF or >= 0x1FA70 and <= 0x1FAFF => 4, // 交通、物品
+            >= 0x1F1E6 and <= 0x1F1FF or < 0x2000 => 7, // 国旗、键帽、© ®
+            >= 0x2600 and <= 0x27BF => 5, // 杂项符号
+            _ => 6,
+        };
     }
 
     /// <summary>把 <c>1f469-200d-1f4bb</c> 这样的码点串转为字符；无法解析时返回 null。</summary>

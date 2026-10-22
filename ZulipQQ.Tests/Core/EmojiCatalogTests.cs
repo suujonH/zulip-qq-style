@@ -26,6 +26,13 @@ public sealed class EmojiCatalogTests
     }
 
     [Fact]
+    public void ParseUnicode_FacesFirst_KeycapsLast()
+    {
+        Assert.Equal("1f600", Unicode[0].Code);
+        Assert.Equal("hash", Unicode[^1].Name);
+    }
+
+    [Fact]
     public void ParseUnicode_SkipsInvalidCode() => Assert.DoesNotContain(Unicode, e => e.Name == "broken");
 
     [Fact]
@@ -49,8 +56,8 @@ public sealed class EmojiCatalogTests
     public void Search_PrefixBeforeContains()
     {
         var catalog = new EmojiCatalog([], Unicode);
-        // hash、grinning（别名 happy）以 ha 开头，按目录顺序在前；folded_hands 只是包含 ha
-        Assert.Equal(["hash", "grinning", "folded_hands"], catalog.Search(":ha").Select(e => e.Name));
+        // grinning（别名 happy）、hash 以 ha 开头，按目录顺序在前；folded_hands 只是包含 ha
+        Assert.Equal(["grinning", "hash", "folded_hands"], catalog.Search(":ha").Select(e => e.Name));
         Assert.Equal(["heart"], catalog.Search("love").Select(e => e.Name));
         Assert.Equal(["joy"], catalog.Search("ears").Select(e => e.Name));
         Assert.Equal(catalog.All.Count, catalog.Search("  ").Count);

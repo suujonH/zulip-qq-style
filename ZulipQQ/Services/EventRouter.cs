@@ -78,7 +78,10 @@ public static class EventRouter
             case "muted_users":
                 s.Users.OnMutedUsersEvent(ev);
                 break;
-            // 输入状态、表情、提醒词、定时消息等由后续阶段处理
+            case "realm_emoji":
+                s.Emoji.LoadRealm(ZulipJson.Deserialize<Dictionary<string, RealmEmojiDto>>(ev.GetProperty("realm_emoji")));
+                break;
+            // 输入状态、提醒词、定时消息等由后续阶段处理
             default:
                 Log.Debug($"忽略事件：{ev.GetProperty("type").GetString()}");
                 break;
