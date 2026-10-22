@@ -339,6 +339,22 @@ public sealed class ZulipClient : IDisposable
         return root.GetProperty("id").GetInt64();
     }
 
+    /// <summary>
+    /// 修改频道（PATCH /streams/{id}）：<c>new_name</c>、<c>description</c>、<c>is_private</c>、
+    /// <c>history_public_to_subscribers</c>，以及 <c>{"new": …, "old": …}</c> 形式的各个 <c>can_*_group</c>。
+    /// </summary>
+    public Task UpdateChannelAsync(long streamId, FormBuilder args, CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Patch, $"api/v1/streams/{Id(streamId)}", args, DefaultTimeout, ct);
+
+    // ---- 用户 ----
+
+    /// <summary>屏蔽（静音）用户。</summary>
+    public Task MuteUserAsync(long userId, CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Post, $"api/v1/users/me/muted_users/{Id(userId)}", null, DefaultTimeout, ct);
+
+    public Task UnmuteUserAsync(long userId, CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Delete, $"api/v1/users/me/muted_users/{Id(userId)}", null, DefaultTimeout, ct);
+
     // ---- 草稿 ----
 
     public async Task<IReadOnlyList<DraftDto>> GetDraftsAsync(CancellationToken ct = default)

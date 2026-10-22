@@ -100,6 +100,18 @@ public sealed class ZulipSession : IAsyncDisposable
     /// <summary>组织的用户组（含系统组）。</summary>
     public IEnumerable<UserGroupDto> UserGroups => _groups.Values;
 
+    /// <summary>系统组（如 <c>role:members</c>）的 id；不存在时为 null。</summary>
+    public long? SystemGroupId(string name) =>
+        _groups.Values.FirstOrDefault(g => g.IsSystemGroup && g.Name == name)?.Id;
+
+    /// <summary>系统组的名字；不是系统组时为 null。</summary>
+    public string? SystemGroupName(long groupId) =>
+        _groups.TryGetValue(groupId, out var g) && g.IsSystemGroup ? g.Name : null;
+
+    /// <summary>权限设置可以选择的组的限制，键为 (范围, 设置名)。</summary>
+    public IReadOnlyDictionary<(string Scope, string Name), PermissionSettingInfo> PermissionSettings { get; private set; } =
+        new Dictionary<(string, string), PermissionSettingInfo>();
+
     public ConnectionState Connection { get; private set; } = ConnectionState.Connected;
 
     public CancellationToken Token => _cts.Token;
@@ -310,6 +322,7 @@ public sealed class ZulipSession : IAsyncDisposable
         _realmGroupSettings = reg.RealmGroupSettings();
         _realmGroupSettingNames = reg.PermissionSettingNames("realm").ToHashSet();
         _allowEveryone = reg.AllowEveryoneGroup();
+        PermissionSettings = reg.PermissionSettingInfos();
         RebuildPermissions();
 
         Settings.Load(reg);
