@@ -124,9 +124,11 @@ public partial class App : Application
             ct.ThrowIfCancellationRequested();
         }
 
-        var main = new MainWindow { DataContext = new MainViewModel(session) };
+        var mainVm = new MainViewModel(session);
+        var main = new MainWindow { DataContext = mainVm };
         Desktop.MainWindow = main;
         main.Show();
+        session.Notifications.Requested += (_, request) => ShowNotification(main, mainVm, request);
 
         _closingForLogin = true;
         try
@@ -144,6 +146,23 @@ public partial class App : Application
                 _ = LogoutAsync(confirm: false, "登录已失效，请重新登录");
         };
         session.Start();
+    }
+
+    // 主窗口不在前台时闪烁任务栏；需要时弹出通知，点击后把主窗口带到前台并打开会话
+    private static void ShowNotification(MainWindow main, MainViewModel vm, NotificationRequest request)
+    {
+        if (!main.IsActive)
+            TaskbarFlash.Start(main);
+        if (!request.Popup)
+            return;
+        NotificationPopupWindow.Show(request, () =>
+        {
+            main.Show();
+            if (main.WindowState == WindowState.Minimized)
+                main.WindowState = WindowState.Normal;
+            main.Activate();
+            _ = vm.OpenChatAsync(request.Key);
+        });
     }
 
     // 会话仍有效时关闭所有打开的聊天（保存草稿等）
