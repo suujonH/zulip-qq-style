@@ -57,6 +57,7 @@ public partial class ChatView : UserControl
         SizeChanged += (_, _) => UpdateSizes();
         LayoutUpdated += OnLayoutUpdated;
         MessageList.AddHandler(MessageContent.LinkClickedEvent, OnLinkClicked);
+        TitleText.PointerReleased += OnTitlePointerReleased;
         MessageList.AddHandler(PointerReleasedEvent, OnMessagePointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         // 隧道阶段处理：SelectableTextBlock 自带的“Copy”菜单会在冒泡阶段先处理
         MessageList.AddHandler(ContextRequestedEvent, OnMessageContextRequested, RoutingStrategies.Tunnel);
@@ -297,8 +298,32 @@ public partial class ChatView : UserControl
         e.Handled = true;
         _suppressTap = true;
         Dispatcher.UIThread.Post(() => _suppressTap = false);
+        if (e.Target is MentionTarget mention)
+        {
+            var vm = _vm;
+            ShowCard(close => vm.CreateUserCard(mention.UserId, close), e.Source as Control ?? MessageList,
+                PlacementMode.RightEdgeAlignedTop);
+            return;
+        }
         var item = (e.Source as StyledElement)?.DataContext as MessageItemViewModel;
         _ = _vm.HandleLinkAsync(item, e.Target, TopLevel.GetTopLevel(this));
+    }
+
+    private void OnTitlePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_vm is { } vm && e.InitialPressMouseButton == MouseButton.Left)
+            ShowCard(vm.CreateTitleCard, TitleText, PlacementMode.BottomEdgeAlignedLeft);
+    }
+
+    /// <summary>弹出名片；名片中点击“发消息”后关闭。没有名片（例如多人私聊的标题）时不弹出。</summary>
+    private static void ShowCard(Func<Action, ViewModelBase?> create, Control anchor, PlacementMode placement)
+    {
+        var flyout = new Flyout { Placement = placement };
+        flyout.FlyoutPresenterClasses.Add("card");
+        if (create(() => flyout.Hide()) is not { } card)
+            return;
+        flyout.Content = card;
+        flyout.ShowAt(anchor);
     }
 
     // 文件拖到聊天区：图片进入待发送列表，其它文件上传后直接发送
@@ -436,6 +461,12 @@ public partial class ChatView : UserControl
         {
             if (v is Button)
                 return;
+            if (v is Control { DataContext: MessageItemViewModel msg } c && c.Classes.Contains("sender"))
+            {
+                var vm = _vm;
+                ShowCard(close => vm.CreateUserCard(msg.Message.SenderId, close), c, PlacementMode.RightEdgeAlignedTop);
+                return;
+            }
             if (v is Border border && border.Classes.Contains("bubble") && border.DataContext is MessageItemViewModel m)
             {
                 _vm.ShowTime(m.Id);

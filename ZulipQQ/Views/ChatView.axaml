@@ -29,6 +29,10 @@
         <Style Selector="DockPanel.msg.own > c|Avatar">
             <Setter Property="DockPanel.Dock" Value="Right" />
         </Style>
+        <!-- 头像、昵称可点击弹出名片 -->
+        <Style Selector="c|Avatar.sender, TextBlock.sender">
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
         <Style Selector="DockPanel.msg > StackPanel.body">
             <Setter Property="Margin" Value="10,0,0,0" />
             <Setter Property="HorizontalAlignment" Value="Left" />
@@ -143,11 +147,11 @@
         <DataTemplate DataType="vm:MessageItemViewModel">
             <Border Classes="row" Classes.flash="{Binding IsFlashing}">
                 <DockPanel Classes="msg" Classes.own="{Binding IsOwn}">
-                    <c:Avatar Width="32" Height="32" VerticalAlignment="Top"
+                    <c:Avatar Classes="sender" Width="32" Height="32" VerticalAlignment="Top"
                               Source="{Binding AvatarUrl}" Text="{Binding SenderName}" />
                     <StackPanel Classes="body">
                         <StackPanel Classes="nameRow" Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="{Binding SenderName}" IsVisible="{Binding ShowSenderName}" />
+                            <TextBlock Classes="sender" Text="{Binding SenderName}" IsVisible="{Binding ShowSenderName}" />
                             <TextBlock Text="{Binding PreciseTimeText}" IsVisible="{Binding IsTimeShown}" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6"
@@ -199,8 +203,9 @@
     <Grid x:Name="RootGrid" RowDefinitions="56,*,Auto,190">
         <!-- 标题栏 -->
         <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
-            <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" Margin="20,0"
-                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" Margin="20,0"
+                       HorizontalAlignment="Left" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       Cursor="Hand" Background="Transparent" />
         </Border>
 
         <!-- 消息区：不虚拟化，向上加载时需要精确保持滚动位置 -->
