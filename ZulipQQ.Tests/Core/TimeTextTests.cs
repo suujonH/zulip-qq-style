@@ -32,6 +32,23 @@ public class TimeTextTests
         Assert.Equal(expected, TimeText.PreciseTime(DateTime.Parse(time), Now));
 
     [Theory]
+    [InlineData("2026-10-22 00:05", "上午12:05")]
+    [InlineData("2026-10-22 09:05", "上午9:05")]
+    [InlineData("2026-10-22 12:00", "下午12:00")]
+    [InlineData("2026-10-22 23:59", "下午11:59")]
+    public void ClockTime_12Hour(string time, string expected) =>
+        Assert.Equal(expected, TimeText.ClockTime(DateTime.Parse(time), use24h: false));
+
+    [Fact]
+    public void TwelveHourVariants()
+    {
+        Assert.Equal("昨天下午11:59", TimeText.ListTime(new DateTime(2026, 10, 21, 23, 59, 0), Now, use24h: false));
+        Assert.Equal("星期二 上午8:00", TimeText.SeparatorTime(new DateTime(2026, 10, 20, 8, 0, 0), Now, use24h: false));
+        Assert.Equal("2026/10/15 下午2:00", TimeText.SeparatorTime(new DateTime(2026, 10, 15, 14, 0, 0), Now, use24h: false));
+        Assert.Equal("03-04 上午5:06:07", TimeText.PreciseTime(new DateTime(2026, 3, 4, 5, 6, 7), Now, use24h: false));
+    }
+
+    [Theory]
     [InlineData("2026-10-22 00:01", "今天")]
     [InlineData("2026-10-21 23:59", "10月")]
     [InlineData("2026-06-01 08:00", "6月")]
