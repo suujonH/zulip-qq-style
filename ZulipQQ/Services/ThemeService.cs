@@ -63,6 +63,18 @@ public static class ThemeService
         ("FontSizeSmall", -1), ("FontSizeSub", -2), ("FontSizeCaption", -3),
     ];
 
+    // Fluent 控件（单选框、滑块、开关等）的强调色，与品牌色一致；值为向黑 / 白混合的比例
+    private static readonly (string Key, Rgb Toward, double Amount)[] SystemAccents =
+    [
+        ("SystemAccentColor", Rgb.White, 0),
+        ("SystemAccentColorDark1", Rgb.Black, 0.15),
+        ("SystemAccentColorDark2", Rgb.Black, 0.3),
+        ("SystemAccentColorDark3", Rgb.Black, 0.45),
+        ("SystemAccentColorLight1", Rgb.White, 0.15),
+        ("SystemAccentColorLight2", Rgb.White, 0.3),
+        ("SystemAccentColorLight3", Rgb.White, 0.45),
+    ];
+
     // 调色盘覆盖的画刷
     private static readonly string[] OverrideKeys =
     [
@@ -121,24 +133,31 @@ public static class ThemeService
     /// <summary>应用并保存调色盘配置。</summary>
     public static void SetPalette(ThemeConfig config)
     {
+        var oldImage = Palette.BackgroundImage;
         Palette = config with { PanelOpacity = Math.Clamp(config.PanelOpacity, MinPanelOpacity, 1) };
+        // 换掉或移除的背景图是导入时复制的副本，不再需要（位图已读入内存，文件没有被占用）
+        if (oldImage is not null && oldImage != Palette.BackgroundImage && IsImported(oldImage))
+            TryDelete(oldImage);
         _appSettings?.Set(PaletteKey, JsonSerializer.Serialize(Palette));
         ApplyPaletteResources();
         PaletteChanged?.Invoke(null, EventArgs.Empty);
     }
 
-    /// <summary>把选中的图片复制到数据目录（替换旧背景图），返回新路径。</summary>
+    /// <summary>把选中的图片复制到数据目录，返回新路径。旧背景图在 <see cref="SetPalette"/> 换掉它时删除。</summary>
     public static string ImportBackgroundImage(string sourcePath)
     {
-        var dir = Path.Combine(AppPaths.DataRoot, "theme");
+        var dir = ThemeDir;
         Directory.CreateDirectory(dir);
         // 每次换一个文件名：旧的位图可能仍被引用，不能原地覆盖
         var target = Path.Combine(dir, $"background-{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(sourcePath)}");
         File.Copy(sourcePath, target, overwrite: true);
-        foreach (var old in Directory.EnumerateFiles(dir, "background*").Where(f => f != target && f != Palette.BackgroundImage))
-            TryDelete(old);
         return target;
     }
+
+    private static string ThemeDir => Path.Combine(AppPaths.DataRoot, "theme");
+
+    private static bool IsImported(string path) =>
+        string.Equals(Path.GetDirectoryName(Path.GetFullPath(path)), Path.GetFullPath(ThemeDir), StringComparison.OrdinalIgnoreCase);
 
     private static void ApplyVariant()
     {
@@ -157,7 +176,14 @@ public static class ThemeService
             resources.Remove(key);
 
         var dark = App.ActualThemeVariant == ThemeVariant.Dark;
-        if (Rgb.TryParse(AccentOf(Palette), out var accent) && accent.ToHex() != Presets[0].Color)
+        if (!Rgb.TryParse(AccentOf(Palette), out var accent))
+            accent = Rgb.TryParse(Presets[0].Color, out var fallback) ? fallback : Rgb.Black;
+        foreach (var (key, toward, amount) in SystemAccents)
+        {
+            var c = ColorMath.Mix(accent, toward, amount);
+            resources[key] = Color.FromRgb(c.R, c.G, c.B);
+        }
+        if (accent.ToHex() != Presets[0].Color)
         {
             resources["BrandBrush"] = Brush(accent);
             resources["BrandHoverBrush"] = Brush(ColorMath.Lighten(accent, 0.1));

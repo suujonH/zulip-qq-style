@@ -73,7 +73,7 @@
             <Setter Property="Padding" Value="0" />
         </Style>
         <Style Selector="Border.bubble c|MessageContent">
-            <Setter Property="TextElement.FontSize" Value="14" />
+            <Setter Property="TextElement.FontSize" Value="{DynamicResource FontSizeBody}" />
         </Style>
 
         <Style Selector="c|TdIcon.sendState">

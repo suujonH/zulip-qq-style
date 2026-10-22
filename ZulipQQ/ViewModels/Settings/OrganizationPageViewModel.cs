@@ -43,6 +43,9 @@ public sealed partial class OrganizationPageViewModel : SettingsPageViewModel
         ("can_delete_own_message_group", "删除自己的消息"),
     ];
 
+    // 只有组织所有者可以修改（Zulip 12 zerver/views/realm.py 的 OrganizationOwnerRequiredError），对其他管理员隐藏
+    private static readonly HashSet<string> OwnerOnly = ["can_create_groups", "can_invite_users_group", "can_manage_all_groups"];
+
     private static readonly EditLimitOption[] StandardLimits =
     [
         new(null, "不限"),
@@ -184,7 +187,9 @@ public sealed partial class OrganizationPageViewModel : SettingsPageViewModel
             options.Add(new EditLimitOption(_originalLimit, $"{_originalLimit / 60} 分钟"));
         LimitOptions = options;
         Limit = options.First(o => o.Seconds == _originalLimit);
+        var isOwner = Session.Permissions.Role == PermissionEvaluator.RoleOwner;
         Rows = Permissions
+            .Where(p => isOwner || !OwnerOnly.Contains(p.Name))
             .Select(p => new PermissionRowViewModel(p.Name, p.Label, Session.RealmGroupSetting(p.Name), ChoicesFor(p.Name)))
             .ToList();
     }
