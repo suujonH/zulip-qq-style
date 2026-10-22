@@ -51,6 +51,8 @@ public partial class HistoryWindow : Window, ISessionWindow
         var vm = new HistoryViewModel(main.Session, main, key, query);
         var window = new HistoryWindow { DataContext = vm, _mainWindow = owner };
         window._vm = vm;
+        // 文件卡片从这里取下载状态
+        MessageContent.SetFiles(window, main.Session.Files);
         vm.MainWindowRequested += window.OnMainWindowRequested;
         Open[key] = window;
         // 不设 Owner：附属窗口总在主窗口之上，"定位到聊天"后会挡住主窗口；改为手动居中于主窗口
@@ -193,21 +195,23 @@ public partial class HistoryWindow : Window, ISessionWindow
                     e.Source as Control ?? Scroller, PlacementMode.RightEdgeAlignedTop);
                 break;
             case ImageTarget image:
-                var (images, index) = vm.CollectImages(new InlineImage(image.Src, image.Href));
+                var (images, index) = vm.CollectImages(new InlineImage(image.Src, image.Href), MessageIdOf(e.Source));
                 ImageViewerWindow.Show(this, vm.Session, images, index);
                 break;
             case UrlTarget url:
                 _ = MessageLinks.OpenUrlAsync(vm.Session, vm.OpenChatAsync, url.Href);
                 break;
             case FileTarget file:
-                var messageId = (e.Source as StyledElement)?.DataContext switch
-                {
-                    HistoryMessageItem m => m.MessageId,
-                    HistoryFileItem f => f.MessageId,
-                    _ => 0,
-                };
-                _ = MessageLinks.HandleFileAsync(vm.Session, file, vm.Key, messageId, this, vm.ShowToast);
+                _ = MessageLinks.HandleFileAsync(vm.Session, file, vm.Key, MessageIdOf(e.Source) ?? 0, this, vm.ShowToast);
                 break;
         }
     }
+
+    private static long? MessageIdOf(object? source) => (source as StyledElement)?.DataContext switch
+    {
+        HistoryMessageItem m => m.MessageId,
+        HistoryImageItem i => i.MessageId,
+        HistoryFileItem f => f.MessageId,
+        _ => null,
+    };
 }

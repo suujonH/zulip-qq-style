@@ -357,18 +357,18 @@ public partial class ChatViewModel : ViewModelBase
 
     /// <summary>
     /// 图片查看器的图片列表：当前已加载的消息中的全部图片（按时间先后），以及点击的那张的位置。
+    /// 同一张图片可能出现在多条消息中，优先匹配点击所在的消息 <paramref name="messageId"/>。
     /// 点击的图片不在消息中（例如群公告里的图片）时只有它一张。
     /// </summary>
-    public (IReadOnlyList<InlineImage> Images, int Index) CollectImages(ImageTarget clicked)
+    public (IReadOnlyList<InlineImage> Images, int Index) CollectImages(ImageTarget clicked, long? messageId)
     {
-        var images = new List<InlineImage>();
+        var images = new List<(long MessageId, InlineImage Image)>();
         foreach (var m in _session.Messages.TryGet(Key)?.Messages ?? [])
         {
             if (!m.IsHiddenByPlugin && m.Id > 0 && !(m.SenderId != _session.SelfId && _session.Users.IsMuted(m.SenderId)))
-                images.AddRange(ZulipHtml.ExtractInlineImages(m.ContentHtml));
+                images.AddRange(ZulipHtml.ExtractInlineImages(m.ContentHtml).Select(i => (m.Id, i)));
         }
-        var index = images.FindIndex(i => i.Src == clicked.Src && i.Href == clicked.Href);
-        return index >= 0 ? (images, index) : ([new InlineImage(clicked.Src, clicked.Href)], 0);
+        return MessageLinks.LocateImage(images, new InlineImage(clicked.Src, clicked.Href), messageId);
     }
 
     /// <summary>消息链接（复制链接用）。</summary>

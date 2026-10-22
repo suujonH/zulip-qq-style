@@ -7,7 +7,7 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="{Binding Title}"
         Width="660" Height="720" MinWidth="480" MinHeight="420"
-        WindowStartupLocation="CenterOwner"
+        WindowStartupLocation="CenterScreen"
         WindowDecorations="BorderOnly"
         ExtendClientAreaToDecorationsHint="True"
         Background="{DynamicResource WindowBackgroundBrush}">
@@ -110,6 +110,23 @@
                     </ContextMenu>
                 </c:RemoteImage.ContextMenu>
             </c:RemoteImage>
+        </DataTemplate>
+        <DataTemplate DataType="vm:HistoryVideoItem">
+            <Button Width="140" Height="140" Margin="0,0,8,8" Padding="8" CornerRadius="4"
+                    Theme="{StaticResource FlatButton}" Background="{DynamicResource CardBrush}"
+                    ToolTip.Tip="{Binding Link.FileName}" Command="{Binding OpenCommand}">
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="定位到聊天" Command="{Binding LocateCommand}" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+                <StackPanel VerticalAlignment="Center" Spacing="8">
+                    <c:TdIcon Icon="{StaticResource Icon.Video}" Width="36" Height="36"
+                              Foreground="{DynamicResource BrandBrush}" />
+                    <TextBlock Text="{Binding Link.FileName}" FontSize="12" TextAlignment="Center"
+                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Button>
         </DataTemplate>
     </Window.DataTemplates>
 

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ZulipQQ.Controls;
 using ZulipQQ.Core;
 using ZulipQQ.Services;
 using ZulipQQ.Zulip;
@@ -69,6 +70,20 @@ public sealed partial class HistoryImageItem(HistoryViewModel owner, long messag
     public long MessageId { get; } = messageId;
 
     public InlineImage Image { get; } = image;
+
+    [RelayCommand]
+    private void Locate() => owner.Locate(MessageId);
+}
+
+/// <summary>聊天记录中的一个视频（“图片/视频”标签页）：点击打开（未下载时先下载）。</summary>
+public sealed partial class HistoryVideoItem(HistoryViewModel owner, long messageId, UploadLink link) : ViewModelBase
+{
+    public long MessageId { get; } = messageId;
+
+    public UploadLink Link { get; } = link;
+
+    [RelayCommand]
+    private void Open() => owner.OpenFile(Link, MessageId);
 
     [RelayCommand]
     private void Locate() => owner.Locate(MessageId);
@@ -286,9 +301,9 @@ public partial class HistoryViewModel : ViewModelBase
     }
 
     /// <summary>已加载的全部图片（按时间先后），以及点击的那张的位置（图片查看器用）。</summary>
-    public (IReadOnlyList<InlineImage> Images, int Index) CollectImages(InlineImage clicked)
+    public (IReadOnlyList<InlineImage> Images, int Index) CollectImages(InlineImage clicked, long? messageId)
     {
-        var images = new List<InlineImage>();
+        var images = new List<(long, InlineImage)>();
         // 列表最新的在上面，图片查看器按时间先后排列
         foreach (var group in Groups.Reverse())
         {
@@ -297,17 +312,20 @@ public partial class HistoryViewModel : ViewModelBase
                 switch (entry)
                 {
                     case HistoryImageItem image:
-                        images.Add(image.Image);
+                        images.Add((image.MessageId, image.Image));
                         break;
                     case HistoryMessageItem message:
-                        images.AddRange(ZulipHtml.ExtractInlineImages(message.Content));
+                        images.AddRange(ZulipHtml.ExtractInlineImages(message.Content).Select(i => (message.MessageId, i)));
                         break;
                 }
             }
         }
-        var index = images.FindIndex(i => i.Src == clicked.Src && i.Href == clicked.Href);
-        return index >= 0 ? (images, index) : ([clicked], 0);
+        return MessageLinks.LocateImage(images, clicked, messageId);
     }
+
+    /// <summary>打开文件（未下载时先下载）。</summary>
+    public void OpenFile(UploadLink link, long messageId) =>
+        _ = MessageLinks.HandleFileAsync(_session, new FileTarget(link), Key, messageId, null, ShowToast);
 
     /// <summary>在窗口中短暂显示的提示（主窗口可能被挡住）。</summary>
     public void ShowToast(string text)
@@ -372,15 +390,23 @@ public partial class HistoryViewModel : ViewModelBase
 
         // 锚点可能是这一天之后的第一条消息，不显示
         var limit = endOfDay?.ToUnixTimeSeconds();
+        var appended = false;
         foreach (var dto in Enumerable.Reverse(result.Messages))
         {
-            if (limit is null || dto.Timestamp <= limit)
-                Append(dto);
+            if ((limit is null || dto.Timestamp <= limit) && Append(dto))
+                appended = true;
         }
         if (result.Messages.Count > 0)
             _oldestId = result.Messages.Min(m => m.Id);
         _foundOldest = result.FoundOldest || result.Messages.Count == 0;
         _loading = false;
+        // 这一页的消息都没有对应条目（例如图片/视频标签页中只有文件的消息）：继续向前加载，
+        // 否则会误显示“没有找到”，列表也没有可滚动的内容触发加载
+        if (!appended && !_foundOldest)
+        {
+            await LoadAsync(reset: false);
+            return;
+        }
         SetLoading(false);
     }
 
@@ -397,12 +423,11 @@ public partial class HistoryViewModel : ViewModelBase
         var narrow = Narrow.For(Key, _session.SelfId, topicName);
         switch (Tab)
         {
+            // has:image 不包含视频，所以图片/视频与文件都按附件查询，再在客户端按类型取出条目。
+            // 同时含图片和文件的消息因此两边都会出现。
             case HistoryTab.Media:
-                narrow.Add(Narrow.Has("image"));
-                break;
             case HistoryTab.Files:
                 narrow.Add(Narrow.Has("attachment"));
-                narrow.Add(Narrow.Has("image", negated: true));
                 break;
             case HistoryTab.Links:
                 narrow.Add(Narrow.Has("link"));
@@ -415,19 +440,23 @@ public partial class HistoryViewModel : ViewModelBase
         return narrow;
     }
 
-    // 消息按从新到旧的顺序追加：同一天的放进最后一组
-    private void Append(MessageDto dto)
+    // 消息按从新到旧的顺序追加：同一天的放进最后一组。返回是否产生了条目
+    private bool Append(MessageDto dto)
     {
         List<ViewModelBase> entries = Tab switch
         {
-            HistoryTab.Media => ZulipHtml.ExtractInlineImages(dto.Content)
-                .Select(i => (ViewModelBase)new HistoryImageItem(this, dto.Id, i)).ToList(),
-            HistoryTab.Files => ZulipHtml.ExtractUploads(dto.Content).Where(u => !u.IsImage)
+            HistoryTab.Media =>
+            [
+                .. ZulipHtml.ExtractInlineImages(dto.Content).Select(i => new HistoryImageItem(this, dto.Id, i)),
+                .. ZulipHtml.ExtractUploads(dto.Content).Where(u => ZulipHtml.IsVideoPath(u.Path))
+                    .Select(u => new HistoryVideoItem(this, dto.Id, u)),
+            ],
+            HistoryTab.Files => ZulipHtml.ExtractUploads(dto.Content).Where(u => !u.IsImage && !ZulipHtml.IsVideoPath(u.Path))
                 .Select(u => (ViewModelBase)new HistoryFileItem(this, dto.Id, u)).ToList(),
             _ => [MessageItem(dto)],
         };
         if (entries.Count == 0)
-            return;
+            return false;
 
         var date = TimeText.FromUnix(dto.Timestamp).Date;
         var group = Groups.LastOrDefault();
@@ -441,6 +470,7 @@ public partial class HistoryViewModel : ViewModelBase
         }
         foreach (var entry in entries)
             group.Entries.Add(entry);
+        return true;
     }
 
     private HistoryMessageItem MessageItem(MessageDto dto, bool isFirst = false)

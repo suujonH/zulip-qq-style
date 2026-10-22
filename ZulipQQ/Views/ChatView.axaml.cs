@@ -322,13 +322,13 @@ public partial class ChatView : UserControl
                 PlacementMode.RightEdgeAlignedTop);
             return;
         }
+        var item = (e.Source as StyledElement)?.DataContext as MessageItemViewModel;
         if (e.Target is ImageTarget image)
         {
-            var (images, index) = _vm.CollectImages(image);
+            var (images, index) = _vm.CollectImages(image, item?.Id);
             ImageViewerWindow.Show(TopLevel.GetTopLevel(this) as Window, _vm.Session, images, index);
             return;
         }
-        var item = (e.Source as StyledElement)?.DataContext as MessageItemViewModel;
         _ = _vm.HandleLinkAsync(item, e.Target, TopLevel.GetTopLevel(this));
     }
 

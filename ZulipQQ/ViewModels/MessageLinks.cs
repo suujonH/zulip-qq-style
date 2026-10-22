@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using ZulipQQ.Controls;
@@ -64,5 +66,28 @@ internal static class MessageLinks
                     FileService.RevealInFolder(path);
                 break;
         }
+    }
+
+    /// <summary>
+    /// 在图片列表中找到点击的那张：同一张图片可能出现在多条消息中，优先匹配所在消息 <paramref name="messageId"/>，
+    /// 其次匹配第一次出现；都找不到时只返回它一张。
+    /// </summary>
+    public static (IReadOnlyList<InlineImage> Images, int Index) LocateImage(
+        IReadOnlyList<(long MessageId, InlineImage Image)> images, InlineImage clicked, long? messageId)
+    {
+        var index = -1;
+        for (var i = 0; i < images.Count; i++)
+        {
+            if (images[i].Image.Src != clicked.Src || images[i].Image.Href != clicked.Href)
+                continue;
+            if (images[i].MessageId == messageId)
+            {
+                index = i;
+                break;
+            }
+            if (index < 0)
+                index = i;
+        }
+        return index >= 0 ? (images.Select(i => i.Image).ToList(), index) : ([clicked], 0);
     }
 }

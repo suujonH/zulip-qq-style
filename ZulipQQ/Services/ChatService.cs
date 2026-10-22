@@ -144,8 +144,15 @@ public sealed class ChatService(ZulipSession session)
     }
 
     /// <summary>收藏或取消收藏（星标）。不做乐观更新，界面等待 update_message_flags 事件。</summary>
-    public Task SetStarredAsync(IReadOnlyCollection<long> ids, bool starred) =>
-        session.Client.UpdateFlagsAsync(ids, starred ? "add" : "remove", "starred", session.Token);
+    public async Task SetStarredAsync(IReadOnlyCollection<long> ids, bool starred)
+    {
+        foreach (var batch in ids.Chunk(FlagBatchSize))
+        {
+            await session.Client.UpdateFlagsAsync(batch, starred ? "add" : "remove", "starred", session.Token);
+            if (session.IsDisposed)
+                return;
+        }
+    }
 
     /// <summary>消息的 Markdown 原文（引用、转发用）。</summary>
     public async Task<string> GetRawContentAsync(long messageId) =>
