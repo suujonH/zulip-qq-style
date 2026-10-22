@@ -1,0 +1,91 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.UserPickerDialogView"
+             x:DataType="vm:UserPickerDialogViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="CheckBox.user">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="Padding" Value="8,0,0,0" />
+        </Style>
+        <Style Selector="Grid.picked">
+            <Setter Property="Height" Value="44" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="dialog" Width="560" Height="460">
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" Height="30">
+                <TextBlock Text="{Binding Title}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CancelCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"
+                        Margin="16,10,16,14">
+                <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="确定"
+                        Command="{Binding ConfirmCommand}" />
+                <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                        Command="{Binding CancelCommand}" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,1,*">
+                <!-- 左侧：搜索并勾选 -->
+                <DockPanel Margin="16,12,8,0">
+                    <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Classes="input" PlaceholderText="搜索"
+                             Text="{Binding Query}" Margin="0,0,0,8" />
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding Results}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:UserPickerItem">
+                                    <CheckBox Classes="user" IsChecked="{Binding IsChecked}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}"
+                                                      Text="{Binding DisplayName}" />
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="13"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </CheckBox>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+
+                <Border Grid.Column="1" Background="{DynamicResource DividerBrush}" />
+
+                <!-- 右侧：已选择 -->
+                <DockPanel Grid.Column="2" Margin="12,12,16,0">
+                    <TextBlock DockPanel.Dock="Top" Classes="sub" Text="{Binding SelectedText}" FontSize="13"
+                               Margin="0,8,0,10" />
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding Selected}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:UserPickerItem">
+                                    <Grid Classes="picked" ColumnDefinitions="Auto,*,Auto">
+                                        <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}"
+                                                  Text="{Binding DisplayName}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontSize="13" Margin="8,0"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="24" Height="24"
+                                                Foreground="{DynamicResource TextSecondaryBrush}"
+                                                Command="{Binding $parent[UserControl].((vm:UserPickerDialogViewModel)DataContext).RemoveCommand}"
+                                                CommandParameter="{Binding}">
+                                            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="12" Height="12" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Grid>
+        </DockPanel>
+    </Border>
+</UserControl>

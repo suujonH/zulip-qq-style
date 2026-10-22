@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:m="using:ZulipQQ.Models"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.NewTopicDialogView"
+             x:DataType="vm:NewTopicDialogViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="ComboBox.channel">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="MaxDropDownHeight" Value="240" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="dialog" Width="340">
+        <StackPanel>
+            <Grid Height="30">
+                <TextBlock Text="新建话题" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CancelCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel Margin="20,14,20,20" Spacing="8">
+                <TextBlock Classes="sub" Text="频道" FontSize="13" />
+                <ComboBox Classes="channel" PlaceholderText="请选择"
+                          ItemsSource="{Binding Channels}" SelectedItem="{Binding SelectedChannel}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="m:Channel">
+                            <TextBlock Text="{Binding Name, StringFormat='#{0}'}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <TextBlock Classes="sub" Text="话题" FontSize="13" Margin="0,6,0,0" />
+                <TextBox x:Name="TopicBox" Classes="input" PlaceholderText="输入话题名称"
+                         Text="{Binding Topic}" MaxLength="{Binding MaxLength}" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+                    <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="确定"
+                            Command="{Binding ConfirmCommand}" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                            Command="{Binding CancelCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>
