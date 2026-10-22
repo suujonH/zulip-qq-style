@@ -6,9 +6,10 @@
              x:DataType="vm:UserPickerDialogViewModel">
 
     <UserControl.Styles>
+        <!-- 复选框的方框在 32 高的区域内居中，内容不超过 32 时两者对齐 -->
         <Style Selector="CheckBox.user">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="Height" Value="44" />
+            <Setter Property="Margin" Value="0,6" />
             <Setter Property="Padding" Value="8,0,0,0" />
         </Style>
         <Style Selector="Grid.picked">
