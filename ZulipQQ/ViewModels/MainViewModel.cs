@@ -12,6 +12,7 @@ namespace ZulipQQ.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private int _openVersion;
 
     public MainViewModel(ZulipSession session)
     {
@@ -80,16 +81,36 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 打开会话：切换到消息页并选中该会话。会话已有消息时确保它在消息列表中；
-    /// 没有任何消息的新会话等第一条消息发出后再由新消息加入列表。
+    /// 打开会话：在右侧显示聊天（已在独立窗口中打开时激活该窗口），切换到消息页并选中该会话。
+    /// 会话已有消息时确保它在消息列表中；没有任何消息的新会话等第一条消息发出后再由新消息加入列表。
+    /// 期间又打开了别的会话时，旧的请求在 await 返回后放弃。
     /// </summary>
-    public Task OpenChatAsync(ConversationKey key, long? focusMessageId = null)
+    public async Task OpenChatAsync(ConversationKey key, long? focusMessageId = null)
     {
+        var version = ++_openVersion;
+        if (Session.Registry.Activate(key, focusMessageId))
+            return;
+
         CurrentPage = Messages;
         if (Session.Conversations.Get(key) is { LastMessageId: > 0 })
             Session.Conversations.EnsureInList(key);
         Messages.Select(key);
-        return Task.CompletedTask;
+
+        if (RightPane is ChatViewModel same && same.Key.Equals(key))
+        {
+            if (focusMessageId is { } focus)
+                await same.JumpToMessageAsync(focus);
+            return;
+        }
+
+        if (RightPane is ChatViewModel old)
+            await old.CloseAsync();
+        if (version != _openVersion || Session.IsDisposed)
+            return;
+
+        var chat = new ChatViewModel(Session, key, (k, f) => OpenChatAsync(k, f), ShowToast);
+        RightPane = chat;
+        await chat.OpenAsync(focusMessageId);
     }
 
     /// <summary>显示确认对话框，返回用户是否点击了确定。</summary>

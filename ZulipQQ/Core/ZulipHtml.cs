@@ -61,6 +61,67 @@ public static partial class ZulipHtml
         return string.Join('\n', lines).Trim('\n');
     }
 
+    /// <summary>
+    /// 内容只有图片 / 视频预览和上传文件链接（聊天中不显示气泡背景）。
+    /// </summary>
+    public static bool IsAttachmentOnly(string html)
+    {
+        var root = Parse(html);
+        var inlineImages = InlineImageHrefs(root);
+        var any = false;
+        foreach (var node in root.ChildNodes)
+        {
+            if (node is IText text)
+            {
+                if (!string.IsNullOrWhiteSpace(text.Data))
+                    return false;
+                continue;
+            }
+            if (node is not IElement e)
+                continue;
+            if (IsUploadPreview(e) || (e.LocalName == "p" && IsUploadOnlyParagraph(e)))
+            {
+                any = true;
+                continue;
+            }
+            return false;
+        }
+        return any;
+    }
+
+    /// <summary>上传图片 / 视频的内联预览（<c>div.message_inline_image</c> 中指向 <c>/user_uploads/</c> 的链接）。</summary>
+    public static bool IsUploadPreview(IElement e) =>
+        e.ClassList.Contains("message_inline_image")
+        && NormalizeUploadPath(e.QuerySelector("a[href]")?.GetAttribute("href")) is not null;
+
+    /// <summary>段落中只有上传文件链接（以及空白和换行）。</summary>
+    public static bool IsUploadOnlyParagraph(IElement p)
+    {
+        var any = false;
+        foreach (var node in p.ChildNodes)
+        {
+            switch (node)
+            {
+                case IText t when string.IsNullOrWhiteSpace(t.Data):
+                    continue;
+                case IElement { LocalName: "br" }:
+                    continue;
+                case IElement { LocalName: "a" } a when NormalizeUploadPath(a.GetAttribute("href")) is not null:
+                    any = true;
+                    continue;
+                default:
+                    return false;
+            }
+        }
+        return any;
+    }
+
+    /// <summary>有内联预览的上传链接路径；段落中指向它们的文字链接不再单独显示。</summary>
+    public static HashSet<string> InlinePreviewPaths(IElement root) => InlineImageHrefs(root);
+
+    /// <summary>解析消息 HTML，返回承载内容的 body 元素。</summary>
+    public static IElement ParseFragment(string html) => Parse(html);
+
     /// <summary>是否包含非图片的上传文件。</summary>
     public static bool HasFileAttachment(string html) => ExtractUploads(html).Any(u => !u.IsImage);
 
@@ -75,29 +136,43 @@ public static partial class ZulipHtml
             var path = NormalizeUploadPath(a.GetAttribute("href"));
             if (path is null || !seen.Add(path))
                 continue;
-
-            var text = a.TextContent.Trim();
-            if (text.Length == 0 || text.Contains(UploadsPrefix, StringComparison.Ordinal) || text.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                text = Uri.UnescapeDataString(path[(path.LastIndexOf('/') + 1)..]);
-            result.Add(new UploadLink(path, text, IsImagePath(path)));
+            result.Add(UploadLinkOf(path, a.TextContent));
         }
         return result;
     }
 
     /// <summary>
-    /// 把链接规范为 <c>/user_uploads/…</c> 形式的相对路径（去掉域名和查询串）；不是上传文件时返回 null。
+    /// 由规范化的上传路径和链接文字生成 <see cref="UploadLink"/>。文件名优先用链接文字；
+    /// 链接文字为空、是地址、或扩展名与上传路径不同（例如 <c>[报告](…/report.pdf)</c>）时，
+    /// 用路径的最后一段，保证下载后的文件扩展名正确。
+    /// </summary>
+    public static UploadLink UploadLinkOf(string path, string? linkText)
+    {
+        var pathName = Uri.UnescapeDataString(path[(path.LastIndexOf('/') + 1)..]);
+        var text = linkText?.Trim() ?? "";
+        if (text.Length == 0 || text.Contains(UploadsPrefix, StringComparison.Ordinal) || text.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(Path.GetExtension(text), Path.GetExtension(pathName), StringComparison.OrdinalIgnoreCase))
+            text = pathName;
+        return new UploadLink(path, text, IsImagePath(path));
+    }
+
+    /// <summary>
+    /// 把链接规范为 <c>/user_uploads/…</c> 形式的相对路径（去掉查询串）；不是本组织的上传文件时返回 null。
+    /// 服务器渲染时会把指向本组织的绝对链接改写为相对链接（形如 <c>user_uploads/…</c>，没有开头的斜杠；
+    /// 已在 Zulip 12.3 上验证），所以带域名的链接都属于其它服务器，不当作上传文件。
     /// 缩略图路径（<c>/user_uploads/thumbnail/…</c>）不算上传文件。
     /// </summary>
     public static string? NormalizeUploadPath(string? href)
     {
         if (string.IsNullOrEmpty(href))
             return null;
-        var index = href.IndexOf(UploadsPrefix, StringComparison.Ordinal);
-        if (index < 0)
+        string path;
+        if (href.StartsWith(UploadsPrefix, StringComparison.Ordinal))
+            path = href;
+        else if (href.StartsWith(UploadsPrefix[1..], StringComparison.Ordinal))
+            path = "/" + href;
+        else
             return null;
-        if (index > 0 && !href.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !href.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            return null;
-        var path = href[index..];
         var cut = path.IndexOfAny(['?', '#']);
         if (cut >= 0)
             path = path[..cut];

@@ -3,11 +3,12 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using ZulipQQ.Core;
+using ZulipQQ.Models;
 using ZulipQQ.Zulip;
 
 namespace ZulipQQ.Services;
 
-/// <summary>聊天相关的服务器操作。本分支只有标记已读，发送、上传、星标、表情回应在后续阶段加入。</summary>
+/// <summary>聊天相关的服务器操作。发送、上传、星标在后续阶段加入。</summary>
 public sealed class ChatService(ZulipSession session)
 {
     private const int FlagBatchSize = 1000;
@@ -43,5 +44,16 @@ public sealed class ChatService(ZulipSession session)
             anchor = last.ToString(CultureInfo.InvariantCulture);
             includeAnchor = false;
         }
+    }
+
+    /// <summary>
+    /// 切换表情回应：自己已回应过同一个表情时撤销，否则添加。不做乐观更新，界面等待 reaction 事件。
+    /// </summary>
+    public Task ToggleReactionAsync(ChatMessage msg, string emojiName, string emojiCode, string reactionType)
+    {
+        var mine = msg.Reactions.Exists(r => r.UserId == session.SelfId && r.EmojiCode == emojiCode && r.ReactionType == reactionType);
+        return mine
+            ? session.Client.RemoveReactionAsync(msg.Id, emojiName, emojiCode, reactionType, session.Token)
+            : session.Client.AddReactionAsync(msg.Id, emojiName, emojiCode, reactionType, session.Token);
     }
 }

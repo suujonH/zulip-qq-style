@@ -92,15 +92,27 @@ public class ZulipHtmlTests
     }
 
     [Fact]
-    public void ExtractUploads_AbsoluteUrlAndUrlText()
+    public void ExtractUploads_RewrittenOwnRealmUrlAndUrlText()
     {
-        const string html = "<p><a href=\"https://zulip.example.com/user_uploads/2/ab/x/%E8%B5%84%E6%96%99.zip\">https://zulip.example.com/user_uploads/2/ab/x/%E8%B5%84%E6%96%99.zip</a></p>";
+        // 粘贴本组织的完整地址时，服务器渲染为不带开头斜杠的相对链接，链接文字保留完整地址
+        const string html = "<p><a href=\"user_uploads/2/ab/x/%E8%B5%84%E6%96%99.zip\">https://zulip.example.com/user_uploads/2/ab/x/%E8%B5%84%E6%96%99.zip</a></p>";
         var upload = Assert.Single(ZulipHtml.ExtractUploads(html));
         Assert.Equal("/user_uploads/2/ab/x/%E8%B5%84%E6%96%99.zip", upload.Path);
         Assert.Equal("资料.zip", upload.FileName);
         Assert.False(upload.IsImage);
         Assert.True(ZulipHtml.HasFileAttachment(html));
     }
+
+    [Theory]
+    [InlineData("报告", "report.pdf")]
+    [InlineData("季度报告.PDF", "季度报告.PDF")]
+    [InlineData("", "report.pdf")]
+    public void UploadLinkOf_KeepsExtension(string text, string expected) =>
+        Assert.Equal(expected, ZulipHtml.UploadLinkOf("/user_uploads/2/id/report.pdf", text).FileName);
+
+    [Fact]
+    public void ExtractUploads_OtherServer_IsIgnored() => Assert.Empty(ZulipHtml.ExtractUploads(
+        "<p><a href=\"https://other.example/user_uploads/2/ab/x/report.pdf\">report.pdf</a></p>"));
 
     [Theory]
     [InlineData("emoji emoji-1f604", "😄")]
@@ -112,8 +124,29 @@ public class ZulipHtmlTests
     [Theory]
     [InlineData("/user_uploads/thumbnail/2/ac/x.png/840x560.webp", null)]
     [InlineData("#narrow/near/1", null)]
-    [InlineData("https://example.com/foo/user_uploads/x", "/user_uploads/x")]
+    [InlineData("https://example.com/user_uploads/2/a/b.txt", null)]
     [InlineData("/user_uploads/2/a/b.txt?x=1", "/user_uploads/2/a/b.txt")]
+    [InlineData("user_uploads/2/a/b.txt", "/user_uploads/2/a/b.txt")]
     public void NormalizeUploadPath(string href, string? expected) =>
         Assert.Equal(expected, ZulipHtml.NormalizeUploadPath(href));
+
+    private const string UploadedImage =
+        "<p><a href=\"/user_uploads/2/ac/x/a.png\">a.png</a></p>\n" +
+        "<div class=\"message_inline_image\"><a href=\"/user_uploads/2/ac/x/a.png\" title=\"a.png\"><img data-original-dimensions=\"320x200\" src=\"/user_uploads/thumbnail/2/ac/x/a.png/840x560.webp\"></a></div>";
+
+    [Fact]
+    public void AttachmentOnly_UploadedImage() => Assert.True(ZulipHtml.IsAttachmentOnly(UploadedImage));
+
+    [Fact]
+    public void AttachmentOnly_FileLinks() => Assert.True(ZulipHtml.IsAttachmentOnly(Sample("img")));
+
+    [Fact]
+    public void AttachmentOnly_TextWithImage_IsFalse() => Assert.False(ZulipHtml.IsAttachmentOnly(RealImage));
+
+    [Fact]
+    public void AttachmentOnly_PlainText_IsFalse() => Assert.False(ZulipHtml.IsAttachmentOnly(Sample("strong")));
+
+    [Fact]
+    public void AttachmentOnly_ExternalPreview_IsFalse() => Assert.False(ZulipHtml.IsAttachmentOnly(
+        "<div class=\"message_inline_image\"><a href=\"https://example.com/a.png\"><img src=\"/external_content/abc\"></a></div>"));
 }

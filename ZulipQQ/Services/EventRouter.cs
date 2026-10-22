@@ -101,6 +101,7 @@ public static class EventRouter
         s.Channels.OnNewMessage(msg);
         s.Unread.OnNewMessage(msg, flags);
         s.Conversations.OnNewMessage(msg);
+        s.Registry.OnNewMessage(msg);
     }
 
     private static void OnUpdateMessage(ZulipSession s, JsonElement ev)

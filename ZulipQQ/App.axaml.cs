@@ -69,6 +69,7 @@ public partial class App : Application
         {
             var accounts = new AccountRepository(LocalDb.Instance!);
             accounts.SetAutoLogin(session.Account.Id, false);
+            await CloseChatsAsync(session);
             CloseSessionWindows();
             await session.DisposeAsync();
             ShowLogin(accounts.Get(session.Account.Id) ?? session.Account, error);
@@ -87,9 +88,11 @@ public partial class App : Application
             return;
         _endingSession = true;
         IsEndingSession = true;
-        CloseSessionWindows();
         if (ZulipSession.Current is { } session)
-            await session.DisposeAsync();
+            await CloseChatsAsync(session);
+        CloseSessionWindows();
+        if (ZulipSession.Current is { } current)
+            await current.DisposeAsync();
         Desktop.Shutdown();
     }
 
@@ -141,6 +144,13 @@ public partial class App : Application
                 _ = LogoutAsync(confirm: false, "登录已失效，请重新登录");
         };
         session.Start();
+    }
+
+    // 会话仍有效时关闭所有打开的聊天（保存草稿等）
+    private static async Task CloseChatsAsync(ZulipSession session)
+    {
+        foreach (var chat in session.Registry.All.ToList())
+            await chat.CloseAsync();
     }
 
     private void CloseSessionWindows()

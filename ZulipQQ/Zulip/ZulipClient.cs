@@ -170,6 +170,19 @@ public sealed class ZulipClient : IDisposable
         return ZulipJson.Deserialize<FlagsNarrowResult>(root);
     }
 
+    /// <summary>添加表情回应。<paramref name="reactionType"/> 为 unicode_emoji / realm_emoji / zulip_extra_emoji。</summary>
+    public Task AddReactionAsync(long messageId, string emojiName, string emojiCode, string reactionType, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().Add("emoji_name", emojiName).Add("emoji_code", emojiCode).Add("reaction_type", reactionType);
+        return SendAsync(HttpMethod.Post, $"api/v1/messages/{Id(messageId)}/reactions", args, DefaultTimeout, ct);
+    }
+
+    public Task RemoveReactionAsync(long messageId, string emojiName, string emojiCode, string reactionType, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().Add("emoji_name", emojiName).Add("emoji_code", emojiCode).Add("reaction_type", reactionType);
+        return SendAsync(HttpMethod.Delete, $"api/v1/messages/{Id(messageId)}/reactions", args, DefaultTimeout, ct);
+    }
+
     // ---- 文件 ----
 
     /// <summary>上传文件，不设超时。返回的地址形如 <c>/user_uploads/…</c>。</summary>
