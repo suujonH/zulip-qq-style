@@ -163,8 +163,8 @@
                     <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2" />
                 </Panel>
                 <TextBlock Text="{Binding SelfName}" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
-                <!-- 个性签名：点击就地编辑 -->
-                <Panel VerticalAlignment="Center">
+                <!-- 个性签名：点击就地编辑（经典模式窗口太窄，不显示） -->
+                <Panel VerticalAlignment="Center" IsVisible="{Binding !IsClassicMode}">
                     <Button Classes="signature" Theme="{StaticResource FlatButton}" ToolTip.Tip="编辑个性签名"
                             IsVisible="{Binding !IsEditingSignature}" Command="{Binding BeginEditSignatureCommand}"
                             chrome:WindowDecorationProperties.ElementRole="User">
@@ -179,8 +179,8 @@
             </StackPanel>
 
             <StackPanel Grid.Column="4" Orientation="Horizontal">
-                <Button Classes="caption" Theme="{StaticResource FlatButton}"
-                        chrome:WindowDecorationProperties.ElementRole="User">
+                <Button Classes="caption" Theme="{StaticResource FlatButton}" Command="{Binding ToggleClassicModeCommand}"
+                        ToolTip.Tip="{Binding LayoutTip}" chrome:WindowDecorationProperties.ElementRole="User">
                     <c:TdIcon Icon="{StaticResource Icon.Layout}" />
                 </Button>
                 <Button Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMinimizeClick"
@@ -202,7 +202,8 @@
         <Border Grid.Row="1" Margin="2,0,2,2" CornerRadius="8,0,0,0" ClipToBounds="True"
                 Background="{DynamicResource PanelBackgroundBrush}"
                 BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1,1,0,0">
-            <Grid ColumnDefinitions="52,318,*">
+            <!-- 经典模式时由窗口改为 52,*,0 并隐藏右侧内容区 -->
+            <Grid x:Name="BodyGrid" ColumnDefinitions="52,318,*">
                 <Border Grid.Column="0" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
                     <DockPanel Margin="0,8">
                         <StackPanel DockPanel.Dock="Bottom">
@@ -310,7 +311,7 @@
                 </Border>
 
                 <!-- 右侧内容区：聊天、资料面板等；没有内容时显示企鹅占位 -->
-                <Panel Grid.Column="2">
+                <Panel Grid.Column="2" IsVisible="{Binding !IsClassicMode}">
                     <c:TdIcon Icon="{StaticResource Icon.QqFilled}" Width="90" Height="90"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               Foreground="{DynamicResource PlaceholderLogoBrush}" IsVisible="{Binding !HasRightPane}" />

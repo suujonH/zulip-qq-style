@@ -17,7 +17,7 @@ internal static class ConversationMenus
     {
         var item = new MenuItem { Header = header };
         if (isDanger)
-            item.Foreground = Application.Current?.FindResource("DangerBrush") as Avalonia.Media.IBrush;
+            item.Bind(MenuItem.ForegroundProperty, item.GetResourceObservable("DangerBrush"));
         item.Click += (_, _) => action();
         return item;
     }

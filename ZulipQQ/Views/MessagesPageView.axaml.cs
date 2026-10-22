@@ -71,6 +71,9 @@ public partial class MessagesPageView : UserControl
                 ConversationMenus.AppendManagement(menu.Items, main, topic);
             }
             menu.Items.Add(new Separator());
+            // 已经总是在独立窗口中打开时不需要这一项
+            if (TopLevel.GetTopLevel(this)?.DataContext is MainViewModel { UsesChatWindows: false } owner)
+                menu.Items.Add(ConversationMenus.Item("打开独立聊天窗口", () => owner.OpenInWindow(item.Key)));
             menu.Items.Add(ConversationMenus.Item("从消息列表中移除", () => _ = vm.RemoveAsync(item)));
         }
         menu.Open(container);

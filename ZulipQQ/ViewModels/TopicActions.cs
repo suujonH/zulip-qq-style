@@ -114,6 +114,7 @@ public sealed class TopicActions(MainViewModel main, IDialogHost host)
         if (Session.Conversations.Get(key) is { PinnedAt: not null })
             Session.Conversations.SetPinned(key, false);
         Session.Conversations.Remove(key);
+        Session.Registry.CloseWindows(key);
         await main.CloseChatAsync(key);
     }
 

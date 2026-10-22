@@ -9,6 +9,9 @@ using ZulipQQ.Services;
 
 namespace ZulipQQ.ViewModels;
 
+/// <summary>在独立窗口中打开会话的请求；<see cref="Existing"/> 为从主窗口右侧移过去的聊天。</summary>
+public sealed record ChatWindowRequest(ConversationKey Key, ChatViewModel? Existing, long? FocusMessageId);
+
 public partial class MainViewModel : ViewModelBase, IDialogHost
 {
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
@@ -30,6 +33,11 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
                 OnSelfChanged();
         };
         session.Users.Reset += (_, _) => OnSelfChanged();
+        session.Settings.Local.Changed += (_, key) =>
+        {
+            if (key == LocalSettings.ClassicModeKey)
+                OnClassicModeChanged();
+        };
         _toastTimer.Tick += (_, _) =>
         {
             _toastTimer.Stop();
@@ -38,6 +46,17 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
     }
 
     public ZulipSession Session { get; }
+
+    /// <summary>需要在独立窗口中打开会话（由主窗口创建聊天窗口）。</summary>
+    public event EventHandler<ChatWindowRequest>? ChatWindowRequested;
+
+    /// <summary>经典模式：主窗口只有导航栏和列表，聊天都在独立窗口中打开。</summary>
+    public bool IsClassicMode => Session.Settings.Local.ClassicMode;
+
+    public string LayoutTip => IsClassicMode ? "切换为默认模式" : "切换为经典模式";
+
+    /// <summary>聊天在独立窗口中打开（经典模式，或设置为在独立窗口中打开）。</summary>
+    public bool UsesChatWindows => IsClassicMode || Session.Settings.Local.OpenChatInNewWindow;
 
     public string SelfName => Session.Users.Get(Session.SelfId)?.FullName ?? Session.Account.FullName;
 
@@ -109,6 +128,11 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         var version = ++_openVersion;
         if (Session.Registry.Activate(key, focusMessageId))
             return;
+        if (UsesChatWindows)
+        {
+            OpenInWindow(key, focusMessageId);
+            return;
+        }
 
         CurrentPage = Messages;
         Contacts.ClearSelection();
@@ -140,6 +164,54 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         var chat = new ChatViewModel(Session, this, key);
         RightPane = chat;
         await chat.OpenAsync(focusMessageId);
+    }
+
+    /// <summary>
+    /// 在独立窗口中打开会话（已打开时激活）。会话正显示在主窗口右侧时，把这个聊天移到新窗口（不重新加载，输入内容保留）。
+    /// </summary>
+    public void OpenInWindow(ConversationKey key, long? focusMessageId = null)
+    {
+        if (Session.Registry.Activate(key, focusMessageId))
+            return;
+        if (Session.Conversations.Get(key) is { LastMessageId: > 0 })
+            Session.Conversations.EnsureInList(key);
+        ChatViewModel? existing = null;
+        if (RightPane is ChatViewModel chat && chat.Key.Equals(key))
+        {
+            ++_openVersion;
+            existing = chat;
+            RightPane = null;
+            Messages.Select(null);
+        }
+        ChatWindowRequested?.Invoke(this, new ChatWindowRequest(key, existing, focusMessageId));
+    }
+
+    /// <summary>独立聊天窗口关闭：列表中仍选中该会话时取消选中，再次点击才能重新打开。</summary>
+    public void OnChatWindowClosed(ConversationKey key)
+    {
+        if (UsesChatWindows && Messages.SelectedKey is { } selected && selected.Equals(key))
+            Messages.Select(null);
+    }
+
+    [RelayCommand]
+    private void ToggleClassicMode() => Session.Settings.Local.ClassicMode = !IsClassicMode;
+
+    // 进入经典模式：右侧的聊天移到独立窗口，资料面板关闭；主窗口布局由窗口根据 IsClassicMode 调整
+    private void OnClassicModeChanged()
+    {
+        if (IsClassicMode && RightPane is not null)
+        {
+            if (RightPane is ChatViewModel chat)
+                OpenInWindow(chat.Key);
+            ++_openVersion;
+            _openingKey = null;
+            RightPane = null;
+            Messages.Select(null);
+            Contacts.ClearSelection();
+        }
+        OnPropertyChanged(nameof(IsClassicMode));
+        OnPropertyChanged(nameof(LayoutTip));
+        OnPropertyChanged(nameof(UsesChatWindows));
     }
 
     /// <summary>右侧正在显示（或正在打开）该会话时关闭聊天，恢复企鹅占位图标。</summary>

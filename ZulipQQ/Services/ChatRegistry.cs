@@ -55,9 +55,30 @@ public sealed class ChatRegistry(ZulipSession session)
         vm.HostWindow is { IsActive: true, IsVisible: true } window && window.WindowState != WindowState.Minimized;
 
     /// <summary>
-    /// 会话已在独立窗口中打开时激活该窗口并返回 true。独立聊天窗口在经典模式分支实现，目前总是返回 false。
+    /// 会话已在独立窗口中打开时还原并激活该窗口（有 <paramref name="focusMessageId"/> 时跳转到该消息），返回 true。
     /// </summary>
-    public bool Activate(ConversationKey key, long? focusMessageId) => false;
+    public bool Activate(ConversationKey key, long? focusMessageId)
+    {
+        if (_open.FirstOrDefault(vm => vm.IsStandalone && vm.Key.Equals(key)) is not { } chat)
+            return false;
+        if (chat.HostWindow is { } window)
+        {
+            window.Show();
+            if (window.WindowState == WindowState.Minimized)
+                window.WindowState = WindowState.Normal;
+            window.Activate();
+        }
+        if (focusMessageId is { } id)
+            session.Forget(chat.JumpToMessageAsync(id), "跳转到消息");
+        return true;
+    }
+
+    /// <summary>关闭该会话的独立聊天窗口（例如话题被删除）。</summary>
+    public void CloseWindows(ConversationKey key)
+    {
+        foreach (var chat in _open.Where(vm => vm.IsStandalone && vm.Key.Equals(key)).ToList())
+            chat.HostWindow?.Close();
+    }
 
     /// <summary>话题被整体移动或改名：打开中的聊天换成新键并重新加载。</summary>
     public void Rekey(ConversationKey oldKey, ConversationKey newKey)

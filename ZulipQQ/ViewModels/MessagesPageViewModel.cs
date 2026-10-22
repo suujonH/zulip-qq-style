@@ -92,6 +92,9 @@ public partial class MessagesPageViewModel : ViewModelBase
     public bool HasTotalUnread => TotalUnreadText.Length > 0;
 
     /// <summary>选中某个会话（从其它入口打开聊天时调用），不再触发打开。传入 null 清除选择。</summary>
+    /// <summary>当前选中的会话。</summary>
+    public ConversationKey? SelectedKey => _selectedKey;
+
     public void Select(ConversationKey? key)
     {
         _selectedKey = key;
