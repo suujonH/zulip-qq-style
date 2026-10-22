@@ -19,6 +19,9 @@ public record StreamDto : IChannelPermissions
     public long DateCreated { get; init; }
     public long? FolderId { get; init; }
 
+    /// <summary>话题策略：inherit（沿用组织设置）/ allow_empty_topic / disable_empty_topic / empty_topic_only。</summary>
+    public string TopicsPolicy { get; init; } = "inherit";
+
     public GroupSettingValue? CanAdministerChannelGroup { get; init; }
     public GroupSettingValue? CanAddSubscribersGroup { get; init; }
     public GroupSettingValue? CanRemoveSubscribersGroup { get; init; }

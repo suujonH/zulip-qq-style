@@ -149,14 +149,13 @@ public sealed class PermissionEvaluator(PermissionInputs inputs)
         ch.CanCreateTopicGroup is null || Allows(ch.CanCreateTopicGroup, Stream, "can_create_topic_group");
 
     /// <summary>
-    /// 自己加入频道：公开频道非访客都可以；否则需要在 can_subscribe_group 或频道的 can_add_subscribers_group 中，
-    /// 或者是频道管理员。
+    /// 自己加入频道：公开频道非访客都可以；否则需要在 can_subscribe_group 或频道的 can_add_subscribers_group 中。
+    /// 私有频道的管理权限不包含加入权限（Zulip 将两者分开），所以组织管理员、频道管理员也不例外。
     /// </summary>
     public bool CanSubscribe(IChannelPermissions ch, bool inviteOnly, GroupSettingValue? canSubscribeGroup) =>
         (!inviteOnly && !IsGuest)
         || Allows(canSubscribeGroup, Stream, "can_subscribe_group")
-        || Allows(ch.CanAddSubscribersGroup, Stream, "can_add_subscribers_group")
-        || CanAdministerChannel(ch);
+        || Allows(ch.CanAddSubscribersGroup, Stream, "can_add_subscribers_group");
 
     public bool CanAddSubscribers(IChannelPermissions ch) =>
         AllowsRealm("can_add_subscribers_group")

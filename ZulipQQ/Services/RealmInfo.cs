@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using ZulipQQ.Models;
 using ZulipQQ.Zulip.Dtos;
 
 namespace ZulipQQ.Services;
@@ -31,6 +32,13 @@ public sealed class RealmInfo
     public bool EnableReadReceipts { get; set; }
     public string EditHistoryVisibilityPolicy { get; set; } = "all";
 
+    /// <summary>组织的话题策略（频道为 inherit 时使用）。</summary>
+    public string TopicsPolicy { get; set; } = "allow_empty_topic";
+
+    /// <summary>频道是否允许有名字的话题：话题策略为 empty_topic_only（只有“综合聊天”）时不允许。</summary>
+    public bool AllowsNamedTopics(Channel channel) =>
+        (channel.TopicsPolicy == "inherit" ? TopicsPolicy : channel.TopicsPolicy) != "empty_topic_only";
+
     /// <summary>自定义资料字段的定义（custom_profile_fields 事件整体替换）。</summary>
     public IReadOnlyList<CustomProfileFieldDto> ProfileFields { get; set; } = [];
 
@@ -57,6 +65,7 @@ public sealed class RealmInfo
         EditLimitSeconds = reg.RealmMessageContentEditLimitSeconds,
         EnableReadReceipts = reg.RealmEnableReadReceipts,
         EditHistoryVisibilityPolicy = reg.RealmMessageEditHistoryVisibilityPolicy,
+        TopicsPolicy = reg.RealmTopicsPolicy,
         ProfileFields = reg.CustomProfileFields,
         LongpollTimeoutSeconds = reg.EventQueueLongpollTimeoutSeconds,
         TypingStartedWaitMs = reg.ServerTypingStartedWaitPeriodMilliseconds,
@@ -91,6 +100,9 @@ public sealed class RealmInfo
                 break;
             case "empty_topic_display_name":
                 EmptyTopicDisplayName = value.GetString() ?? EmptyTopicDisplayName;
+                break;
+            case "topics_policy":
+                TopicsPolicy = value.GetString() ?? TopicsPolicy;
                 break;
         }
     }

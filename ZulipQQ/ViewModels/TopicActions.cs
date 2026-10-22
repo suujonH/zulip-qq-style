@@ -35,9 +35,16 @@ public sealed class TopicActions(MainViewModel main)
 
     public bool CanMove(TopicKey key) => ChannelOf(key) is { } ch && Permissions.CanMoveTopicBetweenChannels(ch);
 
-    /// <summary>可以移入的频道：其他已订阅、未归档、可以发言的频道。</summary>
-    public IEnumerable<Channel> MoveTargets(TopicKey key) =>
-        Session.Channels.Subscribed().Where(c => c.StreamId != key.StreamId && !c.IsArchived && Permissions.CanSendToChannel(c));
+    /// <summary>
+    /// 可以移入的频道：其他已订阅、未归档、可以发言、可以新建话题的频道；有名字的话题不能移入只允许“综合聊天”的频道。
+    /// </summary>
+    public IEnumerable<Channel> MoveTargets(TopicKey key)
+    {
+        var named = Session.Conversations.GetTopicName(key).Length > 0;
+        return Session.Channels.Subscribed().Where(c => c.StreamId != key.StreamId && !c.IsArchived
+            && Permissions.CanSendToChannel(c) && Permissions.CanCreateTopic(c)
+            && (!named || Session.Realm.AllowsNamedTopics(c)));
+    }
 
     /// <summary>空话题不能标记已解决。</summary>
     public bool CanResolve(TopicKey key) =>

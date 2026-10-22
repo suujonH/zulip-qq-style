@@ -22,7 +22,8 @@ public partial class NewTopicDialogViewModel : ViewModelBase
         _onClosed = onClosed;
         MaxLength = session.Realm.MaxTopicLength;
         Channels = session.Channels.Subscribed()
-            .Where(c => !c.IsArchived && session.Permissions.CanSendToChannel(c) && session.Permissions.CanCreateTopic(c))
+            .Where(c => !c.IsArchived && session.Permissions.CanSendToChannel(c) && session.Permissions.CanCreateTopic(c)
+                        && session.Realm.AllowsNamedTopics(c))
             .ToList();
         SelectedChannel = Channels.FirstOrDefault();
     }

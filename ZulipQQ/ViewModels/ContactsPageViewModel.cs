@@ -87,6 +87,8 @@ public partial class ContactsPageViewModel : ViewModelBase
                 break;
             case TopicItemViewModel t:
                 _selected = t.Key;
+                // 确保有会话记录，话题被改名或移动时名片才能收到通知
+                Session.Conversations.EnsureEntry(t.Key, Session.Conversations.GetTopicName(t.Key));
                 card = new TopicCardViewModel(Session, t.Key, OpenChat);
                 break;
             default:

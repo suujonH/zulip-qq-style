@@ -25,6 +25,7 @@ public sealed class Channel : IChannelPermissions
     public long? CreatorId { get; set; }
     public long DateCreated { get; set; }
     public long? FolderId { get; set; }
+    public string TopicsPolicy { get; set; } = "inherit";
 
     // 个人设置
     public string Color { get; set; } = "";
@@ -70,6 +71,7 @@ public sealed class Channel : IChannelPermissions
         CreatorId = dto.CreatorId;
         DateCreated = dto.DateCreated;
         FolderId = dto.FolderId;
+        TopicsPolicy = dto.TopicsPolicy;
         CanAdministerChannelGroup = dto.CanAdministerChannelGroup;
         CanAddSubscribersGroup = dto.CanAddSubscribersGroup;
         CanRemoveSubscribersGroup = dto.CanRemoveSubscribersGroup;
@@ -127,6 +129,9 @@ public sealed class Channel : IChannelPermissions
                 break;
             case "folder_id":
                 FolderId = value.ValueKind == JsonValueKind.Number ? value.GetInt64() : null;
+                break;
+            case "topics_policy":
+                TopicsPolicy = value.GetString() ?? TopicsPolicy;
                 break;
             case "can_administer_channel_group":
                 CanAdministerChannelGroup = Group(value);
