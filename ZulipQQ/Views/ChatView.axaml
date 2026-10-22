@@ -154,8 +154,12 @@
                                     HorizontalAlignment="{Binding $parent[StackPanel].HorizontalAlignment}">
                             <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.Loading}"
                                       Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsPending}" />
-                            <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.ErrorCircle}"
-                                      Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding IsFailed}" />
+                            <Button Theme="{StaticResource FlatButton}" Width="20" Height="20" CornerRadius="10"
+                                    VerticalAlignment="Center" IsVisible="{Binding IsFailed}"
+                                    Command="{Binding RetryCommand}" ToolTip.Tip="发送失败，点击重发">
+                                <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.ErrorCircle}"
+                                          Foreground="{DynamicResource DangerBrush}" />
+                            </Button>
                             <Border Classes="bubble" Classes.selected="{Binding IsTimeShown}" Classes.bare="{Binding IsBare}"
                                     MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}">
                                 <StackPanel>
@@ -177,7 +181,9 @@
                                     <Button Classes="reaction" Classes.mine="{Binding IsMine}" Command="{Binding ToggleCommand}"
                                             ToolTip.Tip="{Binding ToolTipText}" Margin="0,0,6,4">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="{Binding EmojiText}" />
+                                            <c:RemoteImage Width="18" Height="18" CornerRadius="0" Source="{Binding ImageUrl}"
+                                                           IsVisible="{Binding HasImage}" />
+                                            <TextBlock Text="{Binding EmojiText}" IsVisible="{Binding !HasImage}" />
                                             <TextBlock Text="{Binding Count}" Foreground="{DynamicResource TextSecondaryBrush}" />
                                         </StackPanel>
                                     </Button>
@@ -232,8 +238,10 @@
             </Button>
         </Panel>
 
-        <!-- 输入区：高度可拖动调整（最小 120，最大为窗口的 60%）；输入框在 feature/composer 分支实现 -->
-        <Border Grid.Row="3" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" />
+        <!-- 输入区：高度可拖动调整（最小 120，最大为窗口的 60%） -->
+        <Border Grid.Row="3" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
+            <ContentControl x:Name="ComposerHost" Content="{Binding Composer}" />
+        </Border>
         <GridSplitter Grid.Row="2" Height="4" Margin="0,0,0,-4" Background="Transparent" ResizeDirection="Rows" />
     </Grid>
 </UserControl>

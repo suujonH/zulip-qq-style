@@ -58,8 +58,11 @@ public partial class ChatViewModel : ViewModelBase
         _openChat = openChat;
         _showToast = showToast;
         Key = key;
+        Composer = new ComposerViewModel(this, session, showToast);
         RefreshTitle();
     }
+
+    public ComposerViewModel Composer { get; }
 
     /// <summary>话题被整体移动时会被替换。</summary>
     public ConversationKey Key { get; private set; }
@@ -119,6 +122,8 @@ public partial class ChatViewModel : ViewModelBase
         _firstUnreadId = snapshot.Ids.Count > 0 ? snapshot.Ids.Min() : null;
         _mentionQueue = [.. snapshot.Mentions.OrderByDescending(m => m.Id)];
         _snapshotTaken = true;
+        Composer.Open();
+        _session.Forget(_session.Emoji.EnsureLoadedAsync(), "加载表情");
 
         try
         {
@@ -150,7 +155,7 @@ public partial class ChatViewModel : ViewModelBase
         MarkReadIfViewing();
     }
 
-    /// <summary>关闭会话（幂等）：取消订阅并从打开列表中移除。</summary>
+    /// <summary>关闭会话（幂等）：取消订阅、从打开列表中移除，并等待草稿保存完成。</summary>
     public Task CloseAsync()
     {
         if (_closed)
@@ -158,7 +163,7 @@ public partial class ChatViewModel : ViewModelBase
         _closed = true;
         Unsubscribe();
         _session.Registry.Unregister(this);
-        return Task.CompletedTask;
+        return Composer.CloseAsync();
     }
 
     /// <summary>重新加载最新的消息并滚动到底部（事件队列重建、话题被移动后）。</summary>
@@ -195,6 +200,7 @@ public partial class ChatViewModel : ViewModelBase
     {
         Key = newKey;
         RefreshTitle();
+        Composer.OnKeyChanged();
         _ = ReloadAsync();
     }
 
@@ -320,13 +326,48 @@ public partial class ChatViewModel : ViewModelBase
         }
     }
 
-    internal async Task ToggleReactionAsync(MessageItemViewModel item, ReactionViewModel reaction)
+    internal Task ToggleReactionAsync(MessageItemViewModel item, ReactionViewModel reaction) =>
+        ToggleReactionAsync(item, reaction.Name, reaction.Code, reaction.Type);
+
+    /// <summary>消息右键菜单中选择表情：切换回应，并计入常用表情。</summary>
+    public Task ReactAsync(MessageItemViewModel item, EmojiEntry emoji)
+    {
+        _session.Emoji.AddRecent(emoji);
+        return ToggleReactionAsync(item, emoji.Name, emoji.Code, emoji.Type);
+    }
+
+    /// <summary>收藏 / 取消收藏（星标）。</summary>
+    public async Task ToggleStarAsync(MessageItemViewModel item)
     {
         if (item.Id <= 0)
             return;
         try
         {
-            await _session.Chat.ToggleReactionAsync(item.Message, reaction.Name, reaction.Code, reaction.Type);
+            await _session.Chat.SetStarredAsync([item.Id], !item.Message.IsStarred);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn("收藏失败", ex);
+            _showToast("操作失败");
+        }
+    }
+
+    /// <summary>重发发送失败的消息。</summary>
+    internal void Retry(MessageItemViewModel item)
+    {
+        if (item.Message.LocalId is { } localId)
+            _session.Forget(_session.Chat.RetryAsync(localId), "重发消息");
+    }
+
+    private async Task ToggleReactionAsync(MessageItemViewModel item, string name, string code, string type)
+    {
+        if (item.Id <= 0)
+            return;
+        try
+        {
+            await _session.Chat.ToggleReactionAsync(item.Message, name, code, type);
         }
         catch (Exception ex)
         {
