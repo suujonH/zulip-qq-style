@@ -60,8 +60,11 @@ public abstract class SettingsPageViewModel(SettingsViewModel owner) : ViewModel
         {
             await Session.Settings.SetZulipAsync(name, value);
         }
-        catch (Exception ex) when (!Session.IsDisposed)
+        catch (Exception ex)
         {
+            // async void 中漏出的异常会使程序崩溃：退出账号后请求被取消，此时静默结束
+            if (Session.IsDisposed)
+                return;
             Log.Warn($"修改设置失败：{name}", ex);
             Owner.ShowToast("设置失败");
         }

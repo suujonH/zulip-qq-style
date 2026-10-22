@@ -30,6 +30,9 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
     private readonly Dictionary<ConversationKey, SemaphoreSlim> _locks = [];
     private readonly SemaphoreSlim _modeGate = new(1, 1);
 
+    // 最近一次关闭同步前的状态：设置页提交设置失败时用它恢复服务器模式
+    private (Dictionary<ConversationKey, List<DraftEntry>> Server, Dictionary<ConversationKey, string> Local)? _beforeDisable;
+
     /// <summary>当前是否使用服务器草稿（Zulip 的 enable_drafts_synchronization）。</summary>
     public bool UseServer { get; private set; }
 
@@ -201,6 +204,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
         HashSet<ConversationKey> affected = [.. _server.Keys, .. _local.Keys];
         if (!enabled)
         {
+            _beforeDisable = (new(_server), new(_local));
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             foreach (var key in _server.Keys.ToList())
             {
@@ -247,6 +251,44 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
 
         foreach (var key in affected)
             DraftChanged?.Invoke(this, key);
+    }
+
+    /// <summary>
+    /// 设置页关闭同步、但提交设置失败时调用：服务器上的草稿还在，恢复关闭前的服务器模式，撤销转存到本地的草稿。
+    /// </summary>
+    public async Task RevertDisableAsync()
+    {
+        await _modeGate.WaitAsync();
+        try
+        {
+            if (UseServer || _beforeDisable is not { } before || session.IsDisposed)
+                return;
+            _beforeDisable = null;
+            HashSet<ConversationKey> affected = [.. _local.Keys, .. before.Server.Keys];
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            foreach (var key in _local.Keys.ToList())
+            {
+                if (!before.Local.TryGetValue(key, out var content))
+                {
+                    _local.Remove(key);
+                    localRepo.Delete(key);
+                }
+                else if (_local[key] != content)
+                {
+                    _local[key] = content;
+                    localRepo.Set(key, content, now);
+                }
+            }
+            foreach (var (key, list) in before.Server)
+                _server[key] = list;
+            UseServer = true;
+            foreach (var key in affected)
+                DraftChanged?.Invoke(this, key);
+        }
+        finally
+        {
+            _modeGate.Release();
+        }
     }
 
     // 服务器模式下保存或删除成功后，清掉开启同步时上传失败、留在本地的草稿

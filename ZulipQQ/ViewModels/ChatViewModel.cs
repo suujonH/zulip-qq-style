@@ -754,7 +754,7 @@ public partial class ChatViewModel : ViewModelBase
     // 12 / 24 小时制变化：时间条和精确时间重新格式化
     private void OnSettingChanged(object? sender, string name)
     {
-        if (name != "twenty_four_hour_time" || !_opened || _closed)
+        if (name is not ("" or "twenty_four_hour_time") || !_opened || _closed)
             return;
         RebuildItems();
         foreach (var vm in _vms.Values)

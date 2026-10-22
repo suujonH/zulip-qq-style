@@ -172,7 +172,16 @@ public sealed partial class AccountPageViewModel : SettingsPageViewModel
         {
             if (!enabled)
                 await Session.Drafts.OnSyncSettingChangedAsync(false);
-            await Session.Settings.SetZulipAsync("enable_drafts_synchronization", enabled);
+            try
+            {
+                await Session.Settings.SetZulipAsync("enable_drafts_synchronization", enabled);
+            }
+            catch when (!enabled)
+            {
+                // 设置没有改成，服务器上的草稿还在：草稿恢复为服务器模式
+                await Session.Drafts.RevertDisableAsync();
+                throw;
+            }
             if (enabled)
                 await Session.Drafts.OnSyncSettingChangedAsync(true);
         }

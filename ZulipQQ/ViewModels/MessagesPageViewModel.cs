@@ -53,7 +53,7 @@ public partial class MessagesPageViewModel : ViewModelBase
         session.Channels.Reset += (_, _) => RequestRefresh();
         session.Settings.Changed += (_, name) =>
         {
-            if (name == "twenty_four_hour_time")
+            if (name is "" or "twenty_four_hour_time")
                 RequestRefresh();
         };
         session.ConnectionChanged += (_, _) => UpdateConnection();

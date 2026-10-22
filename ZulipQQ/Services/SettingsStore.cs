@@ -22,7 +22,7 @@ public sealed class SettingsStore(ZulipSession session, SettingRepository localR
     /// <summary>提醒词（服务器保存，按添加顺序）。</summary>
     public IReadOnlyList<string> AlertWords { get; private set; } = [];
 
-    /// <summary>某个设置变化，参数为 Zulip 的设置名（如 <c>enter_sends</c>）。</summary>
+    /// <summary>某个设置变化，参数为 Zulip 的设置名（如 <c>enter_sends</c>）；空字符串表示全部设置重新加载。</summary>
     public event EventHandler<string>? Changed;
 
     /// <summary>提醒词列表变化。</summary>
@@ -32,6 +32,7 @@ public sealed class SettingsStore(ZulipSession session, SettingRepository localR
     {
         Zulip = reg.UserSettings;
         AlertWords = reg.AlertWords;
+        Changed?.Invoke(this, "");
         AlertWordsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -42,21 +43,13 @@ public sealed class SettingsStore(ZulipSession session, SettingRepository localR
         AlertWordsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>添加提醒词；结果以服务器返回的列表为准。</summary>
-    public async Task AddAlertWordAsync(string word)
-    {
-        var words = await session.Client.AddAlertWordsAsync([word], session.Token);
-        if (!session.IsDisposed)
-            OnAlertWords(words);
-    }
+    /// <summary>
+    /// 添加提醒词。结果以按顺序到达的 alert_words 事件为准：响应中的列表可能比之后的事件旧，不使用。
+    /// </summary>
+    public Task AddAlertWordAsync(string word) => session.Client.AddAlertWordsAsync([word], session.Token);
 
-    /// <summary>删除提醒词。</summary>
-    public async Task RemoveAlertWordAsync(string word)
-    {
-        var words = await session.Client.RemoveAlertWordsAsync([word], session.Token);
-        if (!session.IsDisposed)
-            OnAlertWords(words);
-    }
+    /// <summary>删除提醒词；结果同样以 alert_words 事件为准。</summary>
+    public Task RemoveAlertWordAsync(string word) => session.Client.RemoveAlertWordsAsync([word], session.Token);
 
     /// <summary>修改 Zulip 设置。<paramref name="value"/> 为 bool、int、long 或 string。失败时恢复原值并抛出异常。</summary>
     public async Task SetZulipAsync(string name, object value)

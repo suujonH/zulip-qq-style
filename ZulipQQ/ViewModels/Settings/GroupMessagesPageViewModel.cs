@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ZulipQQ.Core;
+using ZulipQQ.Models;
 using ZulipQQ.Services;
 using ZulipQQ.Zulip.Dtos;
 
@@ -118,6 +119,26 @@ public sealed partial class ChannelLevelGroupViewModel : ObservableObject
     /// <summary>某个会话的级别变化。</summary>
     public void RefreshRow(ConversationKey key) => Topics.FirstOrDefault(r => r.Key.Equals(key))?.Refresh();
 
+    /// <summary>
+    /// 话题列表变化（新话题，或改名、移动后缓存被丢弃）：已加载的按最新列表重建，话题行不会留着旧的话题名。
+    /// </summary>
+    public void OnTopicsChanged()
+    {
+        if (!_loaded || IsLoading)
+            return;
+        if (_session.Channels.TryGetTopics(StreamId) is { } topics)
+        {
+            // 只是已有话题收到新消息时不重建，避免打开中的下拉框被关闭
+            if (!Topics.Select(r => r.Key).ToHashSet().SetEquals(topics.Select(t => new TopicKey(StreamId, t.Name))))
+                FillTopics(topics);
+            return;
+        }
+        _loaded = false;
+        Topics.Clear();
+        if (IsExpanded)
+            _ = LoadTopicsAsync();
+    }
+
     partial void OnIsExpandedChanged(bool value)
     {
         if (value && !_loaded)
@@ -139,12 +160,7 @@ public sealed partial class ChannelLevelGroupViewModel : ObservableObject
             var topics = await _session.Channels.GetTopicsAsync(StreamId);
             if (_session.IsDisposed)
                 return;
-            Topics.Clear();
-            foreach (var t in topics)
-            {
-                var key = new TopicKey(StreamId, t.Name);
-                Topics.Add(new LevelRowViewModel(_session, key, _toast));
-            }
+            FillTopics(topics);
         }
         catch (Exception ex) when (!_session.IsDisposed)
         {
@@ -156,6 +172,13 @@ public sealed partial class ChannelLevelGroupViewModel : ObservableObject
         {
             IsLoading = false;
         }
+    }
+
+    private void FillTopics(IReadOnlyList<TopicInfo> topics)
+    {
+        Topics.Clear();
+        foreach (var t in topics)
+            Topics.Add(new LevelRowViewModel(_session, new TopicKey(StreamId, t.Name), _toast));
     }
 
     // 结果以 subscription 事件为准；失败时恢复开关
@@ -182,6 +205,7 @@ public sealed class GroupMessagesPageViewModel : SettingsPageViewModel
         Build();
         Session.Conversations.EntryChanged += OnEntryChanged;
         Session.Channels.ChannelChanged += OnChannelChanged;
+        Session.Channels.TopicsChanged += OnTopicsChanged;
         Session.Channels.Reset += OnReset;
     }
 
@@ -195,6 +219,7 @@ public sealed class GroupMessagesPageViewModel : SettingsPageViewModel
     {
         Session.Conversations.EntryChanged -= OnEntryChanged;
         Session.Channels.ChannelChanged -= OnChannelChanged;
+        Session.Channels.TopicsChanged -= OnTopicsChanged;
         Session.Channels.Reset -= OnReset;
     }
 
@@ -234,6 +259,9 @@ public sealed class GroupMessagesPageViewModel : SettingsPageViewModel
         else
             group?.Refresh();
     }
+
+    private void OnTopicsChanged(object? sender, long streamId) =>
+        Channels.FirstOrDefault(c => c.StreamId == streamId)?.OnTopicsChanged();
 
     private void OnReset(object? sender, EventArgs e) => Build();
 }

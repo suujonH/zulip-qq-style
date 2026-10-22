@@ -491,7 +491,7 @@ public partial class ComposerViewModel : ViewModelBase
 
     private void OnSettingChanged(object? sender, string name)
     {
-        if (name == "enter_sends")
+        if (name is "" or "enter_sends")
             OnPropertyChanged(nameof(EnterSends));
     }
 

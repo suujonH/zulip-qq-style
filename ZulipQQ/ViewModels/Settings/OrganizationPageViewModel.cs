@@ -133,8 +133,13 @@ public sealed partial class OrganizationPageViewModel : SettingsPageViewModel
         try
         {
             await Session.Client.UpdateRealmAsync(args, Session.Token);
-            if (!Session.IsDisposed)
-                Owner.ShowToast("设置已保存");
+            if (Session.IsDisposed)
+                return;
+            Owner.ShowToast("设置已保存");
+            // 保存期间到达的 realm 事件被跳过：结果已全部到达时在这里重新读取，否则由之后的事件触发
+            IsBusy = false;
+            if (IsSavedState())
+                Reload();
         }
         catch (ZulipApiException e) when (e.Code == "EXPECTATION_MISMATCH" && !Session.IsDisposed)
         {
