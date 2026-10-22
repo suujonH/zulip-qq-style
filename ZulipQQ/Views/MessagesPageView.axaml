@@ -34,6 +34,21 @@
             <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
         </Style>
 
+        <!-- 群助手头像：橙色圆形 + 白色图标 -->
+        <Style Selector="Border.helperAvatar">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="CornerRadius" Value="22" />
+            <Setter Property="Background" Value="{DynamicResource HelperAvatarBrush}" />
+        </Style>
+        <Style Selector="Border.helperAvatar c|TdIcon">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
         <!-- 未读数：普通为红色，免打扰为灰色 -->
         <Style Selector="Border.badge">
             <Setter Property="Height" Value="16" />
@@ -66,52 +81,115 @@
         <Style Selector="ListBoxItem:selected c|TdIcon">
             <Setter Property="Foreground" Value="White" />
         </Style>
+
+        <!-- 群助手子列表从右侧滑入，主列表向左退出并淡出 -->
+        <Style Selector="Panel.mainLayer, DockPanel.helperLayer">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Panel.mainLayer">
+            <Setter Property="RenderTransform" Value="translateX(0px)" />
+        </Style>
+        <Style Selector="Panel.mainLayer.helperOpen">
+            <Setter Property="RenderTransform" Value="translateX(-96px)" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="DockPanel.helperLayer">
+            <Setter Property="RenderTransform" Value="translateX(320px)" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="DockPanel.helperLayer.helperOpen">
+            <Setter Property="RenderTransform" Value="translateX(0px)" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
     </UserControl.Styles>
 
-    <DockPanel>
-    <!-- 连接状态提示条：连接正常时隐藏 -->
-    <Border DockPanel.Dock="Top" Background="#FFF4DB" Padding="12,6" IsVisible="{Binding IsConnectionBannerVisible}">
-        <TextBlock Text="{Binding ConnectionText}" FontSize="12" Foreground="#B26B00" TextWrapping="Wrap" />
-    </Border>
+    <UserControl.Resources>
+        <DataTemplate x:Key="ConversationTemplate" x:DataType="vm:ConversationItemViewModel">
+            <Border Classes="conv" Classes.pinned="{Binding IsPinned}">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Panel Width="44" Height="44">
+                        <c:Avatar Width="44" Height="44" Source="{Binding AvatarUrl}" Text="{Binding AvatarText}"
+                                  Fill="{Binding AvatarFill}" IsVisible="{Binding !IsHelper}" />
+                        <Border Classes="helperAvatar" IsVisible="{Binding IsHelper}">
+                            <c:TdIcon Icon="{StaticResource Icon.Usergroup}" />
+                        </Border>
+                    </Panel>
 
-    <ListBox ItemsSource="{Binding Conversations}"
-             SelectedItem="{Binding SelectedConversation}"
-             ItemContainerTheme="{StaticResource PlainListBoxItem}"
-             Background="Transparent" BorderThickness="0" Padding="0"
-             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-        <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:ConversationItemViewModel">
-                <Border Classes="conv" Classes.pinned="{Binding IsPinned}">
-                    <Grid ColumnDefinitions="Auto,*">
-                        <c:Avatar Width="44" Height="44" Text="{Binding Title}" />
+                    <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                          ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
+                        <TextBlock Classes="title" Text="{Binding Title}" />
+                        <TextBlock Grid.Column="1" Classes="caption" Text="{Binding TimeText}"
+                                   Margin="8,0,0,0" VerticalAlignment="Center" />
 
-                        <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
-                              ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
-                            <TextBlock Classes="title" Text="{Binding Title}" />
-                            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding TimeText}"
-                                       Margin="8,0,0,0" VerticalAlignment="Center" />
+                        <!-- 预览行：[红色提示] / 草稿图标 + 预览文字（过长省略） -->
+                        <DockPanel Grid.Row="1">
+                            <TextBlock DockPanel.Dock="Left" Classes="notice" Text="{Binding NoticeText}"
+                                       IsVisible="{Binding HasNotice}" />
+                            <c:TdIcon DockPanel.Dock="Left" Classes="draft" Icon="{StaticResource Icon.Edit}"
+                                      IsVisible="{Binding HasDraft}" />
+                            <TextBlock Classes="sub" Text="{Binding PreviewText}" />
+                        </DockPanel>
 
-                            <!-- 预览行：[红色提示] / 草稿图标 + 预览文字（过长省略） -->
-                            <DockPanel Grid.Row="1">
-                                <TextBlock DockPanel.Dock="Left" Classes="notice" Text="{Binding NoticeText}"
-                                           IsVisible="{Binding HasNotice}" />
-                                <c:TdIcon DockPanel.Dock="Left" Classes="draft" Icon="{StaticResource Icon.Edit}"
-                                          IsVisible="{Binding HasDraft}" />
-                                <TextBlock Classes="sub" Text="{Binding PreviewText}" />
-                            </DockPanel>
-
-                            <Panel Grid.Row="1" Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right">
-                                <Border Classes="badge" Classes.muted="{Binding IsMuted}" IsVisible="{Binding HasUnread}">
-                                    <TextBlock Text="{Binding UnreadText}" />
-                                </Border>
-                                <c:TdIcon Classes="muted" Icon="{StaticResource Icon.NotificationOff}"
-                                          IsVisible="{Binding ShowMutedIcon}" />
-                            </Panel>
-                        </Grid>
+                        <Panel Grid.Row="1" Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right">
+                            <Border Classes="badge" Classes.muted="{Binding IsMuted}" IsVisible="{Binding HasUnread}">
+                                <TextBlock Text="{Binding UnreadText}" />
+                            </Border>
+                            <c:TdIcon Classes="muted" Icon="{StaticResource Icon.NotificationOff}"
+                                      IsVisible="{Binding ShowMutedIcon}" />
+                            <c:TdIcon Classes="muted" Icon="{StaticResource Icon.Forbid}"
+                                      IsVisible="{Binding IsBlocked}" />
+                        </Panel>
                     </Grid>
-                </Border>
-            </DataTemplate>
-        </ListBox.ItemTemplate>
-    </ListBox>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <!-- 连接状态提示条：连接正常时隐藏 -->
+        <Border DockPanel.Dock="Top" Background="#FFF4DB" Padding="12,6" IsVisible="{Binding IsConnectionBannerVisible}">
+            <TextBlock Text="{Binding ConnectionText}" FontSize="12" Foreground="#B26B00" TextWrapping="Wrap" />
+        </Border>
+
+        <Panel ClipToBounds="True">
+            <Panel Classes="mainLayer" Classes.helperOpen="{Binding IsHelperOpen}">
+                <ListBox ItemsSource="{Binding Conversations}"
+                         SelectedItem="{Binding SelectedConversation}"
+                         ItemTemplate="{StaticResource ConversationTemplate}"
+                         ItemContainerTheme="{StaticResource PlainListBoxItem}"
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+            </Panel>
+
+            <DockPanel Classes="helperLayer" Classes.helperOpen="{Binding IsHelperOpen}"
+                       Background="{DynamicResource PanelBackgroundBrush}">
+                <!-- 标题行：左侧“< 返回”，右侧灰色“群助手” -->
+                <DockPanel DockPanel.Dock="Top" Height="28" Margin="8,0,12,0">
+                    <Button DockPanel.Dock="Left" Theme="{StaticResource FlatButton}" Padding="4,2"
+                            Foreground="{DynamicResource TextSecondaryBrush}" Command="{Binding CloseHelperCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" Width="14" Height="14" />
+                            <TextBlock Text="返回" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="群助手" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <ListBox ItemsSource="{Binding HelperConversations}"
+                         SelectedItem="{Binding SelectedHelperConversation}"
+                         ItemTemplate="{StaticResource ConversationTemplate}"
+                         ItemContainerTheme="{StaticResource PlainListBoxItem}"
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+            </DockPanel>
+        </Panel>
     </DockPanel>
 </UserControl>
