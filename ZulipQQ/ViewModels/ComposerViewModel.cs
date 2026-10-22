@@ -16,6 +16,7 @@ using ZulipQQ.Core;
 using ZulipQQ.Plugins;
 using ZulipQQ.Services;
 using ZulipQQ.Zulip;
+using ZulipQQ.Zulip.Dtos;
 
 namespace ZulipQQ.ViewModels;
 
@@ -65,6 +66,9 @@ public partial class PendingAttachment(string localPath, bool isImage) : ViewMod
 public partial class ComposerViewModel : ViewModelBase
 {
     private static readonly TimeSpan DraftDelay = TimeSpan.FromSeconds(1);
+
+    /// <summary>常用语标题的长度上限（Zulip 服务器的限制）。</summary>
+    private const int MaxSnippetTitleLength = 60;
 
     private readonly ChatViewModel _chat;
     private readonly ZulipSession _session;
@@ -371,6 +375,58 @@ public partial class ComposerViewModel : ViewModelBase
         await _chat.ShowLatestAsync();
         if (!_session.IsDisposed)
             await _session.Chat.SendAsync(_chat.Key, content);
+    }
+
+    // ---- 常用语 ----
+
+    /// <summary>全部常用语（Zulip 的 saved snippets），按创建时间先后。</summary>
+    public IReadOnlyList<SavedSnippetDto> Snippets => _session.Snippets.All;
+
+    /// <summary>新建常用语：内容为输入框中的文字，标题在对话框中输入。</summary>
+    public void ShowNewSnippetDialog()
+    {
+        var content = Text.Trim();
+        if (content.Length == 0)
+            return;
+        var host = _chat.Host;
+        TextInputDialogViewModel dialog = null!;
+        dialog = new TextInputDialogViewModel("新建常用语", "常用语标题", "", MaxSnippetTitleLength, async title =>
+        {
+            host.Dialogs.Remove(dialog);
+            if (title is null)
+                return;
+            try
+            {
+                await _session.Snippets.CreateAsync(title, content);
+                _showToast("已保存为常用语");
+            }
+            catch (Exception ex)
+            {
+                if (_session.IsDisposed)
+                    return;
+                Log.Warn("保存常用语失败", ex);
+                _showToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"保存失败：{api.Message}" : "保存失败");
+            }
+        });
+        host.Dialogs.Add(dialog);
+    }
+
+    /// <summary>删除常用语（先确认）。列表由 saved_snippets 事件更新。</summary>
+    public async Task DeleteSnippetAsync(SavedSnippetDto snippet)
+    {
+        if (!await _chat.Host.ConfirmAsync($"删除常用语「{snippet.Title}」？", "删除", isDanger: true))
+            return;
+        try
+        {
+            await _session.Snippets.DeleteAsync(snippet.Id);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"删除常用语失败：{snippet.Id}", ex);
+            _showToast("删除失败");
+        }
     }
 
     [RelayCommand]

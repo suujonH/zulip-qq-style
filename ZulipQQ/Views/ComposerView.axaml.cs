@@ -30,6 +30,8 @@ public partial class ComposerView : UserControl
         InputBox.AddHandler(KeyDownEvent, OnInputKeyDown, RoutingStrategies.Tunnel);
         InputBox.PropertyChanged += OnInputPropertyChanged;
         InputBox.LostFocus += (_, _) => _vm?.Mentions.Close();
+        // 隧道阶段处理：替换输入框自带的剪切 / 复制 / 粘贴菜单
+        InputBox.AddHandler(ContextRequestedEvent, OnInputContextRequested, RoutingStrategies.Tunnel);
         MentionList.AddHandler(PointerReleasedEvent, OnMentionClicked, RoutingStrategies.Bubble, handledEventsToo: true);
         EmojiFlyout.Opening += OnEmojiFlyoutOpening;
         FileButton.Click += async (_, _) =>
@@ -174,6 +176,52 @@ public partial class ComposerView : UserControl
             Log.Warn("读取剪贴板失败", ex);
         }
         InputBox.Paste();
+    }
+
+    /// <summary>输入框右键菜单：剪切、复制、粘贴、全选，以及“常用语 ▸”（插入、新建、删除）。</summary>
+    private void OnInputContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (_vm is not { } vm)
+            return;
+        e.Handled = true;
+        var hasText = !string.IsNullOrEmpty(InputBox.Text);
+        var menu = new ContextMenu();
+        menu.Items.Add(MenuItem("剪切", () => InputBox.Cut(), InputBox.CanCut));
+        menu.Items.Add(MenuItem("复制", () => InputBox.Copy(), InputBox.CanCopy));
+        menu.Items.Add(MenuItem("粘贴", PasteAsync, vm.CanEdit));
+        menu.Items.Add(MenuItem("全选", () => InputBox.SelectAll(), hasText));
+        menu.Items.Add(new Separator());
+
+        var snippets = new MenuItem { Header = "常用语" };
+        foreach (var snippet in vm.Snippets)
+        {
+            var item = MenuItem(snippet.Title, () =>
+            {
+                InsertText(snippet.Content);
+                InputBox.Focus();
+            }, vm.CanEdit);
+            ToolTip.SetTip(item, snippet.Content);
+            snippets.Items.Add(item);
+        }
+        if (vm.Snippets.Count > 0)
+            snippets.Items.Add(new Separator());
+        snippets.Items.Add(MenuItem("新建常用语…", vm.ShowNewSnippetDialog, !string.IsNullOrWhiteSpace(InputBox.Text)));
+        if (vm.Snippets.Count > 0)
+        {
+            var remove = new MenuItem { Header = "删除常用语" };
+            foreach (var snippet in vm.Snippets)
+                remove.Items.Add(MenuItem(snippet.Title, () => _ = vm.DeleteSnippetAsync(snippet), true));
+            snippets.Items.Add(remove);
+        }
+        menu.Items.Add(snippets);
+        menu.Open(InputBox);
+    }
+
+    private static MenuItem MenuItem(string header, Action action, bool enabled)
+    {
+        var item = new MenuItem { Header = header, IsEnabled = enabled };
+        item.Click += (_, _) => action();
+        return item;
     }
 
     private void OnEmojiFlyoutOpening(object? sender, EventArgs e)
