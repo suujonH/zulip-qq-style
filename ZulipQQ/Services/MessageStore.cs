@@ -358,6 +358,9 @@ public sealed class MessageStore(ZulipSession session)
         return msg;
     }
 
+    /// <summary>本地回显是否仍在等待服务器的消息替换。</summary>
+    public bool IsPending(string localId) => _pending.ContainsKey(localId);
+
     public void MarkFailed(string localId)
     {
         if (!_pending.TryGetValue(localId, out var msg))
