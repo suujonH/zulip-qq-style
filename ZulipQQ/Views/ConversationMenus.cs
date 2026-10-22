@@ -13,15 +13,6 @@ namespace ZulipQQ.Views;
 /// <summary>会话、话题右键菜单中各页面共用的菜单项。没有权限的操作不生成菜单项。</summary>
 internal static class ConversationMenus
 {
-    // 群消息设置的四个级别与菜单文字（与 QQ 一致）
-    private static readonly (DndLevel Level, string Text)[] GroupLevels =
-    [
-        (DndLevel.Notify, "允许消息提醒"),
-        (DndLevel.Silent, "接收消息但不提醒"),
-        (DndLevel.Assistant, "收进群助手且不提醒"),
-        (DndLevel.Blocked, "屏蔽群消息"),
-    ];
-
     public static MenuItem Item(string header, Action action, bool isDanger = false)
     {
         var item = new MenuItem { Header = header };
@@ -35,11 +26,11 @@ internal static class ConversationMenus
     public static MenuItem LevelSubmenu(DndLevel current, Action<DndLevel> set)
     {
         var levels = new MenuItem { Header = "群消息设置" };
-        foreach (var (level, text) in GroupLevels)
+        foreach (var level in LevelOption.All)
         {
-            var option = Item(text, () => set(level));
+            var option = Item(level.Text, () => set(level.Level));
             option.ToggleType = MenuItemToggleType.Radio;
-            option.IsChecked = current == level;
+            option.IsChecked = current == level.Level;
             levels.Items.Add(option);
         }
         return levels;
