@@ -149,4 +149,24 @@ public class ZulipHtmlTests
     [Fact]
     public void AttachmentOnly_ExternalPreview_IsFalse() => Assert.False(ZulipHtml.IsAttachmentOnly(
         "<div class=\"message_inline_image\"><a href=\"https://example.com/a.png\"><img src=\"/external_content/abc\"></a></div>"));
+
+    [Fact]
+    public void ExtractInlineImages_UploadedAndExternal()
+    {
+        const string html = UploadedImage +
+            "<div class=\"message_inline_image\"><a href=\"https://example.com/b.png\"><img src=\"/external_content/abc\"></a></div>" +
+            "<div class=\"message_inline_image message_inline_video\"><a href=\"/user_uploads/2/ac/x/v.mp4\"><video src=\"/user_uploads/2/ac/x/v.mp4\"></video></a></div>";
+        var images = ZulipHtml.ExtractInlineImages(html);
+        Assert.Equal(2, images.Count);
+        Assert.Equal("/user_uploads/thumbnail/2/ac/x/a.png/840x560.webp", images[0].Src);
+        Assert.Equal("/user_uploads/2/ac/x/a.png", images[0].Original);
+        Assert.Equal("/external_content/abc", images[1].Original);
+    }
+
+    [Fact]
+    public void ExtractInlineImages_PlaceholderUsesUploadPath()
+    {
+        const string html = "<div class=\"message_inline_image\"><a href=\"/user_uploads/2/ac/x/a.png\"><img class=\"image-loading-placeholder\" src=\"/static/images/loading/loader-black.svg\"></a></div>";
+        Assert.Equal("/user_uploads/2/ac/x/a.png", Assert.Single(ZulipHtml.ExtractInlineImages(html)).Src);
+    }
 }
