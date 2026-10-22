@@ -94,6 +94,9 @@ public partial class ComposerViewModel : ViewModelBase
 
     public EmojiService Emoji => _session.Emoji;
 
+    /// <summary>所属的聊天。</summary>
+    public ChatViewModel Chat => _chat;
+
     public bool HasAttachments => Attachments.Count > 0;
 
     [ObservableProperty]

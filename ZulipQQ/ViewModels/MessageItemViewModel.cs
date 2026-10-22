@@ -89,6 +89,10 @@ public partial class MessageItemViewModel : ViewModelBase
     public string PreciseTimeText =>
         TimeText.PreciseTime(TimeText.FromUnix(Message.Timestamp), System.DateTime.Now);
 
+    /// <summary>多选模式下是否勾选。</summary>
+    [ObservableProperty]
+    public partial bool IsChecked { get; set; }
+
     /// <summary>跳转到这条消息时短暂高亮。</summary>
     [ObservableProperty]
     public partial bool IsFlashing { get; set; }

@@ -14,6 +14,13 @@ namespace ZulipQQ.Core;
 /// <param name="Path">以 <c>/user_uploads/</c> 开头的相对路径。</param>
 public sealed record UploadLink(string Path, string FileName, bool IsImage);
 
+/// <summary>消息中的一张内联图片：显示用的地址与原链接（原链接可能为空）。</summary>
+public sealed record InlineImage(string Src, string Href)
+{
+    /// <summary>查看原图用的地址：本组织上传的图片为上传路径，其它为显示用的地址（外链经服务器代理）。</summary>
+    public string Original => ZulipHtml.NormalizeUploadPath(Href) ?? Src;
+}
+
 /// <summary>
 /// 把 Zulip 渲染的消息 HTML 转为纯文本，供会话列表预览、通知、复制和插件使用。
 /// </summary>
@@ -218,6 +225,27 @@ public static partial class ZulipHtml
     }
 
     /// <summary>有内联预览的图片链接：段落中指向同一图片的文字链接不再重复显示 [图片]。</summary>
+    /// <summary>
+    /// 消息中的内联图片预览（<c>div.message_inline_image</c>，不含视频），按出现顺序。
+    /// <see cref="InlineImage.Src"/> 为显示用的缩略图（缩略图尚未生成时为上传路径），<see cref="InlineImage.Href"/> 为原链接。
+    /// 与聊天中的渲染规则一致。
+    /// </summary>
+    public static IReadOnlyList<InlineImage> ExtractInlineImages(string html)
+    {
+        var result = new List<InlineImage>();
+        foreach (var div in Parse(html).QuerySelectorAll("div.message_inline_image"))
+        {
+            if (div.ClassList.Contains("message_inline_video") || div.QuerySelector("img") is not { } img)
+                continue;
+            var href = div.QuerySelector("a[href]")?.GetAttribute("href") ?? "";
+            var path = NormalizeUploadPath(href);
+            var src = img.ClassList.Contains("image-loading-placeholder") && path is not null ? path : img.GetAttribute("src");
+            if (!string.IsNullOrEmpty(src))
+                result.Add(new InlineImage(src, href));
+        }
+        return result;
+    }
+
     private static HashSet<string> InlineImageHrefs(IElement root)
     {
         var set = new HashSet<string>(StringComparer.Ordinal);

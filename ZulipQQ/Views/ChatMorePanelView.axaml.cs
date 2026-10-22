@@ -20,6 +20,11 @@ public partial class ChatMorePanelView : UserControl
                 _ = ConversationMenus.CopyAsync(ShareButton, vm.Link, vm.Main);
         };
         MoveButton.Click += (_, _) => ShowMoveMenu();
+        HistoryButton.Click += (_, _) =>
+        {
+            if (_vm is { } vm)
+                HistoryWindow.Show(TopLevel.GetTopLevel(this) as Window, vm.Main, vm.Key);
+        };
         PreviewMemberList.PointerReleased += OnMemberPointerReleased;
         FullMemberList.PointerReleased += OnMemberPointerReleased;
     }

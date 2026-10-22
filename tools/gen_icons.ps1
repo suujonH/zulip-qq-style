@@ -65,6 +65,11 @@ $icons = [ordered]@{
     Quote           = 'quote'
     ErrorCircle     = 'error-circle'
     Loading         = 'loading'
+    ZoomIn          = 'zoom-in'
+    ZoomOut         = 'zoom-out'
+    Fullscreen      = 'fullscreen'
+    Copy            = 'file-copy'
+    ChatBubble      = 'chat-bubble'
 }
 
 # TDesign 没有的图标：注释 + 属性

@@ -71,22 +71,26 @@
     </UserControl.Styles>
 
     <DockPanel>
-        <!-- 工具栏：表情、文件、图片 -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,6,14,0" Spacing="4"
-                    IsEnabled="{Binding CanEdit}">
-            <Button x:Name="EmojiButton" Classes="tool" ToolTip.Tip="表情">
-                <c:TdIcon Icon="{StaticResource Icon.Smile}" />
-                <Button.Flyout>
-                    <Flyout Placement="TopEdgeAlignedLeft" />
-                </Button.Flyout>
+        <!-- 工具栏：左侧表情、文件、图片；右侧聊天记录（没有发言权限时也可用） -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="14,6,14,0">
+            <StackPanel Orientation="Horizontal" Spacing="4" IsEnabled="{Binding CanEdit}">
+                <Button x:Name="EmojiButton" Classes="tool" ToolTip.Tip="表情">
+                    <c:TdIcon Icon="{StaticResource Icon.Smile}" />
+                    <Button.Flyout>
+                        <Flyout Placement="TopEdgeAlignedLeft" />
+                    </Button.Flyout>
+                </Button>
+                <Button x:Name="FileButton" Classes="tool" ToolTip.Tip="发送文件">
+                    <c:TdIcon Icon="{StaticResource Icon.Folder}" />
+                </Button>
+                <Button x:Name="ImageButton" Classes="tool" ToolTip.Tip="发送图片">
+                    <c:TdIcon Icon="{StaticResource Icon.Image}" />
+                </Button>
+            </StackPanel>
+            <Button x:Name="HistoryButton" Grid.Column="1" Classes="tool" ToolTip.Tip="聊天记录">
+                <c:TdIcon Icon="{StaticResource Icon.Time}" />
             </Button>
-            <Button x:Name="FileButton" Classes="tool" ToolTip.Tip="发送文件">
-                <c:TdIcon Icon="{StaticResource Icon.Folder}" />
-            </Button>
-            <Button x:Name="ImageButton" Classes="tool" ToolTip.Tip="发送图片">
-                <c:TdIcon Icon="{StaticResource Icon.Image}" />
-            </Button>
-        </StackPanel>
+        </Grid>
 
         <!-- 发送按钮 -->
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,20,12">

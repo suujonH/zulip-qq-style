@@ -75,9 +75,10 @@ public sealed class ChatService(ZulipSession session)
 
     /// <summary>
     /// 发送消息：先插入本地回显，再提交服务器。失败时回显标记为失败（可重发）；
-    /// 成功后 10 秒内没有收到 message 事件，就主动查询这条消息替换回显。
+    /// 成功后 10 秒内没有收到 message 事件，就主动查询这条消息替换回显（在后台进行）。
+    /// 服务器接受后返回 true，因此依次 await 可以保证多条消息的顺序。
     /// </summary>
-    public async Task SendAsync(ConversationKey key, string content)
+    public async Task<bool> SendAsync(ConversationKey key, string content)
     {
         var localId = Guid.NewGuid().ToString("N");
         session.Messages.AddPending(key, content, localId);
@@ -89,13 +90,19 @@ public sealed class ChatService(ZulipSession session)
         catch (Exception ex)
         {
             if (session.IsDisposed)
-                return;
+                return false;
             Log.Warn($"发送消息失败：{key}", ex);
             _failed[localId] = (key, content);
             session.Messages.MarkFailed(localId);
-            return;
+            return false;
         }
 
+        session.Forget(EnsureEchoAsync(localId, id), "查询已发送的消息");
+        return true;
+    }
+
+    private async Task EnsureEchoAsync(string localId, long id)
+    {
         try
         {
             await Task.Delay(EchoFallbackDelay, session.Token);
@@ -137,8 +144,15 @@ public sealed class ChatService(ZulipSession session)
     }
 
     /// <summary>收藏或取消收藏（星标）。不做乐观更新，界面等待 update_message_flags 事件。</summary>
-    public Task SetStarredAsync(IReadOnlyCollection<long> ids, bool starred) =>
-        session.Client.UpdateFlagsAsync(ids, starred ? "add" : "remove", "starred", session.Token);
+    public async Task SetStarredAsync(IReadOnlyCollection<long> ids, bool starred)
+    {
+        foreach (var batch in ids.Chunk(FlagBatchSize))
+        {
+            await session.Client.UpdateFlagsAsync(batch, starred ? "add" : "remove", "starred", session.Token);
+            if (session.IsDisposed)
+                return;
+        }
+    }
 
     /// <summary>消息的 Markdown 原文（引用、转发用）。</summary>
     public async Task<string> GetRawContentAsync(long messageId) =>

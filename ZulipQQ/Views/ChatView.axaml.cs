@@ -105,6 +105,8 @@ public partial class ChatView : UserControl
         if (_host is not null)
         {
             _host.Activated += OnHostActivated;
+            // 多选模式下焦点不一定在聊天中，在窗口上处理 Esc；对话框处理过的 Esc 不会冒泡到这里
+            _host.AddHandler(KeyDownEvent, OnHostKeyDown);
             // 挂载前窗口已经在前台时不会再收到 Activated
             if (_host.IsActive)
                 vm.OnHostActivated();
@@ -125,6 +127,7 @@ public partial class ChatView : UserControl
         if (_host is not null)
         {
             _host.Activated -= OnHostActivated;
+            _host.RemoveHandler(KeyDownEvent, OnHostKeyDown);
             if (_vm.HostWindow == _host)
                 _vm.HostWindow = null;
         }
@@ -138,6 +141,14 @@ public partial class ChatView : UserControl
     }
 
     private void OnHostActivated(object? sender, EventArgs e) => _vm?.OnHostActivated();
+
+    private void OnHostKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || _vm is not { IsMultiSelect: true } vm)
+            return;
+        e.Handled = true;
+        vm.ExitMultiSelect();
+    }
 
     private void OnScrollRequested(object? sender, ScrollRequest request) => RequestScroll(request);
 
@@ -312,6 +323,12 @@ public partial class ChatView : UserControl
             return;
         }
         var item = (e.Source as StyledElement)?.DataContext as MessageItemViewModel;
+        if (e.Target is ImageTarget image)
+        {
+            var (images, index) = _vm.CollectImages(image, item?.Id);
+            ImageViewerWindow.Show(TopLevel.GetTopLevel(this) as Window, _vm.Session, images, index);
+            return;
+        }
         _ = _vm.HandleLinkAsync(item, e.Target, TopLevel.GetTopLevel(this));
     }
 
@@ -346,7 +363,7 @@ public partial class ChatView : UserControl
     }
 
     /// <summary>
-    /// 消息右键菜单：第一行是快捷表情回应（最后一个“+”打开表情选择器），然后是复制、收藏、引用。
+    /// 消息右键菜单：第一行是快捷表情回应（最后一个“+”打开表情选择器），然后是复制、收藏、引用、转发、多选、复制链接。
     /// 不提供删除和撤回。发送中的本地回显没有菜单。
     /// </summary>
     private void OnMessageContextRequested(object? sender, ContextRequestedEventArgs e)
@@ -384,6 +401,9 @@ public partial class ChatView : UserControl
         menu.Items.Add(MenuItem("复制", () => _ = CopyAsync(item, bubble)));
         menu.Items.Add(MenuItem(item.IsStarred ? "取消收藏" : "收藏", () => _ = vm.ToggleStarAsync(item)));
         menu.Items.Add(MenuItem("引用", () => vm.Composer.Quote(item)));
+        menu.Items.Add(MenuItem("转发", () => vm.Forward(item)));
+        menu.Items.Add(MenuItem("多选", () => vm.BeginMultiSelect(item)));
+        menu.Items.Add(MenuItem("复制链接", () => _ = ConversationMenus.CopyAsync(this, vm.MessageLink(item.Id), vm.Main)));
         menu.Open(bubble);
     }
 
@@ -456,11 +476,18 @@ public partial class ChatView : UserControl
         return null;
     }
 
-    // 点击气泡：显示 / 隐藏精确时间。拖动选择文字、点击链接时不切换
+    // 点击气泡：显示 / 隐藏精确时间。拖动选择文字、点击链接时不切换。
+    // 多选模式下消息内容不响应鼠标（见模板），点击整行切换勾选
     private void OnMessagePointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_vm is null || _suppressTap || e.InitialPressMouseButton != MouseButton.Left)
             return;
+        if (_vm.IsMultiSelect)
+        {
+            if ((e.Source as StyledElement)?.DataContext is MessageItemViewModel picked)
+                _vm.ToggleChecked(picked);
+            return;
+        }
         if (e.Source is SelectableTextBlock { } text && text.SelectionStart != text.SelectionEnd)
             return;
         for (var v = e.Source as Visual; v is not null && v != MessageList; v = v.GetVisualParent())

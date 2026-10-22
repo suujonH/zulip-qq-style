@@ -113,6 +113,8 @@ public sealed class ZulipClient : IDisposable
             .Add("apply_markdown", q.ApplyMarkdown)
             .Add("client_gravatar", false)
             .Add("allow_empty_topic_name", true);
+        if (q.AnchorDate is not null)
+            args.Add("anchor_date", q.AnchorDate);
         var root = await SendAsync(HttpMethod.Get, "api/v1/messages", args, DefaultTimeout, ct).ConfigureAwait(false);
         return ZulipJson.Deserialize<GetMessagesResult>(root);
     }

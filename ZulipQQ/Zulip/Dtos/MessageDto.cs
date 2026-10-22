@@ -107,11 +107,15 @@ public sealed record OutgoingMessage(
     string? QueueId = null,
     string? LocalId = null);
 
-/// <summary><c>GET /messages</c> 的查询参数。<see cref="Anchor"/> 为 <c>newest</c>、<c>oldest</c>、<c>first_unread</c> 或消息 id。</summary>
+/// <summary>
+/// <c>GET /messages</c> 的查询参数。<see cref="Anchor"/> 为 <c>newest</c>、<c>oldest</c>、<c>first_unread</c>、消息 id，
+/// 或 <c>date</c>（此时 <see cref="AnchorDate"/> 为 ISO 8601 时间，服务器 feature level ≥ 445）。
+/// </summary>
 public sealed record MessageQuery(
     IReadOnlyList<NarrowTerm> Narrow,
     string Anchor,
     int NumBefore,
     int NumAfter,
     bool IncludeAnchor = true,
-    bool ApplyMarkdown = true);
+    bool ApplyMarkdown = true,
+    string? AnchorDate = null);

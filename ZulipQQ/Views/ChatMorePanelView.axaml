@@ -161,6 +161,16 @@
                     </StackPanel>
                 </Border>
 
+                <!-- 聊天记录 -->
+                <Border Classes="card">
+                    <Button x:Name="HistoryButton" Classes="item">
+                        <Grid Classes="item" ColumnDefinitions="*,Auto">
+                            <TextBlock Text="查找聊天记录" />
+                            <c:TdIcon Grid.Column="1" Classes="chevron" />
+                        </Grid>
+                    </Button>
+                </Border>
+
                 <!-- 开关 -->
                 <Border Classes="card">
                     <StackPanel>
