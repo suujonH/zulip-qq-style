@@ -216,6 +216,13 @@ public partial class App : Application
         });
     }
 
+    /// <summary>显示并激活主面板（可能隐藏在托盘中）。附属窗口“定位到聊天”、转发等需要主面板时调用。</summary>
+    public void ShowMainWindow()
+    {
+        if (Desktop.MainWindow is MainWindow main)
+            ShowMain(main);
+    }
+
     private static void ShowMain(Window main)
     {
         main.Show();
@@ -228,7 +235,12 @@ public partial class App : Application
     private void CreateTray(ZulipSession session, MainWindow main)
     {
         var tray = new TrayService($"ZulipQQ - {session.Users.Get(session.SelfId)?.FullName ?? session.Account.FullName}",
-            () => ShowMain(main), () => _ = LogoutAsync(confirm: true), () => _ = ExitAsync())
+            () => ShowMain(main), () =>
+            {
+                // 确认框显示在主面板中
+                ShowMain(main);
+                _ = LogoutAsync(confirm: true);
+            }, () => _ = ExitAsync())
         {
             IsVisible = session.Settings.Local.ShowTrayIcon,
         };
@@ -261,6 +273,8 @@ public partial class App : Application
     {
         foreach (var chat in session.Registry.All.ToList())
             await chat.CloseAsync();
+        // 之前关闭的独立聊天窗口可能仍在保存草稿
+        await session.Registry.WaitClosingAsync();
     }
 
     private void CloseSessionWindows()

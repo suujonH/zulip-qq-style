@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -27,6 +28,15 @@ public sealed partial class ChatWindowViewModel : ViewModelBase, IDialogHost
 
     [ObservableProperty]
     public partial string? ToastText { get; private set; }
+
+    /// <summary>窗口关闭：关闭仍打开的对话框（退订事件、未回答的确认视为取消）。</summary>
+    public void Close()
+    {
+        _toastTimer.Stop();
+        foreach (var dialog in Dialogs.ToList())
+            (dialog as IDisposable)?.Dispose();
+        Dialogs.Clear();
+    }
 
     public void ShowToast(string text)
     {

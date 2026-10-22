@@ -58,6 +58,7 @@ public partial class ChatWindow : Window, ISessionWindow
         OpenWindows.Remove(this);
         if (_vm is null)
             return;
+        _vm.Close();
         _ = _vm.Chat.CloseAsync();
         _main?.OnChatWindowClosed(_vm.Chat.Key);
     }

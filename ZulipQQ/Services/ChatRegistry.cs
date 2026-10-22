@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using ZulipQQ.Core;
 using ZulipQQ.Models;
@@ -12,6 +13,7 @@ namespace ZulipQQ.Services;
 public sealed class ChatRegistry(ZulipSession session)
 {
     private readonly List<ChatViewModel> _open = [];
+    private readonly List<Task> _closing = [];
 
     /// <summary>打开或关闭了聊天（会话列表据此决定是否显示草稿）。</summary>
     public event EventHandler? Changed;
@@ -24,6 +26,29 @@ public sealed class ChatRegistry(ZulipSession session)
             return;
         _open.Add(vm);
         Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>记录关闭中的聊天保存草稿的任务；结束会话前由 <see cref="WaitClosingAsync"/> 等待，避免草稿保存被取消。</summary>
+    public void TrackClosing(Task task)
+    {
+        _closing.RemoveAll(t => t.IsCompleted);
+        if (!task.IsCompleted)
+            _closing.Add(task);
+    }
+
+    /// <summary>等待所有关闭中的聊天保存完草稿（失败已由保存方记录日志）。</summary>
+    public async Task WaitClosingAsync()
+    {
+        var tasks = _closing.ToList();
+        _closing.Clear();
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("关闭聊天时保存草稿失败", ex);
+        }
     }
 
     public void Unregister(ChatViewModel vm)

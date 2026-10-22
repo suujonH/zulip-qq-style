@@ -176,7 +176,8 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         if (Session.Conversations.Get(key) is { LastMessageId: > 0 })
             Session.Conversations.EnsureInList(key);
         ChatViewModel? existing = null;
-        if (RightPane is ChatViewModel chat && chat.Key.Equals(key))
+        // 正在切换会话、已经关闭的聊天不交接（它已退订事件，由切换流程替换）
+        if (RightPane is ChatViewModel { IsClosed: false } chat && chat.Key.Equals(key))
         {
             ++_openVersion;
             existing = chat;
@@ -186,10 +187,10 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         ChatWindowRequested?.Invoke(this, new ChatWindowRequest(key, existing, focusMessageId));
     }
 
-    /// <summary>独立聊天窗口关闭：列表中仍选中该会话时取消选中，再次点击才能重新打开。</summary>
+    /// <summary>独立聊天窗口关闭：列表中仍选中该会话时取消选中，否则再次点击不会重新打开。</summary>
     public void OnChatWindowClosed(ConversationKey key)
     {
-        if (UsesChatWindows && Messages.SelectedKey is { } selected && selected.Equals(key))
+        if (Messages.SelectedKey is { } selected && selected.Equals(key))
             Messages.Select(null);
     }
 
@@ -201,7 +202,7 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
     {
         if (IsClassicMode && RightPane is not null)
         {
-            if (RightPane is ChatViewModel chat)
+            if (RightPane is ChatViewModel { IsClosed: false } chat)
                 OpenInWindow(chat.Key);
             ++_openVersion;
             _openingKey = null;

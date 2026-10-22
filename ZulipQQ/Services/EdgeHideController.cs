@@ -34,6 +34,7 @@ public sealed class EdgeHideController : IDisposable
     private DispatcherTimer? _animationTimer;
     private DateTime? _outsideSince;
     private PixelPoint _shownPosition;
+    private PixelPoint _animationTarget;
 
     static EdgeHideController()
     {
@@ -62,11 +63,28 @@ public sealed class EdgeHideController : IDisposable
     /// <summary>窗口的正常位置：隐藏时为移回后的位置（保存窗口位置时使用）。</summary>
     public PixelPoint RestingPosition => IsHidden ? _shownPosition : _window.Position;
 
-    /// <summary>立即移回（不再满足隐藏条件、窗口被激活等）。</summary>
-    public void Reveal()
+    /// <summary>
+    /// 移回（不再满足隐藏条件、窗口被激活等）。<paramref name="immediate"/> 为 true 时不播放动画，
+    /// 并先结束进行中的动画：之后要直接设置窗口位置时使用，否则动画会覆盖设置的位置。
+    /// </summary>
+    public void Reveal(bool immediate = false)
     {
-        if (IsHidden)
+        if (immediate && _animationTimer is { IsEnabled: true })
+        {
+            _animationTimer.Stop();
+            _window.Position = _animationTarget;
+        }
+        if (!IsHidden)
+            return;
+        if (immediate)
+        {
+            IsHidden = false;
+            _window.Position = _shownPosition;
+        }
+        else
+        {
             Animate(_shownPosition, hidden: false);
+        }
     }
 
     public void Dispose()
@@ -150,6 +168,7 @@ public sealed class EdgeHideController : IDisposable
     {
         _animationTimer?.Stop();
         IsHidden = hidden;
+        _animationTarget = target;
         var start = _window.Position;
         var step = 0;
         var timer = new DispatcherTimer { Interval = AnimationDuration / AnimationSteps };

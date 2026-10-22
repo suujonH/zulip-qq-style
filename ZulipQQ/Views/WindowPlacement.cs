@@ -45,6 +45,8 @@ internal static class WindowPlacement
     {
         if (window is null)
             return;
+        if (!window.IsVisible)
+            window.Show();
         if (window.WindowState == WindowState.Minimized)
             window.WindowState = WindowState.Normal;
         window.Activate();

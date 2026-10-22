@@ -210,8 +210,13 @@ public partial class ChatViewModel : ViewModelBase
         ExitMultiSelect();
         Unsubscribe();
         _session.Registry.Unregister(this);
-        return Composer.CloseAsync();
+        var saving = Composer.CloseAsync();
+        _session.Registry.TrackClosing(saving);
+        return saving;
     }
+
+    /// <summary>已经关闭（或正在关闭）：不能再交给独立窗口使用。</summary>
+    public bool IsClosed => _closed;
 
     /// <summary>重新加载最新的消息并滚动到底部（事件队列重建、话题被移动后）。</summary>
     [RelayCommand]

@@ -10,7 +10,7 @@ namespace ZulipQQ.ViewModels;
 /// <summary>
 /// 群公告对话框：显示频道描述（服务器渲染的 HTML）。频道管理员可以编辑，保存后由频道更新事件刷新。
 /// </summary>
-public partial class ChannelNoticeDialogViewModel : ViewModelBase
+public partial class ChannelNoticeDialogViewModel : ViewModelBase, IDisposable
 {
     private readonly ZulipSession _session;
     private readonly IDialogHost _host;
@@ -132,4 +132,7 @@ public partial class ChannelNoticeDialogViewModel : ViewModelBase
 
     [RelayCommand]
     private void Close() => _onClosed();
+
+    /// <summary>所在窗口关闭：关闭对话框并退订会话事件。</summary>
+    public void Dispose() => Close();
 }

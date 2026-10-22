@@ -3,9 +3,9 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace ZulipQQ.ViewModels;
 
-/// <summary>确认对话框。关闭时调用 onClosed：确定传入 true，取消传入 false。</summary>
+/// <summary>确认对话框。关闭时调用 onClosed：确定传入 true，取消传入 false（所在窗口关闭时视为取消）。</summary>
 public partial class ConfirmDialogViewModel(string message, string confirmText, bool isDanger, Action<bool> onClosed)
-    : ViewModelBase
+    : ViewModelBase, IDisposable
 {
     public string Message { get; } = message;
 
@@ -19,4 +19,6 @@ public partial class ConfirmDialogViewModel(string message, string confirmText, 
 
     [RelayCommand]
     private void Cancel() => onClosed(false);
+
+    public void Dispose() => onClosed(false);
 }

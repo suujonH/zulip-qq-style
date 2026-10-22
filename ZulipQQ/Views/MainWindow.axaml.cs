@@ -74,7 +74,7 @@ public partial class MainWindow : Window, ISessionWindow
         if (e.PropertyName != nameof(MainViewModel.IsClassicMode) || _vm is null || _vm.IsClassicMode == _classic)
             return;
         SaveBounds();
-        _edgeHide?.Reveal();
+        _edgeHide?.Reveal(immediate: true);
         _classic = _vm.IsClassicMode;
         if (WindowState != WindowState.Normal)
             WindowState = WindowState.Normal;
