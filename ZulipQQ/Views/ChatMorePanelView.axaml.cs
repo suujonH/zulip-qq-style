@@ -25,6 +25,11 @@ public partial class ChatMorePanelView : UserControl
             if (_vm is { } vm)
                 HistoryWindow.Show(TopLevel.GetTopLevel(this) as Window, vm.Main, vm.Key);
         };
+        FilesButton.Click += (_, _) =>
+        {
+            if (_vm is { } vm)
+                FilesWindow.ShowSingle(TopLevel.GetTopLevel(this) as Window, vm.Main, FilesView.Conversation, vm.Key);
+        };
         PreviewMemberList.PointerReleased += OnMemberPointerReleased;
         FullMemberList.PointerReleased += OnMemberPointerReleased;
     }

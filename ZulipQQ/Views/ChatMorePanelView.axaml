@@ -163,12 +163,22 @@
 
                 <!-- 聊天记录 -->
                 <Border Classes="card">
-                    <Button x:Name="HistoryButton" Classes="item">
-                        <Grid Classes="item" ColumnDefinitions="*,Auto">
-                            <TextBlock Text="查找聊天记录" />
-                            <c:TdIcon Grid.Column="1" Classes="chevron" />
-                        </Grid>
-                    </Button>
+                    <StackPanel>
+                        <Button x:Name="HistoryButton" Classes="item">
+                            <Grid Classes="item" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="查找聊天记录" />
+                                <c:TdIcon Grid.Column="1" Classes="chevron" />
+                            </Grid>
+                        </Button>
+                        <!-- 私聊：文件传输列表（话题的群文件在标题栏） -->
+                        <Border Classes="divider" IsVisible="{Binding !IsTopic}" />
+                        <Button x:Name="FilesButton" Classes="item" IsVisible="{Binding !IsTopic}">
+                            <Grid Classes="item" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="文件传输列表" />
+                                <c:TdIcon Grid.Column="1" Classes="chevron" />
+                            </Grid>
+                        </Button>
+                    </StackPanel>
                 </Border>
 
                 <!-- 开关 -->

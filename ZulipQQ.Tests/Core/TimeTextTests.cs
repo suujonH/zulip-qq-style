@@ -31,6 +31,14 @@ public class TimeTextTests
     public void PreciseTime(string time, string expected) =>
         Assert.Equal(expected, TimeText.PreciseTime(DateTime.Parse(time), Now));
 
+    [Theory]
+    [InlineData("2026-10-22 00:01", "今天")]
+    [InlineData("2026-10-21 23:59", "10月")]
+    [InlineData("2026-06-01 08:00", "6月")]
+    [InlineData("2025-12-31 08:00", "2025年12月")]
+    public void MonthGroup(string time, string expected) =>
+        Assert.Equal(expected, TimeText.MonthGroup(DateTime.Parse(time), Now));
+
     [Fact]
     public void NeedsSeparator_At30Minutes()
     {

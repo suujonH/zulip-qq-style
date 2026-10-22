@@ -26,6 +26,9 @@ public sealed class ChannelStore(ZulipSession session)
     private readonly Dictionary<long, List<TopicInfo>> _topics = [];
     private readonly Dictionary<long, List<long>> _subscribers = [];
 
+    private static readonly TimeSpan AllTopicsInterval = TimeSpan.FromMilliseconds(200);
+    private Task? _loadingAllTopics;
+
     public event EventHandler<long>? ChannelChanged;
 
     public event EventHandler<long>? TopicsChanged;
@@ -87,6 +90,41 @@ public sealed class ChannelStore(ZulipSession session)
         _topics[streamId] = list;
         TopicsChanged?.Invoke(this, streamId);
         return list;
+    }
+
+    /// <summary>
+    /// 依次加载所有已订阅频道中尚未加载的话题列表（全局搜索用），每个频道之间间隔 200ms，避免触发限流。
+    /// 同时只运行一次；每加载完一个频道触发一次 <see cref="TopicsChanged"/>。失败的频道跳过。
+    /// </summary>
+    public Task EnsureAllTopicsLoadedAsync()
+    {
+        if (_loadingAllTopics is not { IsCompleted: false })
+            _loadingAllTopics = LoadAllTopicsAsync();
+        return _loadingAllTopics;
+    }
+
+    private async Task LoadAllTopicsAsync()
+    {
+        // 每轮重新找下一个未加载的频道：运行期间被事件清掉缓存的频道也会补上；每个频道本轮只试一次
+        HashSet<long> attempted = [];
+        while (Subscribed().Select(c => c.StreamId).FirstOrDefault(id => !_topics.ContainsKey(id) && !attempted.Contains(id))
+               is var streamId and not 0)
+        {
+            if (session.IsDisposed)
+                return;
+            attempted.Add(streamId);
+            try
+            {
+                await GetTopicsAsync(streamId);
+                await Task.Delay(AllTopicsInterval, session.Token);
+            }
+            catch (Exception ex)
+            {
+                if (session.IsDisposed)
+                    return;
+                Log.Warn($"加载话题列表失败：{streamId}", ex);
+            }
+        }
     }
 
     /// <summary>频道的订阅者 id。首次调用时请求服务器，之后由 peer_add / peer_remove 事件维护。</summary>

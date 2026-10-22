@@ -51,6 +51,16 @@ public static class TimeText
             : time.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
     }
 
+    /// <summary>文件列表的分组标题。今天：今天；今年：M月；往年：yyyy年M月。</summary>
+    public static string MonthGroup(DateTime time, DateTime now)
+    {
+        if (time.Date == now.Date)
+            return "今天";
+        return time.Year == now.Year
+            ? time.Month.ToString(CultureInfo.InvariantCulture) + "月"
+            : time.ToString("yyyy年M月", CultureInfo.InvariantCulture);
+    }
+
     /// <summary>两条相邻消息（Unix 秒）之间是否需要时间分隔条。</summary>
     public static bool NeedsSeparator(long previousTimestamp, long currentTimestamp) =>
         currentTimestamp - previousTimestamp >= SeparatorGapSeconds;

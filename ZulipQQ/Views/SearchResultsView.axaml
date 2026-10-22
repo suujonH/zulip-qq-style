@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.SearchResultsView"
+             x:DataType="vm:SearchViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Button.result">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Height" Value="56" />
+            <Setter Property="Padding" Value="10,0" />
+        </Style>
+        <Style Selector="Button.more">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:SearchSection">
+            <StackPanel IsVisible="{Binding IsVisible}" Margin="0,0,0,6">
+                <Grid ColumnDefinitions="*,Auto" Margin="12,8,8,4">
+                    <TextBlock Text="{Binding Title}" FontSize="12" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <Button Grid.Column="1" Classes="more" IsVisible="{Binding HasMore}" Command="{Binding ExpandCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <TextBlock Text="更多" FontSize="12" VerticalAlignment="Center" />
+                            <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" Width="12" Height="12" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding Items}" Margin="4,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SearchResultItem">
+                            <Button Classes="result" Command="{Binding OpenCommand}">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <c:Avatar Width="36" Height="36" Source="{Binding AvatarUrl}"
+                                              Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
+                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="2">
+                                        <c:HighlightTextBlock Source="{Binding Title}" Highlight="{Binding Highlight}"
+                                                              FontSize="14" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Subtitle}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="搜索中…" FontSize="12" Margin="16,6" IsVisible="{Binding IsLoading}"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <!-- 浮在会话列表上的白色卡片 -->
+    <Border Margin="6,0,6,6" CornerRadius="8" Background="{DynamicResource CardBrush}"
+            BoxShadow="0 2 12 0 #26000000">
+        <Panel>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,4">
+                    <ContentControl Content="{Binding Contacts}" />
+                    <ContentControl Content="{Binding Groups}" />
+                    <ContentControl Content="{Binding Messages}" />
+                </StackPanel>
+            </ScrollViewer>
+            <TextBlock Text="未找到相关结果" FontSize="13" HorizontalAlignment="Center" Margin="0,40,0,0"
+                       VerticalAlignment="Top" Foreground="{DynamicResource TextSecondaryBrush}"
+                       IsVisible="{Binding IsEmpty}" />
+        </Panel>
+    </Border>
+</UserControl>

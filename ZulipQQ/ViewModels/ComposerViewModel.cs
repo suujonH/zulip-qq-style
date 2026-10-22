@@ -466,7 +466,7 @@ public partial class ComposerViewModel : ViewModelBase
     }
 
     /// <summary><c>[文件名](地址)</c>；文件名中的方括号转义。</summary>
-    private static string LinkMarkdown(string fileName, string url) =>
+    internal static string LinkMarkdown(string fileName, string url) =>
         $"[{fileName.Replace("[", "\\[", StringComparison.Ordinal).Replace("]", "\\]", StringComparison.Ordinal)}]({url})";
 
     /// <summary>

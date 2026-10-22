@@ -149,14 +149,9 @@ public partial class ForwardDialogViewModel : ViewModelBase
         if (_items.TryGetValue(key, out var item))
             return item;
         var title = _session.Conversations.GetTitle(key);
-        item = key switch
-        {
-            TopicKey t => new ForwardTargetItem(key, title, null, title,
-                ConversationItemViewModel.BrushOf(_session.Channels.Get(t.StreamId)?.Color), _session.Channels.Get(t.StreamId)?.Name),
-            DmKey { IsSelfDm: true } => new ForwardTargetItem(key, title, _session.Users.Get(_session.SelfId)?.AvatarUrl, title, null),
-            DmKey { OtherUserIds.Length: 1 } d => new ForwardTargetItem(key, title, _session.Users.Get(d.OtherUserIds[0])?.AvatarUrl, title, null),
-            _ => new ForwardTargetItem(key, title, null, "群", ConversationItemViewModel.BrushOf(MessagesPageViewModel.GroupDmAvatarColor)),
-        };
+        var (url, text, fill) = ConversationAvatars.Of(_session, key, title);
+        var channelName = key is TopicKey t ? _session.Channels.Get(t.StreamId)?.Name : null;
+        item = new ForwardTargetItem(key, title, url, text, fill, channelName);
         item.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(ForwardTargetItem.IsChecked))

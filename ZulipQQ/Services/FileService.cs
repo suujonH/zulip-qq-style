@@ -99,6 +99,9 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
         return null;
     }
 
+    /// <summary>最近下载或打开的文件（本地记录），最近的在前。</summary>
+    public IReadOnlyList<DownloadRecord> Recent(int limit) => repo.Recent(limit);
+
     /// <summary>文件大小（字节），会话期间缓存；无法获取时为 null。</summary>
     public Task<long?> GetSizeAsync(string uploadPath)
     {

@@ -70,6 +70,15 @@ $icons = [ordered]@{
     Fullscreen      = 'fullscreen'
     Copy            = 'file-copy'
     ChatBubble      = 'chat-bubble'
+    App             = 'app'
+    FileZip         = 'file-zip'
+    FilePdf         = 'file-pdf'
+    FileWord        = 'file-word'
+    FileExcel       = 'file-excel'
+    FilePowerpoint  = 'file-powerpoint'
+    FileUnknown     = 'file-unknown'
+    Upload          = 'upload'
+    Refresh         = 'refresh'
 }
 
 # TDesign 没有的图标：注释 + 属性
