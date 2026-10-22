@@ -91,7 +91,11 @@ public partial class ChatMorePanelViewModel : ViewModelBase
 
     /// <summary>面板切换到完整的成员列表。</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMainPage))]
     public partial bool IsMemberListOpen { get; private set; }
+
+    /// <summary>显示主页面（没有切换到成员列表或定时消息列表）。</summary>
+    public bool IsMainPage => !IsMemberListOpen && !IsScheduledListOpen;
 
     [ObservableProperty]
     public partial string MemberQuery { get; set; } = "";
@@ -104,6 +108,21 @@ public partial class ChatMorePanelViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial bool CanRemove { get; private set; }
+
+    // ---- 定时消息 ----
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasScheduled), nameof(ScheduledText))]
+    public partial IReadOnlyList<ScheduledItemViewModel> ScheduledItems { get; private set; } = [];
+
+    public bool HasScheduled => ScheduledItems.Count > 0;
+
+    public string ScheduledText => $"定时消息 ({ScheduledItems.Count})";
+
+    /// <summary>面板切换到定时消息列表。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMainPage))]
+    public partial bool IsScheduledListOpen { get; private set; }
 
     // ---- 资料管理、群公告 ----
 
@@ -178,6 +197,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
         Session.Contacts.Changed += OnNamesChanged;
         Session.PermissionsChanged += OnChanged;
         Session.Resynced += OnResynced;
+        Session.Scheduled.Changed += OnChanged;
         Refresh();
         _ = LoadMembersAsync();
     }
@@ -197,6 +217,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
         Session.Contacts.Changed -= OnNamesChanged;
         Session.PermissionsChanged -= OnChanged;
         Session.Resynced -= OnResynced;
+        Session.Scheduled.Changed -= OnChanged;
     }
 
     private void OnChanged(object? sender, EventArgs e) => Refresh();
@@ -287,6 +308,16 @@ public partial class ChatMorePanelViewModel : ViewModelBase
                 IsFollowed = CanResolve = CanMove = CanRename = CanDelete = false;
             }
             HasTopicActions = CanResolve || CanMove || CanRename;
+
+            var now = DateTime.Now;
+            var use24h = Session.Settings.Zulip.TwentyFourHourTime;
+            ScheduledItems = Session.Scheduled.For(key)
+                .Select(m => new ScheduledItemViewModel(this, m.ScheduledMessageId,
+                    TimeText.PreciseTime(TimeText.FromUnix(m.ScheduledDeliveryTimestamp), now, use24h),
+                    ZulipHtml.ToPreview(m.RenderedContent), m.Failed))
+                .ToList();
+            if (ScheduledItems.Count == 0)
+                IsScheduledListOpen = false;
         }
         finally
         {
@@ -352,6 +383,28 @@ public partial class ChatMorePanelViewModel : ViewModelBase
 
     [RelayCommand]
     private void CloseMemberList() => IsMemberListOpen = false;
+
+    [RelayCommand]
+    private void OpenScheduledList() => IsScheduledListOpen = true;
+
+    [RelayCommand]
+    private void CloseScheduledList() => IsScheduledListOpen = false;
+
+    /// <summary>删除定时消息（先确认）。列表由 scheduled_messages 事件更新。</summary>
+    internal async Task DeleteScheduledAsync(long id)
+    {
+        if (!await Host.ConfirmAsync("删除这条定时消息？", "删除", isDanger: true))
+            return;
+        try
+        {
+            await Session.Scheduled.DeleteAsync(id);
+        }
+        catch (Exception ex) when (!Session.IsDisposed)
+        {
+            Log.Warn($"删除定时消息失败：{id}", ex);
+            Host.ShowToast("删除失败");
+        }
+    }
 
     /// <summary>邀请：只列出还不是成员的用户，确定后为他们订阅频道。</summary>
     [RelayCommand]
@@ -559,4 +612,16 @@ public partial class ChatMorePanelViewModel : ViewModelBase
 
     /// <summary>点击成员弹出的名片。</summary>
     public UserCardViewModel? CreateUserCard(long userId, Action onOpened) => _chat.CreateUserCard(userId, onOpened);
+}
+
+/// <summary>更多面板中的一条定时消息：发送时间、内容预览、是否发送失败。</summary>
+public partial class ScheduledItemViewModel(ChatMorePanelViewModel panel, long id, string timeText, string preview, bool isFailed)
+    : ViewModelBase
+{
+    public string TimeText { get; } = timeText;
+    public string Preview { get; } = preview;
+    public bool IsFailed { get; } = isFailed;
+
+    [RelayCommand]
+    private Task DeleteAsync() => panel.DeleteScheduledAsync(id);
 }

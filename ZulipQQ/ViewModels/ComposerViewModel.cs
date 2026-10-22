@@ -15,6 +15,7 @@ using CommunityToolkit.Mvvm.Input;
 using ZulipQQ.Core;
 using ZulipQQ.Plugins;
 using ZulipQQ.Services;
+using ZulipQQ.Zulip;
 
 namespace ZulipQQ.ViewModels;
 
@@ -239,8 +240,22 @@ public partial class ComposerViewModel : ViewModelBase
     /// 发送前清空输入区并删除草稿。消息本身在后台发送（本地回显立即出现）。
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanSend))]
-    private async Task SendAsync()
+    private Task SendAsync() => SubmitAsync(null);
+
+    /// <summary>定时发送：选择时间后把输入区的内容提交为定时消息，服务器接受后才清空输入区。</summary>
+    [RelayCommand(CanExecute = nameof(CanSend))]
+    private async Task ScheduleAsync()
     {
+        if (await DateTimeDialogViewModel.ShowAsync(_chat.Host, "定时发送", "定时发送") is { } at && !_closed)
+            await SubmitAsync(at);
+    }
+
+    // scheduleAt 为 null 时立即发送，否则在该本地时间定时发送
+    private async Task SubmitAsync(DateTime? scheduleAt)
+    {
+        // 定时发送的时间选择期间内容可能被清空或正在上传
+        if (!CanSend())
+            return;
         var key = _chat.Key;
         var quote = QuoteTarget;
         // 等待引用原文期间可能又添加了图片：只发送、移除现在已有的附件
@@ -305,6 +320,25 @@ public partial class ComposerViewModel : ViewModelBase
             }
             text = filtered;
 
+            if (scheduleAt is { } at)
+            {
+                try
+                {
+                    await _session.Scheduled.CreateAsync(key, text, new DateTimeOffset(at).ToUnixTimeSeconds());
+                }
+                catch (Exception ex)
+                {
+                    if (_session.IsDisposed)
+                        return;
+                    Log.Warn($"定时发送失败：{key}", ex);
+                    _showToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"定时发送失败：{api.Message}" : "定时发送失败");
+                    return;
+                }
+                if (_closed)
+                    return;
+                _showToast($"将在 {at:yyyy/MM/dd HH:mm} 发送");
+            }
+
             _loadingText = true;
             Text = "";
             _loadingText = false;
@@ -318,7 +352,8 @@ public partial class ComposerViewModel : ViewModelBase
             // 关闭时等待删除完成，否则退出账号会取消请求，已发送的草稿下次登录又出现
             _draftSave = _session.Drafts.DeleteAsync(_chat.Key);
             _session.Forget(_draftSave, "删除草稿");
-            _session.Forget(SendToLatestAsync(text), "发送消息");
+            if (scheduleAt is null)
+                _session.Forget(SendToLatestAsync(text), "发送消息");
         }
         finally
         {
