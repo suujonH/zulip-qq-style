@@ -118,6 +118,13 @@ public partial class ChatView : UserControl
         UpdateSizes();
     }
 
+    // 标题栏“群文件”（仅话题）：打开文件窗口的群文件视图并选中这个话题
+    private void OnGroupFilesClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_vm is { } vm)
+            FilesWindow.ShowSingle(_host, vm.Main, FilesView.Group, vm.Key);
+    }
+
     private void Disconnect()
     {
         if (_vm is null)

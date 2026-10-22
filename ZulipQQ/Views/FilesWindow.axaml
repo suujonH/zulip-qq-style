@@ -1,0 +1,252 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ZulipQQ.ViewModels"
+        xmlns:c="using:ZulipQQ.Controls"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
+        x:Class="ZulipQQ.Views.FilesWindow"
+        x:DataType="vm:FilesViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="文件"
+        Width="960" Height="640" MinWidth="760" MinHeight="420"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+
+    <Window.Styles>
+        <!-- 左栏导航：选中项为填充底色；子项缩进且没有图标 -->
+        <Style Selector="Button.nav">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Margin" Value="0,2" />
+        </Style>
+        <Style Selector="Button.nav.sub">
+            <Setter Property="Padding" Value="38,0,12,0" />
+        </Style>
+        <Style Selector="Button.nav.active">
+            <Setter Property="Background" Value="{DynamicResource PressedBrush}" />
+        </Style>
+        <Style Selector="Button.nav c|TdIcon">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+        </Style>
+        <Style Selector="Button.nav TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 中间栏：发送人 / 会话 -->
+        <Style Selector="Button.source">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Margin" Value="0,1" />
+        </Style>
+        <Style Selector="Button.source.active">
+            <Setter Property="Background" Value="{DynamicResource PressedBrush}" />
+        </Style>
+
+        <Style Selector="Grid.fileRow">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Grid.fileRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="44,*">
+        <!-- 标题栏：图标与标题、搜索框、窗口按钮 -->
+        <c:CaptionBar Grid.Row="0" Height="30" VerticalAlignment="Top" />
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="14,0,0,0" VerticalAlignment="Center"
+                    IsHitTestVisible="False">
+            <c:TdIcon Icon="{StaticResource Icon.Folder}" Width="16" Height="16" />
+            <TextBlock Text="文件" FontSize="13" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBox x:Name="SearchBox" Grid.Row="0" Classes="search" Width="240" HorizontalAlignment="Right"
+                 VerticalAlignment="Center" Margin="0,0,136,0" PlaceholderText="搜索文件名、聊天或发送人"
+                 Text="{Binding Query}" chrome:WindowDecorationProperties.ElementRole="User">
+            <TextBox.InnerLeftContent>
+                <c:TdIcon Icon="{StaticResource Icon.Search}" Width="14" Height="14"
+                          Margin="8,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </TextBox.InnerLeftContent>
+        </TextBox>
+
+        <Border Grid.Row="1" Margin="2,0,2,2" CornerRadius="8,8,0,0" ClipToBounds="True"
+                Background="{DynamicResource PanelBackgroundBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1,1,1,0">
+            <Grid ColumnDefinitions="160,Auto,*">
+                <!-- 左栏导航 -->
+                <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
+                    <StackPanel Margin="8">
+                        <Button Classes="nav" Classes.active="{Binding IsAllView}" Command="{Binding SelectViewCommand}"
+                                CommandParameter="{x:Static vm:FilesView.All}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <c:TdIcon Icon="{StaticResource Icon.App}" />
+                                <TextBlock Text="全部文件" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="nav sub" Classes.active="{Binding IsRecentView}"
+                                Command="{Binding SelectViewCommand}" CommandParameter="{x:Static vm:FilesView.Recent}">
+                            <TextBlock Text="最近使用" />
+                        </Button>
+                        <Button Classes="nav sub" Classes.active="{Binding IsSenderView}"
+                                Command="{Binding SelectViewCommand}" CommandParameter="{x:Static vm:FilesView.Sender}">
+                            <TextBlock Text="发送人" />
+                        </Button>
+                        <Button Classes="nav sub" Classes.active="{Binding IsConversationView}"
+                                Command="{Binding SelectViewCommand}" CommandParameter="{x:Static vm:FilesView.Conversation}">
+                            <TextBlock Text="会话" />
+                        </Button>
+                        <Border Height="1" Margin="4,6" Background="{DynamicResource DividerBrush}" />
+                        <Button Classes="nav" Classes.active="{Binding IsGroupView}" Command="{Binding SelectViewCommand}"
+                                CommandParameter="{x:Static vm:FilesView.Group}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <c:TdIcon Icon="{StaticResource Icon.Folder}" />
+                                <TextBlock Text="群文件" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- 中间栏：发送人 / 会话 / 话题 -->
+                <Border Grid.Column="1" Width="180" IsVisible="{Binding ShowSources}"
+                        BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding Sources}" Margin="6">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FileSourceItem">
+                                    <Button Classes="source" Classes.active="{Binding IsSelected}"
+                                            Command="{Binding $parent[Window].((vm:FilesViewModel)DataContext).SelectSourceCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <c:Avatar Width="32" Height="32" Source="{Binding AvatarUrl}"
+                                                      Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
+                                            <TextBlock Text="{Binding Title}" FontSize="13" MaxWidth="112"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- 右栏：标题、筛选或排序、文件列表、群文件底栏 -->
+                <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto">
+                    <Grid ColumnDefinitions="*,Auto" Margin="24,14,16,8">
+                        <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                        <Button x:Name="FilterButton" Grid.Column="1" Theme="{StaticResource FlatButton}" Padding="8,4"
+                                IsVisible="{Binding ShowFilter}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="{Binding FilterText}" FontSize="12" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <c:TdIcon Icon="{StaticResource Icon.Filter}" Width="14" Height="14"
+                                          Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="SortButton" Grid.Column="1" Theme="{StaticResource FlatButton}" Padding="10,4"
+                                BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
+                                IsVisible="{Binding IsGroupView}">
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <TextBlock Text="{Binding SortText}" FontSize="12" VerticalAlignment="Center" />
+                                <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" Width="14" Height="14" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <Panel Grid.Row="1">
+                        <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="0,0,0,8">
+                                <ItemsControl ItemsSource="{Binding Groups}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:FileGroup">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Header}" FontSize="12" Margin="24,8,0,4"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           IsVisible="{Binding HasHeader}" />
+                                                <ItemsControl ItemsSource="{Binding Entries}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:FileEntry">
+                                                            <Grid Classes="fileRow" ColumnDefinitions="Auto,*,Auto" Height="60"
+                                                                  Margin="8,0" Tapped="OnRowTapped">
+                                                                <Grid.ContextMenu>
+                                                                    <ContextMenu>
+                                                                        <MenuItem Header="打开" Command="{Binding OpenCommand}" />
+                                                                        <MenuItem Header="另存为" Command="{Binding SaveAsCommand}" />
+                                                                        <MenuItem Header="打开所在文件夹" Command="{Binding RevealCommand}"
+                                                                                  IsVisible="{Binding IsDownloaded}" />
+                                                                        <MenuItem Header="转发" Command="{Binding ForwardCommand}" />
+                                                                        <MenuItem Header="定位到聊天" Command="{Binding LocateCommand}" />
+                                                                    </ContextMenu>
+                                                                </Grid.ContextMenu>
+                                                                <Panel Width="40" Height="40" Margin="16,0,12,0">
+                                                                    <c:RemoteImage Width="40" Height="40" CornerRadius="4"
+                                                                                   Source="{Binding Path}" IsVisible="{Binding IsImage}" />
+                                                                    <c:TdIcon IconKey="{Binding IconKey}" Width="34" Height="34"
+                                                                              Foreground="{DynamicResource BrandBrush}"
+                                                                              IsVisible="{Binding !IsImage}" />
+                                                                </Panel>
+                                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                                                                    <TextBlock Text="{Binding FileName}" FontSize="14"
+                                                                               TextTrimming="CharacterEllipsis" />
+                                                                    <TextBlock Text="{Binding StatusText}" FontSize="12"
+                                                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="4"
+                                                                            Margin="16,0,16,0">
+                                                                    <TextBlock Text="{Binding TimeText}" FontSize="12"
+                                                                               HorizontalAlignment="Right"
+                                                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                                    <TextBlock Text="{Binding SourceText}" FontSize="12" MaxWidth="220"
+                                                                               HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                                                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="加载中…" FontSize="12" HorizontalAlignment="Center" Margin="0,12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           IsVisible="{Binding IsLoadingMore}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                        <TextBlock Text="{Binding StatusText}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   IsVisible="{Binding StatusText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <Border Background="#CC000000" CornerRadius="6" Padding="16,8" HorizontalAlignment="Center"
+                                VerticalAlignment="Top" Margin="0,16,0,0"
+                                IsVisible="{Binding ToastText, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="13" />
+                        </Border>
+                    </Panel>
+
+                    <!-- 群文件底栏 -->
+                    <Border Grid.Row="2" IsVisible="{Binding IsGroupView}" Padding="24,10,16,12"
+                            BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock Text="{Binding FooterText}" FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="32" Height="32"
+                                    Margin="0,0,8,0" ToolTip.Tip="刷新" Command="{Binding RefreshCommand}">
+                                <c:TdIcon Icon="{StaticResource Icon.Refresh}" Width="18" Height="18" />
+                            </Button>
+                            <Button x:Name="UploadButton" Grid.Column="2" Classes="primary" Theme="{StaticResource FlatButton}"
+                                    Content="上传文件" IsEnabled="{Binding CanUpload}" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

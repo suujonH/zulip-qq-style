@@ -75,6 +75,16 @@ public partial class ContactsPageViewModel : ViewModelBase
     [RelayCommand]
     private void ShowGroups() => IsGroupTab = true;
 
+    /// <summary>切换到群聊标签并展开频道分组（全局搜索中点击频道）。返回该分组；频道未订阅时为 null。</summary>
+    public ContactSectionViewModel? ShowChannel(long streamId)
+    {
+        IsGroupTab = true;
+        var section = GroupSections.FirstOrDefault(s => s.Kind == ContactSectionKind.Channel && s.Id == streamId);
+        if (section is not null)
+            section.IsExpanded = true;
+        return section;
+    }
+
     /// <summary>单击：选中条目并在右侧显示资料。</summary>
     public void Select(ViewModelBase item)
     {

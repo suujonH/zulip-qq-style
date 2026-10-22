@@ -102,6 +102,9 @@ public partial class ChatViewModel : ViewModelBase
     /// <summary>话题被整体移动时会被替换。</summary>
     public ConversationKey Key { get; private set; }
 
+    /// <summary>话题（标题栏显示“群文件”按钮）；话题被移动后仍是话题。</summary>
+    public bool IsTopic => Key is TopicKey;
+
     public ZulipSession Session => _session;
 
     /// <summary>话题和多人私聊显示发送者昵称。</summary>

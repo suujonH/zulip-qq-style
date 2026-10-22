@@ -21,6 +21,7 @@ public partial class MainViewModel : ViewModelBase
         Messages = new MessagesPageViewModel(session, key => _ = OpenChatAsync(key), CloseChatAsync, ShowToast);
         Contacts = new ContactsPageViewModel(session, this);
         Topics = new TopicActions(this);
+        Search = new SearchViewModel(session, this);
         CurrentPage = Messages;
 
         session.Users.UserChanged += (_, id) =>
@@ -61,6 +62,9 @@ public partial class MainViewModel : ViewModelBase
 
     /// <summary>话题操作（各处右键菜单共用）。</summary>
     public TopicActions Topics { get; }
+
+    /// <summary>搜索框的全局搜索。</summary>
+    public SearchViewModel Search { get; }
 
     /// <summary>打开中的对话框，后打开的显示在上层。</summary>
     public ObservableCollection<ViewModelBase> Dialogs { get; } = [];
@@ -268,6 +272,13 @@ public partial class MainViewModel : ViewModelBase
 
     [RelayCommand]
     private void ShowContacts() => CurrentPage = Contacts;
+
+    /// <summary>切换到联系人页的群聊标签并展开频道（全局搜索中点击频道）。</summary>
+    public void ShowContactsChannel(long streamId)
+    {
+        CurrentPage = Contacts;
+        Contacts.ShowChannel(streamId);
+    }
 
     [RelayCommand]
     private Task LogoutAsync() => App.Current.LogoutAsync(confirm: true);
