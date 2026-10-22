@@ -19,7 +19,8 @@ public partial class MainViewModel : ViewModelBase
     {
         Session = session;
         Messages = new MessagesPageViewModel(session, key => _ = OpenChatAsync(key), CloseChatAsync, ShowToast);
-        Contacts = new ContactsPageViewModel(session);
+        Contacts = new ContactsPageViewModel(session, this);
+        Topics = new TopicActions(this);
         CurrentPage = Messages;
 
         session.Users.UserChanged += (_, id) =>
@@ -47,6 +48,9 @@ public partial class MainViewModel : ViewModelBase
     public MessagesPageViewModel Messages { get; }
 
     public ContactsPageViewModel Contacts { get; }
+
+    /// <summary>话题操作（各处右键菜单共用）。</summary>
+    public TopicActions Topics { get; }
 
     /// <summary>打开中的对话框，后打开的显示在上层。</summary>
     public ObservableCollection<ViewModelBase> Dialogs { get; } = [];
@@ -93,6 +97,7 @@ public partial class MainViewModel : ViewModelBase
             return;
 
         CurrentPage = Messages;
+        Contacts.ClearSelection();
         if (Session.Conversations.Get(key) is { LastMessageId: > 0 })
             Session.Conversations.EnsureInList(key);
         Messages.Select(key);
@@ -140,6 +145,18 @@ public partial class MainViewModel : ViewModelBase
         RightPane = null;
         Messages.Select(null);
         await chat.CloseAsync();
+    }
+
+    /// <summary>在右侧显示资料面板等非聊天内容；正在显示的聊天先关闭（保存草稿），进行中的打开请求取消。</summary>
+    public async Task ShowPaneAsync(ViewModelBase pane)
+    {
+        ++_openVersion;
+        _openingKey = null;
+        var old = RightPane as ChatViewModel;
+        RightPane = pane;
+        Messages.Select(null);
+        if (old is not null)
+            await old.CloseAsync();
     }
 
     /// <summary>显示确认对话框，返回用户是否点击了确定。</summary>

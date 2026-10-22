@@ -13,10 +13,10 @@
             <Setter Property="Height" Value="32" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#D0D0D0" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
         </Style>
 
-        <!-- 好友通知 / 群通知 / 分组标题：通栏、无圆角 -->
+        <!-- 分组标题：通栏、无圆角 -->
         <Style Selector="Button.row">
             <Setter Property="Height" Value="36" />
             <Setter Property="Padding" Value="16,0" />
@@ -31,6 +31,10 @@
         </Style>
         <Style Selector="Button.row.expanded c|TdIcon.chevron">
             <Setter Property="RenderTransform" Value="rotate(90deg)" />
+        </Style>
+        <!-- 静音的频道标题为灰色 -->
+        <Style Selector="Button.row.dimmed TextBlock.name">
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
         </Style>
 
         <!-- 好友 / 群聊 分段切换 -->
@@ -52,18 +56,24 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         </Style>
         <Style Selector="Button.tab.active, Button.tab.active:pointerover">
-            <Setter Property="Background" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
         </Style>
 
-        <!-- 分组内的联系人 -->
+        <!-- 分组内的联系人 / 话题 -->
         <Style Selector="Border.contact">
             <Setter Property="Height" Value="56" />
             <Setter Property="Padding" Value="16,0" />
             <Setter Property="Background" Value="Transparent" />
         </Style>
+        <Style Selector="Border.contact.topic">
+            <Setter Property="Height" Value="48" />
+        </Style>
         <Style Selector="Border.contact:pointerover">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Border.contact.selected, Border.contact.selected:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
         </Style>
     </UserControl.Styles>
 
@@ -90,43 +100,71 @@
             </Border>
         </StackPanel>
 
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer x:Name="SectionScroller" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl ItemsSource="{Binding CurrentSections}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:ContactSectionViewModel">
                         <StackPanel>
-                            <Button Classes="row" Classes.expanded="{Binding IsExpanded}"
-                                    Theme="{StaticResource FlatButton}" Command="{Binding ToggleExpandedCommand}">
-                                <DockPanel>
-                                    <c:TdIcon DockPanel.Dock="Left" Classes="chevron"
-                                              Icon="{StaticResource Icon.ChevronRight}" />
-                                    <TextBlock DockPanel.Dock="Right" Classes="caption" Text="{Binding CountText}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding Name}" Margin="6,0" VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis" />
-                                </DockPanel>
-                            </Button>
+                            <Panel>
+                                <Button Classes="row" Classes.expanded="{Binding IsExpanded}"
+                                        Classes.dimmed="{Binding IsDimmed}"
+                                        Theme="{StaticResource FlatButton}" Command="{Binding ToggleExpandedCommand}">
+                                    <DockPanel>
+                                        <c:TdIcon DockPanel.Dock="Left" Classes="chevron"
+                                                  Icon="{StaticResource Icon.ChevronRight}" />
+                                        <TextBlock DockPanel.Dock="Right" Classes="caption" Text="{Binding CountText}"
+                                                   VerticalAlignment="Center" />
+                                        <c:TdIcon DockPanel.Dock="Left" Icon="{StaticResource Icon.Lock}" Margin="6,0,0,0"
+                                                  Width="12" Height="12" IsVisible="{Binding IsLocked}"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <TextBlock Classes="name" Text="{Binding Name}" Margin="6,0"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                   IsVisible="{Binding !IsRenaming}" />
+                                    </DockPanel>
+                                </Button>
+                                <!-- 重命名分组：盖在标题行上就地编辑 -->
+                                <c:InlineEditBox Classes="input" Margin="34,2,16,2" MaxLength="32"
+                                                 Text="{Binding RenameText}" IsVisible="{Binding IsRenaming}"
+                                                 CommitCommand="{Binding CommitRenameCommand}"
+                                                 CancelCommand="{Binding CancelRenameCommand}" />
+                            </Panel>
 
-                            <!-- 分组内容按条目类型选择模板 -->
-                            <ItemsControl ItemsSource="{Binding Items}" IsVisible="{Binding IsExpanded}">
-                                <ItemsControl.DataTemplates>
-                                    <DataTemplate DataType="vm:FriendItemViewModel">
-                                        <Border Classes="contact">
-                                            <Grid ColumnDefinitions="Auto,*">
-                                                <Panel Width="40" Height="40">
-                                                    <c:Avatar Text="{Binding DisplayName}" />
-                                                    <Ellipse Classes="online" IsVisible="{Binding IsOnline}" />
-                                                </Panel>
-                                                <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="3"
-                                                            VerticalAlignment="Center">
-                                                    <TextBlock Classes="title" Text="{Binding DisplayName}" />
-                                                    <TextBlock Classes="sub" Text="{Binding StatusText}" />
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.DataTemplates>
-                            </ItemsControl>
+                            <StackPanel IsVisible="{Binding IsExpanded}">
+                                <TextBlock Classes="caption" Text="加载中…" Margin="40,8" IsVisible="{Binding IsLoading}" />
+
+                                <!-- 分组内容按条目类型选择模板 -->
+                                <ItemsControl ItemsSource="{Binding Items}">
+                                    <ItemsControl.DataTemplates>
+                                        <DataTemplate DataType="vm:FriendItemViewModel">
+                                            <Border Classes="contact" Classes.selected="{Binding IsSelected}"
+                                                    Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
+                                                <Grid ColumnDefinitions="Auto,*">
+                                                    <Panel Width="40" Height="40">
+                                                        <c:Avatar Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
+                                                        <Ellipse Classes="online" IsVisible="{Binding IsOnline}" />
+                                                    </Panel>
+                                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="3"
+                                                                VerticalAlignment="Center">
+                                                        <TextBlock Classes="title" Text="{Binding DisplayName}" />
+                                                        <TextBlock Classes="sub" Text="{Binding StatusText}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="vm:TopicItemViewModel">
+                                            <Border Classes="contact topic" Classes.selected="{Binding IsSelected}"
+                                                    Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
+                                                <Grid ColumnDefinitions="Auto,*">
+                                                    <c:Avatar Width="36" Height="36" Text="{Binding Title}"
+                                                              Fill="{Binding AvatarFill}" />
+                                                    <TextBlock Grid.Column="1" Classes="title" Margin="10,0,0,0"
+                                                               VerticalAlignment="Center" Text="{Binding Title}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.DataTemplates>
+                                </ItemsControl>
+                            </StackPanel>
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using ZulipQQ.Zulip.Dtos;
 
@@ -30,6 +31,9 @@ public sealed class RealmInfo
     public bool EnableReadReceipts { get; set; }
     public string EditHistoryVisibilityPolicy { get; set; } = "all";
 
+    /// <summary>自定义资料字段的定义（custom_profile_fields 事件整体替换）。</summary>
+    public IReadOnlyList<CustomProfileFieldDto> ProfileFields { get; set; } = [];
+
     public int LongpollTimeoutSeconds { get; set; }
     public int TypingStartedWaitMs { get; set; }
     public int TypingStoppedWaitMs { get; set; }
@@ -53,6 +57,7 @@ public sealed class RealmInfo
         EditLimitSeconds = reg.RealmMessageContentEditLimitSeconds,
         EnableReadReceipts = reg.RealmEnableReadReceipts,
         EditHistoryVisibilityPolicy = reg.RealmMessageEditHistoryVisibilityPolicy,
+        ProfileFields = reg.CustomProfileFields,
         LongpollTimeoutSeconds = reg.EventQueueLongpollTimeoutSeconds,
         TypingStartedWaitMs = reg.ServerTypingStartedWaitPeriodMilliseconds,
         TypingStoppedWaitMs = reg.ServerTypingStoppedWaitPeriodMilliseconds,

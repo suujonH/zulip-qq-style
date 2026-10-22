@@ -81,6 +81,9 @@ public static class EventRouter
             case "realm_emoji":
                 s.Emoji.LoadRealm(ZulipJson.Deserialize<Dictionary<string, RealmEmojiDto>>(ev.GetProperty("realm_emoji")));
                 break;
+            case "custom_profile_fields":
+                s.Realm.ProfileFields = ZulipJson.Deserialize<List<CustomProfileFieldDto>>(ev.GetProperty("fields"));
+                break;
             // 输入状态、提醒词、定时消息等由后续阶段处理
             default:
                 Log.Debug($"忽略事件：{ev.GetProperty("type").GetString()}");
