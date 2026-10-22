@@ -19,7 +19,8 @@ public partial class MainViewModel : ViewModelBase
     {
         Session = session;
         Messages = new MessagesPageViewModel(session, key => _ = OpenChatAsync(key), CloseChatAsync, ShowToast);
-        Contacts = new ContactsPageViewModel(session);
+        Contacts = new ContactsPageViewModel(session, this);
+        Topics = new TopicActions(this);
         CurrentPage = Messages;
 
         session.Users.UserChanged += (_, id) =>
@@ -44,9 +45,22 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>签名为空时显示引导文字（与 QQ 一致）。</summary>
     public string SignatureText => Session.Users.GetStatusText(Session.SelfId) is { Length: > 0 } text ? text : "编辑个性签名";
 
+    /// <summary>签名的最大长度（与 QQ 一致；Zulip 上限为 60）。</summary>
+    public const int SignatureMaxLength = 60;
+
+    /// <summary>标题栏签名正在就地编辑。</summary>
+    [ObservableProperty]
+    public partial bool IsEditingSignature { get; private set; }
+
+    [ObservableProperty]
+    public partial string SignatureDraft { get; set; } = "";
+
     public MessagesPageViewModel Messages { get; }
 
     public ContactsPageViewModel Contacts { get; }
+
+    /// <summary>话题操作（各处右键菜单共用）。</summary>
+    public TopicActions Topics { get; }
 
     /// <summary>打开中的对话框，后打开的显示在上层。</summary>
     public ObservableCollection<ViewModelBase> Dialogs { get; } = [];
@@ -93,6 +107,7 @@ public partial class MainViewModel : ViewModelBase
             return;
 
         CurrentPage = Messages;
+        Contacts.ClearSelection();
         if (Session.Conversations.Get(key) is { LastMessageId: > 0 })
             Session.Conversations.EnsureInList(key);
         Messages.Select(key);
@@ -142,6 +157,18 @@ public partial class MainViewModel : ViewModelBase
         await chat.CloseAsync();
     }
 
+    /// <summary>在右侧显示资料面板等非聊天内容；正在显示的聊天先关闭（保存草稿），进行中的打开请求取消。</summary>
+    public async Task ShowPaneAsync(ViewModelBase pane)
+    {
+        ++_openVersion;
+        _openingKey = null;
+        var old = RightPane as ChatViewModel;
+        RightPane = pane;
+        Messages.Select(null);
+        if (old is not null)
+            await old.CloseAsync();
+    }
+
     /// <summary>显示确认对话框，返回用户是否点击了确定。</summary>
     public Task<bool> ConfirmAsync(string message, string confirmText = "确定", bool isDanger = false)
     {
@@ -155,6 +182,86 @@ public partial class MainViewModel : ViewModelBase
         Dialogs.Add(dialog);
         return tcs.Task;
     }
+
+    // ---- 搜索框右侧的“+”菜单 ----
+
+    public bool CanCreateChannel => Session.Permissions.CanCreatePublicChannel || Session.Permissions.CanCreatePrivateChannel;
+
+    /// <summary>发起群聊：至少选择 2 人，打开多人私聊。</summary>
+    public void ShowGroupChatPicker()
+    {
+        UserPickerDialogViewModel picker = null!;
+        picker = new UserPickerDialogViewModel(Session, "发起群聊", 2, null, ids =>
+        {
+            Dialogs.Remove(picker);
+            if (ids is not null)
+                _ = OpenChatAsync(DmKey.Create(ids, Session.SelfId));
+        });
+        Dialogs.Add(picker);
+    }
+
+    /// <summary>新建话题：记录话题名后打开聊天，第一条消息发出后会话加入消息列表。</summary>
+    public void ShowNewTopicDialog()
+    {
+        NewTopicDialogViewModel dialog = null!;
+        dialog = new NewTopicDialogViewModel(Session, result =>
+        {
+            Dialogs.Remove(dialog);
+            if (result is not { } r)
+                return;
+            Session.Conversations.EnsureEntry(r.Key, r.Name);
+            _ = OpenChatAsync(r.Key);
+        });
+        Dialogs.Add(dialog);
+    }
+
+    public void ShowBrowseChannels()
+    {
+        BrowseChannelsDialogViewModel dialog = null!;
+        dialog = new BrowseChannelsDialogViewModel(Session, this, () => Dialogs.Remove(dialog));
+        Dialogs.Add(dialog);
+    }
+
+    public void ShowCreateChannelDialog()
+    {
+        CreateChannelDialogViewModel dialog = null!;
+        dialog = new CreateChannelDialogViewModel(Session, this, () => Dialogs.Remove(dialog));
+        Dialogs.Add(dialog);
+    }
+
+    // ---- 个性签名 ----
+
+    [RelayCommand]
+    private void BeginEditSignature()
+    {
+        SignatureDraft = Session.Users.GetStatusText(Session.SelfId) ?? "";
+        IsEditingSignature = true;
+    }
+
+    /// <summary>提交签名：空文字表示清除。结果由 user_status 事件更新。</summary>
+    [RelayCommand]
+    private async Task CommitSignatureAsync()
+    {
+        // 回车和失去焦点都会提交，只处理第一次
+        if (!IsEditingSignature)
+            return;
+        IsEditingSignature = false;
+        var text = SignatureDraft.Trim();
+        if (text == (Session.Users.GetStatusText(Session.SelfId) ?? ""))
+            return;
+        try
+        {
+            await Session.Client.SetStatusAsync(text, Session.Token);
+        }
+        catch (Exception ex) when (!Session.IsDisposed)
+        {
+            Log.Warn("修改个性签名失败", ex);
+            ShowToast("修改失败");
+        }
+    }
+
+    [RelayCommand]
+    private void CancelEditSignature() => IsEditingSignature = false;
 
     [RelayCommand]
     private void ShowMessages() => CurrentPage = Messages;

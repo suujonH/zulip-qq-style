@@ -139,13 +139,22 @@ public sealed class ChannelStore(ZulipSession session)
         switch (ev.GetProperty("op").GetString())
         {
             case "add":
-                foreach (var dto in ev.GetProperty("subscriptions").Deserialize<List<SubscriptionDto>>(ZulipJson.Options) ?? [])
+                foreach (var raw in ev.GetProperty("subscriptions").EnumerateArray())
                 {
+                    var dto = raw.Deserialize<SubscriptionDto>(ZulipJson.Options)!;
                     if (_channels.TryGetValue(dto.StreamId, out var existing))
                         existing.Apply(dto);
                     else
                         _channels[dto.StreamId] = existing = Channel.FromDto(dto, subscribed: true);
                     existing.IsSubscribed = true;
+                    // 事件带有完整的订阅者列表；其中的 subscriber_count 可能是旧值（新建的频道为 0），以列表为准
+                    if (raw.TryGetProperty("subscribers", out var subscribers) && subscribers.ValueKind == JsonValueKind.Array)
+                    {
+                        var list = subscribers.EnumerateArray().Select(u => u.GetInt64()).Distinct().ToList();
+                        _subscribers[dto.StreamId] = list;
+                        existing.SubscriberCount = list.Count;
+                        SubscribersChanged?.Invoke(this, dto.StreamId);
+                    }
                     ChannelChanged?.Invoke(this, dto.StreamId);
                 }
                 return null;
@@ -157,6 +166,17 @@ public sealed class ChannelStore(ZulipSession session)
                     if (_channels.TryGetValue(id, out var channel))
                     {
                         channel.IsSubscribed = false;
+                        // 自己退订时没有 peer_remove 事件，订阅人数在这里减去自己
+                        if (_subscribers.TryGetValue(id, out var list))
+                        {
+                            list.Remove(session.SelfId);
+                            channel.SubscriberCount = list.Count;
+                            SubscribersChanged?.Invoke(this, id);
+                        }
+                        else
+                        {
+                            channel.SubscriberCount = Math.Max(0, channel.SubscriberCount - 1);
+                        }
                         ChannelChanged?.Invoke(this, id);
                     }
                 }

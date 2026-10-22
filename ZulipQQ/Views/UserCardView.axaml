@@ -1,0 +1,119 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.UserCardView"
+             x:DataType="vm:UserCardViewModel">
+
+    <UserControl.Styles>
+        <!-- 资料行：左侧灰色标签，右侧内容 -->
+        <Style Selector="TextBlock.label">
+            <Setter Property="Width" Value="64" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.value">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="DockPanel.row">
+            <Setter Property="MinHeight" Value="30" />
+        </Style>
+        <Style Selector="Button.editable">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Padding" Value="0,4" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.badge">
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Padding" Value="5,1" />
+            <Setter Property="Background" Value="#E6F4FF" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Width="320" Padding="20" CornerRadius="8" Background="{DynamicResource CardBrush}">
+        <StackPanel Spacing="14">
+            <!-- 头像、名称、在线状态、邮箱 -->
+            <Grid ColumnDefinitions="Auto,*">
+                <Panel Width="64" Height="64" VerticalAlignment="Top">
+                    <c:Avatar Width="64" Height="64" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
+                    <Ellipse Classes="online" Width="14" Height="14" IsVisible="{Binding IsOnline}" />
+                </Panel>
+                <StackPanel Grid.Column="1" Margin="14,2,0,0" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding DisplayName}" FontSize="18" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" MaxWidth="170" />
+                        <Border Classes="badge" IsVisible="{Binding HasRole}">
+                            <TextBlock Text="{Binding RoleText}" FontSize="11" Foreground="{DynamicResource BrandBrush}" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Classes="sub" IsVisible="{Binding HasNickname}"
+                               Text="{Binding Nickname, StringFormat='昵称：{0}'}" />
+                    <TextBlock Classes="sub" Text="{Binding Email}" />
+                    <TextBlock Classes="sub" Text="{Binding PresenceText}" />
+                </StackPanel>
+            </Grid>
+
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel Spacing="2">
+                <DockPanel Classes="row" IsVisible="{Binding HasStatus}">
+                    <TextBlock Classes="label" Text="签名" />
+                    <TextBlock Classes="value" Text="{Binding StatusText}" />
+                </DockPanel>
+                <DockPanel Classes="row" IsVisible="{Binding HasLocalTime}">
+                    <TextBlock Classes="label" Text="当地时间" />
+                    <TextBlock Classes="value" Text="{Binding LocalTimeText}" />
+                </DockPanel>
+                <ItemsControl ItemsSource="{Binding ProfileFields}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ProfileFieldItem">
+                            <DockPanel Classes="row">
+                                <TextBlock Classes="label" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="value" Text="{Binding Value}" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 备注：点击后就地编辑 -->
+                <DockPanel Classes="row" IsVisible="{Binding CanEditContact}">
+                    <TextBlock Classes="label" Text="备注" />
+                    <Panel>
+                        <Button Classes="editable" Theme="{StaticResource FlatButton}"
+                                Command="{Binding BeginEditRemarkCommand}" IsVisible="{Binding !IsEditingRemark}">
+                            <Panel>
+                                <TextBlock Classes="value" Text="{Binding RemarkText}" />
+                                <TextBlock Classes="value" Text="设置备注" Foreground="{DynamicResource TextTertiaryBrush}"
+                                           IsVisible="{Binding RemarkText, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                            </Panel>
+                        </Button>
+                        <c:InlineEditBox Classes="input" MaxLength="32" Text="{Binding RemarkDraft}"
+                                         IsVisible="{Binding IsEditingRemark}"
+                                         CommitCommand="{Binding CommitRemarkCommand}"
+                                         CancelCommand="{Binding CancelRemarkCommand}" />
+                    </Panel>
+                </DockPanel>
+
+                <DockPanel Classes="row" IsVisible="{Binding CanEditContact}">
+                    <TextBlock Classes="label" Text="分组" />
+                    <ComboBox ItemsSource="{Binding GroupChoices}" SelectedItem="{Binding SelectedGroup}"
+                              MinWidth="140" FontSize="13">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GroupChoice">
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </DockPanel>
+            </StackPanel>
+
+            <Button Classes="primary" Theme="{StaticResource FlatButton}" HorizontalAlignment="Center" MinWidth="120"
+                    Content="发消息" Command="{Binding SendMessageCommand}" />
+        </StackPanel>
+    </Border>
+</UserControl>

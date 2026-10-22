@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.BrowseChannelsDialogView"
+             x:DataType="vm:BrowseChannelsDialogViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Grid.channel">
+            <Setter Property="Height" Value="56" />
+            <Setter Property="Margin" Value="16,0" />
+        </Style>
+        <Style Selector="Button.join, Button.leave">
+            <Setter Property="MinWidth" Value="60" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="dialog" Width="480" Height="520">
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" Height="30">
+                <TextBlock Text="加入频道" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CloseCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Classes="input" PlaceholderText="搜索频道"
+                     Text="{Binding Query}" Margin="16,12,16,8" />
+
+            <Panel>
+                <TextBlock Classes="caption" Text="没有可加入的频道" HorizontalAlignment="Center" Margin="0,40,0,0"
+                           IsVisible="{Binding IsEmpty}" />
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Items}" Margin="0,0,0,8">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChannelBrowseItem">
+                                <Grid Classes="channel" ColumnDefinitions="*,Auto">
+                                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <c:TdIcon Icon="{StaticResource Icon.Lock}" Width="12" Height="12"
+                                                      IsVisible="{Binding IsPrivate}"
+                                                      Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            <TextBlock Classes="title" Text="{Binding Name, StringFormat='#{0}'}" />
+                                            <TextBlock Classes="caption" Text="{Binding SubscriberText}" Margin="6,0,0,0"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <TextBlock Classes="sub" Text="{Binding Description}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    </StackPanel>
+                                    <Panel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <Button Classes="primary join" Theme="{StaticResource FlatButton}" Content="加入"
+                                                IsVisible="{Binding !IsSubscribed}" IsEnabled="{Binding !IsBusy}"
+                                                Command="{Binding $parent[UserControl].((vm:BrowseChannelsDialogViewModel)DataContext).JoinCommand}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Classes="secondary leave" Theme="{StaticResource FlatButton}" Content="退出"
+                                                IsVisible="{Binding IsSubscribed}" IsEnabled="{Binding !IsBusy}"
+                                                Command="{Binding $parent[UserControl].((vm:BrowseChannelsDialogViewModel)DataContext).LeaveCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </Panel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Panel>
+        </DockPanel>
+    </Border>
+</UserControl>

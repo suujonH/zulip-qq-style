@@ -78,6 +78,7 @@ public sealed record RegisterResult
 
     /// <summary><c>all</c>、<c>moves</c> 或 <c>none</c>。</summary>
     public string RealmMessageEditHistoryVisibilityPolicy { get; init; } = "all";
+    public string RealmTopicsPolicy { get; init; } = "allow_empty_topic";
 
     // 时间参数
     public int ServerTypingStartedWaitPeriodMilliseconds { get; init; } = 10000;

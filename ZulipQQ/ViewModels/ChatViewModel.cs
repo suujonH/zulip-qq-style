@@ -290,7 +290,20 @@ public partial class ChatViewModel : ViewModelBase
             vm.IsTimeShown = true;
     }
 
-    /// <summary>处理消息内容中的点击：链接、文件、图片。</summary>
+    /// <summary>用户名片；用户不存在（例如已被删除）时返回 null。</summary>
+    public UserCardViewModel? CreateUserCard(long userId, Action onOpened) =>
+        _session.Users.Get(userId) is null ? null : new UserCardViewModel(_session, userId, k => _ = _openChat(k, null), onOpened);
+
+    /// <summary>点击标题弹出的名片：话题为话题名片，一对一私聊为对方的名片，与自己的私聊为自己的名片，多人私聊没有名片。</summary>
+    public ViewModelBase? CreateTitleCard(Action onOpened) => Key switch
+    {
+        TopicKey t => new TopicCardViewModel(_session, t, k => _ = _openChat(k, null), onOpened),
+        DmKey { OtherUserIds.Length: 0 } => CreateUserCard(_session.SelfId, onOpened),
+        DmKey { OtherUserIds.Length: 1 } d => CreateUserCard(d.OtherUserIds[0], onOpened),
+        _ => null,
+    };
+
+    /// <summary>处理消息内容中的点击：链接、文件、图片。提及的用户名片由视图弹出。</summary>
     public async Task HandleLinkAsync(MessageItemViewModel? item, MessageLinkTarget target, TopLevel? top)
     {
         var messageId = item?.Id ?? 0;
@@ -323,7 +336,6 @@ public partial class ChatViewModel : ViewModelBase
                     await OpenUrlAsync(image.Href);
                 }
                 break;
-            // 提及的用户名片在联系人分支实现
         }
     }
 

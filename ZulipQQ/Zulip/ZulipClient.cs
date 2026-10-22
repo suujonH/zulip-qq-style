@@ -282,6 +282,63 @@ public sealed class ZulipClient : IDisposable
         return SendAsync(HttpMethod.Post, "api/v1/users/me/subscriptions/properties", args, DefaultTimeout, ct);
     }
 
+    /// <summary>
+    /// 移动消息或修改话题名（PATCH /messages/{id}）。<paramref name="propagateMode"/> 为 change_one / change_later / change_all。
+    /// 超出移动时限时抛出 code 为 MOVE_MESSAGES_TIME_LIMIT_EXCEEDED 的 <see cref="ZulipApiException"/>（一条都没有移动）。
+    /// </summary>
+    public Task UpdateMessageAsync(long messageId, string? topic = null, long? streamId = null, string? propagateMode = null,
+        CancellationToken ct = default)
+    {
+        var args = new FormBuilder();
+        if (topic is not null)
+            args.Add("topic", topic);
+        if (streamId is { } s)
+            args.Add("stream_id", s);
+        if (propagateMode is not null)
+            args.Add("propagate_mode", propagateMode);
+        return SendAsync(HttpMethod.Patch, $"api/v1/messages/{Id(messageId)}", args, DefaultTimeout, ct);
+    }
+
+    /// <summary>删除话题中的消息（一次可能只删除一批），返回是否已全部删除。</summary>
+    public async Task<bool> DeleteTopicAsync(long streamId, string topic, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().Add("topic_name", topic);
+        var root = await SendAsync(HttpMethod.Post, $"api/v1/streams/{Id(streamId)}/delete_topic", args, DefaultTimeout, ct)
+            .ConfigureAwait(false);
+        return !root.TryGetProperty("complete", out var complete) || complete.GetBoolean();
+    }
+
+    /// <summary>订阅频道；<paramref name="principals"/> 不为 null 时为这些用户订阅。</summary>
+    public Task SubscribeAsync(IReadOnlyList<string> channelNames, IReadOnlyList<long>? principals = null, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().AddJson("subscriptions", channelNames.Select(n => new Dictionary<string, string> { ["name"] = n }).ToList());
+        if (principals is not null)
+            args.AddJson("principals", principals);
+        return SendAsync(HttpMethod.Post, "api/v1/users/me/subscriptions", args, DefaultTimeout, ct);
+    }
+
+    /// <summary>退订频道；<paramref name="principals"/> 不为 null 时为这些用户退订。</summary>
+    public Task UnsubscribeAsync(IReadOnlyList<string> channelNames, IReadOnlyList<long>? principals = null, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().AddJson("subscriptions", channelNames);
+        if (principals is not null)
+            args.AddJson("principals", principals);
+        return SendAsync(HttpMethod.Delete, "api/v1/users/me/subscriptions", args, DefaultTimeout, ct);
+    }
+
+    /// <summary>创建频道（Zulip 11 起的 POST /channels/create），返回频道 id。</summary>
+    public async Task<long> CreateChannelAsync(string name, string description, bool isPrivate, IReadOnlyList<long> subscribers,
+        CancellationToken ct = default)
+    {
+        var args = new FormBuilder()
+            .Add("name", name)
+            .Add("description", description)
+            .Add("invite_only", isPrivate)
+            .AddJson("subscribers", subscribers);
+        var root = await SendAsync(HttpMethod.Post, "api/v1/channels/create", args, DefaultTimeout, ct).ConfigureAwait(false);
+        return root.GetProperty("id").GetInt64();
+    }
+
     // ---- 草稿 ----
 
     public async Task<IReadOnlyList<DraftDto>> GetDraftsAsync(CancellationToken ct = default)

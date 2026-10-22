@@ -105,6 +105,17 @@
         <Setter Property="BoxShadow" Value="0 4 16 0 #33000000" />
     </Style>
 
+    <!-- 名片弹出层：名片自带背景和圆角 -->
+    <Style Selector="FlyoutPresenter.card">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MaxWidth" Value="400" />
+        <Setter Property="CornerRadius" Value="8" />
+        <!-- 弹出层窗口不显示超出自身的阴影，用细边框与背景区分 -->
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+        <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+    </Style>
+
     <Style Selector="ToolTip">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Padding" Value="6,3" />

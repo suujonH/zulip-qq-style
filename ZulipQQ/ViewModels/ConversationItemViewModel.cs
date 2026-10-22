@@ -122,7 +122,8 @@ public partial class ConversationItemViewModel(ConversationKey key) : ViewModelB
         _ => null,
     };
 
-    private static IBrush? BrushOf(string? color)
+    /// <summary>把 #RRGGBB 颜色转为画刷（缓存）；为空或无法解析时返回 null。</summary>
+    internal static IBrush? BrushOf(string? color)
     {
         if (string.IsNullOrEmpty(color))
             return null;

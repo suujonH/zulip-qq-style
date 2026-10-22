@@ -17,6 +17,13 @@
         Background="{DynamicResource WindowBackgroundBrush}">
 
     <Window.Styles>
+        <!-- 标题栏个性签名：悬停时显示底色提示可编辑 -->
+        <Style Selector="Button.signature">
+            <Setter Property="MaxWidth" Value="260" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
         <!-- 标题栏右侧窗口按钮 -->
         <Style Selector="Button.caption">
             <Setter Property="Width" Value="44" />
@@ -114,7 +121,19 @@
                     <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2" />
                 </Panel>
                 <TextBlock Text="{Binding SelfName}" FontSize="14" VerticalAlignment="Center" />
-                <TextBlock Classes="sub" Text="{Binding SignatureText}" VerticalAlignment="Center" />
+                <!-- 个性签名：点击就地编辑 -->
+                <Panel VerticalAlignment="Center">
+                    <Button Classes="signature" Theme="{StaticResource FlatButton}" ToolTip.Tip="编辑个性签名"
+                            IsVisible="{Binding !IsEditingSignature}" Command="{Binding BeginEditSignatureCommand}"
+                            chrome:WindowDecorationProperties.ElementRole="User">
+                        <TextBlock Classes="sub" Text="{Binding SignatureText}" TextTrimming="CharacterEllipsis" />
+                    </Button>
+                    <c:InlineEditBox Classes="input" Width="220" MaxLength="{x:Static vm:MainViewModel.SignatureMaxLength}"
+                                     Text="{Binding SignatureDraft}" IsVisible="{Binding IsEditingSignature}"
+                                     CommitCommand="{Binding CommitSignatureCommand}"
+                                     CancelCommand="{Binding CancelEditSignatureCommand}"
+                                     chrome:WindowDecorationProperties.ElementRole="User" />
+                </Panel>
             </StackPanel>
 
             <StackPanel Grid.Column="4" Orientation="Horizontal">
@@ -202,7 +221,7 @@
                             </TextBox>
                             <Button Grid.Column="1" Width="28" Height="28" Margin="8,0,0,0"
                                     Theme="{StaticResource FlatButton}" Background="{DynamicResource FillBrush}"
-                                    Foreground="{DynamicResource TextSecondaryBrush}">
+                                    Foreground="{DynamicResource TextSecondaryBrush}" Click="OnAddClick">
                                 <c:TdIcon Icon="{StaticResource Icon.Add}" Width="16" Height="16" />
                             </Button>
                         </Grid>

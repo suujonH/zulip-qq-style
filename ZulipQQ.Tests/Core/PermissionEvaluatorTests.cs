@@ -125,6 +125,19 @@ public class PermissionEvaluatorTests
     }
 
     [Fact]
+    public void CanSubscribe()
+    {
+        var ch = new Channel();
+        Assert.True(Create(10, 400).CanSubscribe(ch, inviteOnly: false, null));
+        Assert.False(Create(30, 600).CanSubscribe(ch, inviteOnly: false, null));
+        Assert.False(Create(10, 400).CanSubscribe(ch, inviteOnly: true, null));
+        Assert.True(Create(10, 400).CanSubscribe(ch, inviteOnly: true, GroupSettingValue.Anonymous([10], [])));
+        Assert.False(Create(8, 100).CanSubscribe(ch, inviteOnly: true, null));
+        var addable = new Channel { CanAddSubscribersGroup = GroupSettingValue.Anonymous([10], []) };
+        Assert.True(Create(10, 400).CanSubscribe(addable, inviteOnly: true, null));
+    }
+
+    [Fact]
     public void CanEditMessage()
     {
         var p = Create(9, 400, editLimit: 600);
