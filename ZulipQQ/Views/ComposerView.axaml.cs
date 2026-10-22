@@ -42,6 +42,11 @@ public partial class ComposerView : UserControl
             if (_vm is not null && TopLevel.GetTopLevel(this) is { } top)
                 await _vm.PickImagesAsync(top);
         };
+        HistoryButton.Click += (_, _) =>
+        {
+            if (_vm is not null)
+                HistoryWindow.Show(TopLevel.GetTopLevel(this) as Window, _vm.Chat.Main, _vm.Chat.Key);
+        };
     }
 
     protected override void OnDataContextChanged(EventArgs e)

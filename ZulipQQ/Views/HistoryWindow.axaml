@@ -1,0 +1,197 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ZulipQQ.ViewModels"
+        xmlns:c="using:ZulipQQ.Controls"
+        x:Class="ZulipQQ.Views.HistoryWindow"
+        x:DataType="vm:HistoryViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="{Binding Title}"
+        Width="660" Height="720" MinWidth="480" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+
+    <Window.Styles>
+        <!-- 标签页：当前页为品牌色加下划线 -->
+        <Style Selector="Button.tab">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="8,4,8,0" />
+            <Setter Property="Margin" Value="0,0,28,0" />
+        </Style>
+        <Style Selector="Button.tab TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.tab Border.underline">
+            <Setter Property="Height" Value="2" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+            <Setter Property="CornerRadius" Value="1" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.tab.active TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.tab.active Border.underline">
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        </Style>
+
+        <!-- 图片标签页：缩略图网格 -->
+        <Style Selector="ItemsControl.grid">
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </Setter>
+            <Setter Property="Margin" Value="20,10,12,4" />
+        </Style>
+
+        <!-- 悬停时右侧显示“定位”按钮 -->
+        <Style Selector="Grid.historyRow Button.locate">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Grid.historyRow:pointerover Button.locate">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Button.locate c|TdIcon">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+        </Style>
+    </Window.Styles>
+
+    <Window.DataTemplates>
+        <DataTemplate DataType="vm:HistoryGroup">
+            <StackPanel>
+                <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Padding="20,16,20,8">
+                    <TextBlock Text="{Binding Header}" FontSize="13" />
+                </Border>
+                <ItemsControl ItemsSource="{Binding Entries}" Classes.grid="{Binding IsGrid}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:HistoryMessageItem">
+            <Grid Classes="historyRow" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" Background="Transparent"
+                  Margin="20,0">
+                <Grid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="定位到聊天" Command="{Binding LocateCommand}" />
+                    </ContextMenu>
+                </Grid.ContextMenu>
+                <Border Grid.ColumnSpan="3" Height="1" Margin="42,0,0,0" Background="{DynamicResource DividerBrush}"
+                        IsVisible="{Binding ShowDivider}" />
+                <c:Avatar Grid.Row="1" Width="32" Height="32" Margin="0,12,10,12" VerticalAlignment="Top"
+                          Source="{Binding AvatarUrl}" Text="{Binding SenderName}" />
+                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,12" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding SenderName}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <TextBlock Text="{Binding TimeText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </StackPanel>
+                    <c:MessageContent Html="{Binding Html}" MeSender="{Binding MeSender}" TextElement.FontSize="14" />
+                </StackPanel>
+                <Button Grid.Row="1" Grid.Column="2" Classes="locate" Margin="8,0,0,0" ToolTip.Tip="定位到聊天"
+                        Command="{Binding LocateCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.ChatBubble}" />
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:HistoryImageItem">
+            <c:RemoteImage Width="140" Height="140" Margin="0,0,8,8" CornerRadius="4"
+                           Source="{Binding Image.Src}" Href="{Binding Image.Href}">
+                <c:RemoteImage.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="定位到聊天" Command="{Binding LocateCommand}" />
+                    </ContextMenu>
+                </c:RemoteImage.ContextMenu>
+            </c:RemoteImage>
+        </DataTemplate>
+    </Window.DataTemplates>
+
+    <Grid RowDefinitions="30,Auto,Auto,Auto,*">
+        <TextBlock Text="{Binding Title}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   MaxWidth="440" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
+        <c:CaptionBar />
+
+        <TextBox x:Name="SearchBox" Grid.Row="1" Classes="search" PlaceholderText="搜索" Text="{Binding Query}"
+                 Margin="20,8,20,10" />
+
+        <!-- 标签页与筛选 -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="12,0,16,0">
+            <StackPanel Orientation="Horizontal">
+                <Button Classes="tab" Classes.active="{Binding IsAllTab}" Command="{Binding SelectTabCommand}"
+                        CommandParameter="{x:Static vm:HistoryTab.All}">
+                    <StackPanel>
+                        <TextBlock Text="全部" />
+                        <Border Classes="underline" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="tab" Classes.active="{Binding IsMediaTab}" Command="{Binding SelectTabCommand}"
+                        CommandParameter="{x:Static vm:HistoryTab.Media}">
+                    <StackPanel>
+                        <TextBlock Text="图片/视频" />
+                        <Border Classes="underline" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="tab" Classes.active="{Binding IsFilesTab}" Command="{Binding SelectTabCommand}"
+                        CommandParameter="{x:Static vm:HistoryTab.Files}">
+                    <StackPanel>
+                        <TextBlock Text="文件" />
+                        <Border Classes="underline" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="tab" Classes.active="{Binding IsLinksTab}" Command="{Binding SelectTabCommand}"
+                        CommandParameter="{x:Static vm:HistoryTab.Links}">
+                    <StackPanel>
+                        <TextBlock Text="链接" />
+                        <Border Classes="underline" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+            <Button x:Name="FilterButton" Grid.Column="1" Theme="{StaticResource FlatButton}" Padding="8,4"
+                    VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="筛选" FontSize="13" VerticalAlignment="Center" />
+                    <c:TdIcon Icon="{StaticResource Icon.Filter}" Width="16" Height="16" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- 当前的筛选条件 -->
+        <Border Grid.Row="3" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
+            <Border IsVisible="{Binding HasFilter}" HorizontalAlignment="Left" Margin="20,6,20,8" Padding="10,2,4,2"
+                    CornerRadius="12" Background="{DynamicResource FillBrush}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="{Binding FilterText}" FontSize="12" VerticalAlignment="Center" />
+                    <Button Theme="{StaticResource FlatButton}" Width="20" Height="20" CornerRadius="10"
+                            ToolTip.Tip="清除筛选" Command="{Binding ClearFilterCommand}">
+                        <c:TdIcon Icon="{StaticResource Icon.Close}" Width="10" Height="10" />
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <Panel Grid.Row="4">
+            <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <ItemsControl ItemsSource="{Binding Groups}" />
+                    <TextBlock Text="加载中…" FontSize="12" HorizontalAlignment="Center" Margin="0,12"
+                               Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsLoadingMore}" />
+                </StackPanel>
+            </ScrollViewer>
+            <TextBlock Text="{Binding StatusText}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       IsVisible="{Binding StatusText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <Border Background="#CC000000" CornerRadius="6" Padding="16,8" HorizontalAlignment="Center"
+                    VerticalAlignment="Top" Margin="0,16,0,0"
+                    IsVisible="{Binding ToastText, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="13" />
+            </Border>
+        </Panel>
+    </Grid>
+</Window>
