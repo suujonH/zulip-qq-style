@@ -195,11 +195,14 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
         }
         else
         {
+            // 上传失败的草稿保留在本地，不能随其它草稿一起删除
+            var uploaded = new List<ConversationKey>();
             foreach (var (key, content) in _local.ToList())
             {
                 try
                 {
                     await session.Client.CreateDraftAsync(ToDto(key, content, DateTimeOffset.UtcNow.ToUnixTimeSeconds()), session.Token);
+                    uploaded.Add(key);
                 }
                 catch (Exception ex) when (!session.IsDisposed)
                 {
@@ -213,8 +216,11 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
                 return;
             _server.Clear();
             LoadServer(drafts);
-            localRepo.DeleteAll();
-            _local.Clear();
+            foreach (var key in uploaded)
+            {
+                localRepo.Delete(key);
+                _local.Remove(key);
+            }
             UseServer = true;
             affected.UnionWith(_server.Keys);
         }

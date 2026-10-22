@@ -50,6 +50,8 @@ public partial class FriendRowViewModel : ViewModelBase
     public void Update(Friend friend)
     {
         Friend = friend;
+        // ZulipUser 是就地更新的，记录相等时 Friend 的 setter 不会发出通知
+        OnPropertyChanged(nameof(Nickname));
         OnPropertyChanged(nameof(GroupName));
         OnPropertyChanged(nameof(GroupOptions));
     }

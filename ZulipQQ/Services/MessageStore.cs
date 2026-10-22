@@ -61,6 +61,8 @@ public sealed class Timeline(ConversationKey key)
 public sealed class MessageStore(ZulipSession session)
 {
     private const int MaxTimelines = 30;
+    private const int MaxIndexedMessages = 5000;
+    private const int PrunedIndexSize = 4000;
 
     private readonly Dictionary<long, ChatMessage> _byId = [];
     private readonly Dictionary<ConversationKey, Timeline> _timelines = [];
@@ -203,6 +205,8 @@ public sealed class MessageStore(ZulipSession session)
         else
         {
             _byId[msg.Id] = msg;
+            if (_byId.Count > MaxIndexedMessages)
+                PruneIndex();
         }
 
         if (localMessageId is not null && _pending.Remove(localMessageId, out var pending))
@@ -237,6 +241,9 @@ public sealed class MessageStore(ZulipSession session)
             && _byId.TryGetValue(idElement.GetInt64(), out var edited))
         {
             edited.ContentHtml = rendered.GetString() ?? edited.ContentHtml;
+            // 编辑可能增删提及，flags 以事件为准
+            if (ev.TryGetProperty("flags", out var flags) && flags.ValueKind == JsonValueKind.Array)
+                edited.Flags = [.. flags.EnumerateArray().Select(f => f.GetString() ?? "")];
             var renderingOnly = ev.TryGetProperty("rendering_only", out var ro) && ro.ValueKind == JsonValueKind.True;
             if (!renderingOnly && ev.TryGetProperty("edit_timestamp", out var editTs))
                 edited.LastEditTimestamp = editTs.GetInt64();
@@ -453,6 +460,16 @@ public sealed class MessageStore(ZulipSession session)
             foreach (var m in victim.Messages.Where(m => m.Id > 0))
                 _byId.Remove(m.Id);
         }
+    }
+
+    // 不属于任何时间线的消息（预取与实时事件）只按 id 保留最新的一部分，避免长时间运行时无限增长
+    private void PruneIndex()
+    {
+        HashSet<long> inTimeline = [.. _timelines.Values.SelectMany(t => t.Messages).Select(m => m.Id)];
+        var loose = _byId.Keys.Where(id => id > 0 && !inTimeline.Contains(id)).Order().ToList();
+        var removeCount = _byId.Count - PrunedIndexSize;
+        foreach (var id in loose.Take(removeCount))
+            _byId.Remove(id);
     }
 
     private void Raise(ConversationKey key, TimelineChange change) => TimelineChanged?.Invoke(this, (key, change));

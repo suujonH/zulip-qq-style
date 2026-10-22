@@ -116,9 +116,15 @@ public static class EventRouter
             s.Conversations.OnMessagesMoved(move);
         }
 
-        if (ev.TryGetProperty("message_id", out var id) && ev.TryGetProperty("rendered_content", out _)
-            && s.Messages.Get(id.GetInt64()) is { } edited)
-            s.Conversations.OnEdited(edited);
+        if (ev.TryGetProperty("message_id", out var id) && ev.TryGetProperty("rendered_content", out var rendered))
+        {
+            // 未读消息的提及 / 文件提示随编辑更新；消息不在缓存中也能用事件里的数据计算
+            if (ev.TryGetProperty("flags", out var flags) && flags.ValueKind == JsonValueKind.Array)
+                s.Unread.OnEdited(id.GetInt64(), [.. flags.EnumerateArray().Select(f => f.GetString() ?? "")],
+                    rendered.GetString() ?? "");
+            if (s.Messages.Get(id.GetInt64()) is { } edited)
+                s.Conversations.OnEdited(edited);
+        }
     }
 
     private static void OnDeleteMessage(ZulipSession s, JsonElement ev)

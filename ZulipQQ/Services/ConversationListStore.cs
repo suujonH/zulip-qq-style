@@ -395,10 +395,15 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
                 try
                 {
                     var narrow = Narrow.For(key, session.SelfId, key is TopicKey t ? GetTopicName(t) : null);
+                    var before = _entries.TryGetValue(key, out var e0) ? e0.LastMessageId : 0;
                     var result = await session.Client.GetMessagesAsync(new MessageQuery(narrow, "newest", 1, 0), session.Token);
                     if (session.IsDisposed)
                         return;
-                    ReplacePreview(key, result.Messages.LastOrDefault());
+                    var latest = result.Messages.LastOrDefault();
+                    // 请求期间收到了更新的消息：响应已过时，保留事件写入的预览
+                    if (_entries.TryGetValue(key, out var e1) && e1.LastMessageId != before && (latest?.Id ?? 0) < e1.LastMessageId)
+                        continue;
+                    ReplacePreview(key, latest);
                     await Task.Delay(BackfillIntervalMs, session.Token);
                 }
                 catch (OperationCanceledException) when (session.IsDisposed)
@@ -441,8 +446,20 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
             e = new ConversationEntry { Key = key, TitleCache = title };
             _entries[key] = e;
         }
-        else if (id <= e.LastMessageId)
+        else if (id < e.LastMessageId)
         {
+            return;
+        }
+        else if (id == e.LastMessageId)
+        {
+            // 同一条消息（离线期间被编辑）：只刷新预览，不改变是否在列表中
+            if (e.LastPreview != preview || (key is TopicKey && e.TitleCache != title))
+            {
+                e.LastPreview = preview;
+                if (key is TopicKey)
+                    e.TitleCache = title;
+                repo.Upsert(e.ToRow());
+            }
             return;
         }
 

@@ -118,15 +118,37 @@ public sealed class UnreadStore(ZulipSession session)
                 missing.Add(id);
                 continue;
             }
-            Add(key, id);
-            if (d.TryGetProperty("mentioned", out var mentioned) && mentioned.ValueKind == JsonValueKind.True)
-                _mention[id] = MentionKind.Personal;
-            changed.Add(key);
+            // 详情中的 mentioned 不区分 @我 与 @全体：优先用缓存的消息计算；
+            // 没有缓存且带提及时向服务器查询（不带提及的直接加入，避免批量标未读时逐条请求）
+            if (session.Messages.Get(id) is { } cached)
+            {
+                Add(key, id);
+                SetDetails(id, cached.Flags, cached.ContentHtml);
+                changed.Add(key);
+            }
+            else if (d.TryGetProperty("mentioned", out var mentioned) && mentioned.ValueKind == JsonValueKind.True)
+            {
+                missing.Add(id);
+            }
+            else
+            {
+                Add(key, id);
+                changed.Add(key);
+            }
         }
         foreach (var key in changed)
             ConversationChanged?.Invoke(this, key);
         if (missing.Count > 0)
             _ = FetchMissingAsync(missing);
+    }
+
+    /// <summary>消息被编辑：未读消息按新的 flags 与内容重新计算提及和文件。</summary>
+    public void OnEdited(long id, IReadOnlyCollection<string> flags, string html)
+    {
+        if (!_keyOf.TryGetValue(id, out var key))
+            return;
+        SetDetails(id, flags, html);
+        ConversationChanged?.Invoke(this, key);
     }
 
     public void OnDeleted(IEnumerable<long> ids) => MarkLocallyRead(ids);
