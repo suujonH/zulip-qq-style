@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -516,6 +517,20 @@ public partial class ChatViewModel : ViewModelBase
         return MessageLinks.LocateImage(images, new InlineImage(clicked.Src, clicked.Href), messageId);
     }
 
+    /// <summary>用浏览器打开消息（不走客户端内部跳转）。</summary>
+    public void OpenInBrowser(MessageItemViewModel item)
+    {
+        var url = MessageLink(item.Id);
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"打开链接失败：{url}", ex);
+        }
+    }
+
     /// <summary>消息链接（复制链接用）。</summary>
     public string MessageLink(long messageId)
     {
@@ -671,8 +686,9 @@ public partial class ChatViewModel : ViewModelBase
     // ---- 编辑、编辑历史、已读成员、标为未读、提醒 ----
 
     /// <summary>可以编辑：自己的消息，组织允许编辑，且在编辑时限内。</summary>
+    // 投票 / 待办消息的内容不能编辑（与网页端一致）
     public bool CanEdit(MessageItemViewModel item) =>
-        item.Id > 0 && _session.Permissions.CanEditMessage(item.Message.SenderId, item.Message.Timestamp,
+        item.Id > 0 && item.Widget is null && _session.Permissions.CanEditMessage(item.Message.SenderId, item.Message.Timestamp,
             DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
     /// <summary>就地编辑：取 Markdown 原文后气泡换成输入框。同一时间只编辑一条。</summary>

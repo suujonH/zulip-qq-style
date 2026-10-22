@@ -73,6 +73,16 @@
             <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
         </Style>
 
+        <!-- 投票 / 待办卡片：自己投过的选项为品牌色，完成的任务划线 -->
+        <Style Selector="TextBlock.widgetRow.highlighted">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.widgetRow.completed">
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="TextDecorations" Value="Strikethrough" />
+        </Style>
+
         <Style Selector="Border.bubble.selected">
             <Setter Property="Background" Value="{DynamicResource OtherBubbleSelectedBrush}" />
         </Style>
@@ -240,6 +250,46 @@
                                         <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
                                         <TextBlock Text="(已编辑)" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Right" Margin="0,2,0,0"
                                                    Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsEdited}" />
+                                    </StackPanel>
+                                    <!-- 投票 / 待办：只读，操作交给网页端 -->
+                                    <StackPanel Spacing="6" MinWidth="220" IsVisible="{Binding ShowsWidget}">
+                                        <TextBlock Text="{Binding Widget.Kind}" FontSize="{DynamicResource FontSizeCaption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <SelectableTextBlock Text="{Binding Widget.Title}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                             IsVisible="{Binding Widget.HasTitle}" />
+                                        <ItemsControl ItemsSource="{Binding Widget.Rows}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:WidgetRowViewModel">
+                                                    <DockPanel Margin="0,2" Background="Transparent" ToolTip.Tip="{Binding ToolTipText}">
+                                                        <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsCompleted, Mode=OneWay}"
+                                                                  IsVisible="{Binding IsTask}" IsHitTestVisible="False" Focusable="False"
+                                                                  MinWidth="0" Padding="0" Margin="0,0,6,0" VerticalAlignment="Top" />
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" Margin="12,0,0,0"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   IsVisible="{Binding !IsTask}" />
+                                                        <StackPanel>
+                                                            <TextBlock Classes="widgetRow" Classes.highlighted="{Binding IsHighlighted}"
+                                                                       Classes.completed="{Binding IsCompleted}" Text="{Binding Text}"
+                                                                       TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding Detail}" FontSize="{DynamicResource FontSizeSub}"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap">
+                                                                <TextBlock.IsVisible>
+                                                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                                        <Binding Path="IsTask" />
+                                                                        <Binding Path="HasDetail" />
+                                                                    </MultiBinding>
+                                                                </TextBlock.IsVisible>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="暂无内容" FontSize="{DynamicResource FontSizeSub}"
+                                                   Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding Widget.IsEmpty}" />
+                                        <Button Classes="link" Theme="{StaticResource FlatButton}" Content="在网页中打开"
+                                                HorizontalAlignment="Left" Padding="0" Foreground="{DynamicResource BrandBrush}"
+                                                Background="Transparent" Command="{Binding OpenInBrowserCommand}" />
                                     </StackPanel>
                                     <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="{DynamicResource FontSizeBody}" Cursor="Hand"
                                                Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsMutedHidden}" />
