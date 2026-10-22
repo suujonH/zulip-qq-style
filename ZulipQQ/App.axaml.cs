@@ -8,6 +8,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using ZulipQQ.Data;
+using ZulipQQ.Plugins;
 using ZulipQQ.Services;
 using ZulipQQ.ViewModels;
 using ZulipQQ.Views;
@@ -49,6 +50,8 @@ public partial class App : Application
             };
             LocalDb.Instance = LocalDb.Open(AppPaths.DatabasePath);
             ThemeService.Initialize(LocalDb.Instance);
+            // 插件随程序启动（登录之前）加载
+            PluginHost.Instance.LoadAll(new PluginStateRepository(LocalDb.Instance));
             // 登录窗与主窗口会互相替换，由代码决定何时退出
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
@@ -84,6 +87,7 @@ public partial class App : Application
             await CloseChatsAsync(session);
             CloseSessionWindows();
             DisposeTray();
+            await EndPluginSessionAsync();
             await session.DisposeAsync();
             // 登录窗使用默认外观与字号
             ThemeService.SetPreviewDark(false);
@@ -110,7 +114,11 @@ public partial class App : Application
         CloseSessionWindows();
         DisposeTray();
         if (ZulipSession.Current is { } current)
+        {
+            await EndPluginSessionAsync();
             await current.DisposeAsync();
+        }
+        PluginHost.Instance.Shutdown();
         Desktop.Shutdown();
     }
 
@@ -190,7 +198,12 @@ public partial class App : Application
                 _ = LogoutAsync(confirm: false, "登录已失效，请重新登录");
         };
         session.Start();
+        PluginHost.Instance.OnSessionStarted();
     }
+
+    // 通知插件会话结束（会话仍有效），最多等待 2 秒
+    private static Task EndPluginSessionAsync() =>
+        Task.WhenAny(PluginHost.Instance.OnSessionEnded(), Task.Delay(2000));
 
     // 外观（Zulip 的 color_scheme）与本地字号
     private static void ApplySessionTheme(ZulipSession session)

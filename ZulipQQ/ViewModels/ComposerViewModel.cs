@@ -13,6 +13,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ZulipQQ.Core;
+using ZulipQQ.Plugins;
 using ZulipQQ.Services;
 
 namespace ZulipQQ.ViewModels;
@@ -279,6 +280,14 @@ public partial class ComposerViewModel : ViewModelBase
                 _showToast("消息过长");
                 return;
             }
+            if (await PluginHost.Instance.FilterOutgoingAsync(key, text, _session) is not { } filtered)
+            {
+                _showToast("消息已被插件拦截");
+                return;
+            }
+            if (_closed)
+                return;
+            text = filtered;
 
             _loadingText = true;
             Text = "";

@@ -67,6 +67,9 @@ public sealed class MessageStore(ZulipSession session)
     private readonly Dictionary<long, ChatMessage> _byId = [];
     private readonly Dictionary<ConversationKey, Timeline> _timelines = [];
 
+    // 实时收到时被插件拦截的消息：本次会话内加载历史时同样不显示
+    private readonly HashSet<long> _hiddenByPlugin = [];
+
     // 本地回显，按发送时的 local_id 索引
     private readonly Dictionary<string, ChatMessage> _pending = [];
 
@@ -364,6 +367,9 @@ public sealed class MessageStore(ZulipSession session)
         return msg;
     }
 
+    /// <summary>记录被插件拦截的消息（实时事件中，消息尚未进入索引）。</summary>
+    public void HideByPlugin(long id) => _hiddenByPlugin.Add(id);
+
     /// <summary>本地回显是否仍在等待服务器的消息替换。</summary>
     public bool IsPending(string localId) => _pending.ContainsKey(localId);
 
@@ -406,6 +412,7 @@ public sealed class MessageStore(ZulipSession session)
             return existing;
         }
         var msg = ChatMessage.FromDto(dto, key);
+        msg.IsHiddenByPlugin = _hiddenByPlugin.Contains(msg.Id);
         _byId[msg.Id] = msg;
         return msg;
     }
