@@ -28,14 +28,18 @@ public sealed class ZulipClient : IDisposable
             .Split('+')[0] ?? "0.0.0");
 
     private readonly HttpClient _http;
+    // 取文件大小专用：不自动解压。否则 nginx 会对文本类附件 gzip，响应不再带 Content-Length，Range 也被忽略
+    private readonly HttpClient _sizeHttp;
 
     public ZulipClient(Uri realmUrl, string email, string apiKey, bool allowInvalidCertificate)
     {
         RealmUrl = NormalizeRealm(realmUrl);
         Email = email;
+        var auth = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(email + ":" + apiKey)));
         _http = CreateHttpClient(RealmUrl, allowInvalidCertificate);
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(email + ":" + apiKey)));
+        _http.DefaultRequestHeaders.Authorization = auth;
+        _sizeHttp = CreateHttpClient(RealmUrl, allowInvalidCertificate, decompress: false);
+        _sizeHttp.DefaultRequestHeaders.Authorization = auth;
     }
 
     /// <summary>组织地址，以 “/” 结尾。</summary>
@@ -43,7 +47,11 @@ public sealed class ZulipClient : IDisposable
 
     public string Email { get; }
 
-    public void Dispose() => _http.Dispose();
+    public void Dispose()
+    {
+        _http.Dispose();
+        _sizeHttp.Dispose();
+    }
 
     // ---- 登录前（不带认证） ----
 
@@ -230,7 +238,7 @@ public sealed class ZulipClient : IDisposable
         try
         {
             using (var head = new HttpRequestMessage(HttpMethod.Head, RelativeUri(relativePath)))
-            using (var response = await _http.SendAsync(head, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
+            using (var response = await _sizeHttp.SendAsync(head, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
             {
                 if (response.IsSuccessStatusCode && response.Content.Headers.ContentLength is { } length)
                     return length;
@@ -238,7 +246,7 @@ public sealed class ZulipClient : IDisposable
 
             using var get = new HttpRequestMessage(HttpMethod.Get, RelativeUri(relativePath));
             get.Headers.Range = new RangeHeaderValue(0, 0);
-            using var ranged = await _http.SendAsync(get, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            using var ranged = await _sizeHttp.SendAsync(get, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             if (ranged.Content.Headers.ContentRange?.Length is { } total)
                 return total;
             if (ranged.StatusCode == HttpStatusCode.OK)
@@ -507,12 +515,12 @@ public sealed class ZulipClient : IDisposable
         return TimeSpan.FromSeconds(1);
     }
 
-    private static HttpClient CreateHttpClient(Uri realm, bool allowInvalidCertificate)
+    private static HttpClient CreateHttpClient(Uri realm, bool allowInvalidCertificate, bool decompress = true)
     {
         var handler = new SocketsHttpHandler
         {
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-            AutomaticDecompression = DecompressionMethods.All,
+            AutomaticDecompression = decompress ? DecompressionMethods.All : DecompressionMethods.None,
         };
         if (allowInvalidCertificate)
             handler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
