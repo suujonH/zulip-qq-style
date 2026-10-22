@@ -1,0 +1,239 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="600"
+             x:Class="ZulipQQ.Views.ChatView"
+             x:DataType="vm:ChatViewModel"
+             Background="{DynamicResource PanelBackgroundBrush}">
+
+    <UserControl.Styles>
+        <!-- 一条消息：别人的头像在左，自己的镜像到右侧 -->
+        <Style Selector="Border.row">
+            <Setter Property="Padding" Value="20,6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.4" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.row.flash">
+            <Setter Property="Background" Value="{DynamicResource FlashBrush}" />
+        </Style>
+        <Style Selector="DockPanel.msg > c|Avatar">
+            <Setter Property="DockPanel.Dock" Value="Left" />
+        </Style>
+        <Style Selector="DockPanel.msg.own > c|Avatar">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+        </Style>
+        <Style Selector="DockPanel.msg > StackPanel.body">
+            <Setter Property="Margin" Value="10,0,0,0" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="DockPanel.msg.own > StackPanel.body">
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="DockPanel.msg.own StackPanel.nameRow, DockPanel.msg.own ItemsControl.reactions">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="StackPanel.nameRow > TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+
+        <!-- 气泡：后定义的样式优先 -->
+        <Style Selector="Border.bubble">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Background" Value="{DynamicResource OtherBubbleBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="DockPanel.msg.own Border.bubble">
+            <Setter Property="Background" Value="{DynamicResource OwnBubbleBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="Border.bubble.selected">
+            <Setter Property="Background" Value="{DynamicResource OtherBubbleSelectedBrush}" />
+        </Style>
+        <Style Selector="DockPanel.msg.own Border.bubble.selected">
+            <Setter Property="Background" Value="{DynamicResource OwnBubbleSelectedBrush}" />
+        </Style>
+        <Style Selector="Border.bubble.bare">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="Border.bubble c|MessageContent">
+            <Setter Property="TextElement.FontSize" Value="14" />
+        </Style>
+
+        <Style Selector="c|TdIcon.sendState">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 表情回应：白色胶囊，自己回应过的为蓝色边框 -->
+        <Style Selector="Button.reaction">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+        </Style>
+        <Style Selector="Button.reaction.mine">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Button.reaction TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 右上角 / 右下角按钮：白色胶囊、蓝色文字 -->
+        <Style Selector="Button.banner">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="Button.banner:pointerover">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        </Style>
+        <Style Selector="Button.banner c|TdIcon">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Button.banner TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:TimeSeparatorItem">
+            <Border HorizontalAlignment="Center" Margin="0,12" Padding="8,2" CornerRadius="4"
+                    Background="{DynamicResource FillBrush}">
+                <TextBlock Text="{Binding Text}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:NewMessagesDividerItem">
+            <Grid ColumnDefinitions="*,Auto,*" Margin="16,8,16,0">
+                <Border Height="1" Background="{DynamicResource PressedBrush}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="新消息" FontSize="12" Margin="12,0"
+                           Foreground="{DynamicResource BrandBrush}" />
+                <Border Grid.Column="2" Height="1" Background="{DynamicResource PressedBrush}" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:LoadingItem">
+            <TextBlock Text="加载中…" FontSize="12" HorizontalAlignment="Center" Margin="0,8"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:MessageItemViewModel">
+            <Border Classes="row" Classes.flash="{Binding IsFlashing}">
+                <DockPanel Classes="msg" Classes.own="{Binding IsOwn}">
+                    <c:Avatar Width="32" Height="32" VerticalAlignment="Top"
+                              Source="{Binding AvatarUrl}" Text="{Binding SenderName}" />
+                    <StackPanel Classes="body">
+                        <StackPanel Classes="nameRow" Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{Binding SenderName}" IsVisible="{Binding ShowSenderName}" />
+                            <TextBlock Text="{Binding PreciseTimeText}" IsVisible="{Binding IsTimeShown}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                    HorizontalAlignment="{Binding $parent[StackPanel].HorizontalAlignment}">
+                            <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.Loading}"
+                                      Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsPending}" />
+                            <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.ErrorCircle}"
+                                      Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding IsFailed}" />
+                            <Border Classes="bubble" Classes.selected="{Binding IsTimeShown}" Classes.bare="{Binding IsBare}"
+                                    MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}">
+                                <StackPanel>
+                                    <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
+                                    <TextBlock Text="(已编辑)" FontSize="11" HorizontalAlignment="Right" Margin="0,2,0,0"
+                                               Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsEdited}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <ItemsControl Classes="reactions" ItemsSource="{Binding Reactions}" IsVisible="{Binding HasReactions}"
+                                      Margin="0,4,0,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:ReactionViewModel">
+                                    <Button Classes="reaction" Classes.mine="{Binding IsMine}" Command="{Binding ToggleCommand}"
+                                            ToolTip.Tip="{Binding ToolTipText}" Margin="0,0,6,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock Text="{Binding EmojiText}" />
+                                            <TextBlock Text="{Binding Count}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <Grid x:Name="RootGrid" RowDefinitions="56,*,Auto,190">
+        <!-- 标题栏 -->
+        <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
+            <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" Margin="20,0"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        </Border>
+
+        <!-- 消息区：不虚拟化，向上加载时需要精确保持滚动位置 -->
+        <Panel Grid.Row="1">
+            <ScrollViewer x:Name="MessageScroller" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="MessageList" ItemsSource="{Binding Items}" Padding="0,8">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" IsVisible="{Binding HasError}">
+                <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" />
+                <Button Theme="{StaticResource FlatButton}" Padding="12,4" HorizontalAlignment="Center"
+                        Foreground="{DynamicResource BrandBrush}" Command="{Binding ReloadCommand}" Content="重新加载" />
+            </StackPanel>
+
+            <Button Classes="banner" VerticalAlignment="Top" Margin="0,12,20,0"
+                    IsVisible="{Binding IsTopBannerVisible}" Command="{Binding TopBannerClickCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <c:TdIcon Icon="{StaticResource Icon.ChevronUpDouble}" />
+                    <TextBlock Text="{Binding TopBannerText}" />
+                </StackPanel>
+            </Button>
+            <Button Classes="banner" VerticalAlignment="Bottom" Margin="0,0,20,12"
+                    IsVisible="{Binding IsBottomBannerVisible}" Command="{Binding BottomBannerClickCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" />
+                    <TextBlock Text="{Binding BottomBannerText}" />
+                </StackPanel>
+            </Button>
+        </Panel>
+
+        <!-- 输入区：高度可拖动调整（最小 120，最大为窗口的 60%）；输入框在 feature/composer 分支实现 -->
+        <Border Grid.Row="3" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" />
+        <GridSplitter Grid.Row="2" Height="4" Margin="0,0,0,-4" Background="Transparent" ResizeDirection="Rows" />
+    </Grid>
+</UserControl>
