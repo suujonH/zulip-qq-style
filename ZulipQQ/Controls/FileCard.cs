@@ -48,7 +48,7 @@ public class FileCard : Border
         _status.Bind(TextBlock.ForegroundProperty, _status.GetResourceObservable("TextSecondaryBrush"));
 
         var icon = new TdIcon { Width = 32, Height = 32 };
-        icon.Bind(TdIcon.IconProperty, icon.GetResourceObservable(isVideo ? "Icon.Video" : "Icon.File"));
+        icon.Bind(TdIcon.IconProperty, icon.GetResourceObservable(isVideo ? "Icon.Video" : FileKinds.IconKey(link.Path)));
         icon.Bind(TdIcon.ForegroundProperty, icon.GetResourceObservable("BrandBrush"));
 
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };

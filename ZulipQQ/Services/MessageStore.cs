@@ -80,6 +80,9 @@ public sealed class MessageStore(ZulipSession session)
 
     public event EventHandler<long>? MessageUpdated;
 
+    /// <summary>星标增减（含不在缓存中的消息），供收藏窗口使用。</summary>
+    public event EventHandler<(IReadOnlyList<long> Ids, bool Added)>? StarredChanged;
+
     public event EventHandler? Reset;
 
     public void Clear()
@@ -326,6 +329,9 @@ public sealed class MessageStore(ZulipSession session)
             if (add ? m.Flags.Add(flag) : m.Flags.Remove(flag))
                 MessageUpdated?.Invoke(this, m.Id);
         }
+
+        if (flag == "starred" && ev.TryGetProperty("messages", out var ids))
+            StarredChanged?.Invoke(this, (ids.EnumerateArray().Select(e => e.GetInt64()).ToList(), add));
     }
 
     /// <summary>发送前插入本地回显，内容暂时按纯文本显示。</summary>

@@ -56,15 +56,7 @@ public partial class HistoryWindow : Window, ISessionWindow
         vm.MainWindowRequested += window.OnMainWindowRequested;
         vm.Rekeyed += window.OnRekeyed;
         Open[key] = window;
-        // 不设 Owner：附属窗口总在主窗口之上，"定位到聊天"后会挡住主窗口；改为手动居中于主窗口
-        if (owner is not null)
-        {
-            var scale = owner.RenderScaling;
-            window.WindowStartupLocation = WindowStartupLocation.Manual;
-            window.Position = new PixelPoint(
-                owner.Position.X + (int)((owner.Bounds.Width - window.Width) * scale / 2),
-                owner.Position.Y + (int)((owner.Bounds.Height - window.Height) * scale / 2));
-        }
+        WindowPlacement.CenterOn(window, owner);
         window.Show();
         vm.Start();
         Dispatcher.UIThread.Post(() => window.SearchBox.Focus());
@@ -91,15 +83,7 @@ public partial class HistoryWindow : Window, ISessionWindow
             Open.TryAdd(_vm.Key, this);
     }
 
-    private void OnMainWindowRequested(object? sender, EventArgs e)
-    {
-        if (_mainWindow is { } main)
-        {
-            if (main.WindowState == WindowState.Minimized)
-                main.WindowState = WindowState.Normal;
-            main.Activate();
-        }
-    }
+    private void OnMainWindowRequested(object? sender, EventArgs e) => WindowPlacement.BringToFront(_mainWindow);
 
     // Esc 关闭窗口；菜单、弹出层打开时由它们自己处理
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)

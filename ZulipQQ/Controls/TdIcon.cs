@@ -20,9 +20,30 @@ public class TdIcon : Control
     public static readonly StyledProperty<IBrush?> ForegroundProperty =
         TextElement.ForegroundProperty.AddOwner<TdIcon>();
 
+    /// <summary>按资源名（<c>Icon.*</c>）设置图标，用于由数据决定图标的场合（例如按扩展名的文件图标）。</summary>
+    public static readonly StyledProperty<string?> IconKeyProperty =
+        AvaloniaProperty.Register<TdIcon, string?>(nameof(IconKey));
+
+    private IDisposable? _iconKeyBinding;
+
     static TdIcon()
     {
         AffectsRender<TdIcon>(IconProperty, ForegroundProperty);
+    }
+
+    public string? IconKey
+    {
+        get => GetValue(IconKeyProperty);
+        set => SetValue(IconKeyProperty, value);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property != IconKeyProperty)
+            return;
+        _iconKeyBinding?.Dispose();
+        _iconKeyBinding = IconKey is { } key ? Bind(IconProperty, this.GetResourceObservable(key, v => v as TdIconData)) : null;
     }
 
     public TdIconData? Icon
