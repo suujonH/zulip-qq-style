@@ -60,7 +60,12 @@ public sealed class ZulipSession : IAsyncDisposable
         Conversations = new ConversationListStore(this, new ConversationStateRepository(db, account.Id));
         Settings = new SettingsStore(this);
         Chat = new ChatService(this);
+        Files = new FileService(this, new DownloadRepository(db, account.Id));
+        Registry = new ChatRegistry(this);
         Presence = new PresenceService(this);
+
+        Messages.IsKeptOpen = Registry.IsOpen;
+        Conversations.ConversationRekeyed += (_, e) => Registry.Rekey(e.Old, e.New);
     }
 
     /// <summary>当前登录的会话；只有 App 和插件宿主读取，其它地方通过构造函数传入。</summary>
@@ -81,6 +86,8 @@ public sealed class ZulipSession : IAsyncDisposable
     public ConversationListStore Conversations { get; }
     public SettingsStore Settings { get; }
     public ChatService Chat { get; }
+    public FileService Files { get; }
+    public ChatRegistry Registry { get; }
     public PresenceService Presence { get; }
 
     public ConnectionState Connection { get; private set; } = ConnectionState.Connected;

@@ -39,6 +39,7 @@ public partial class MessagesPageViewModel : ViewModelBase
         session.Unread.ConversationChanged += (_, _) => RequestRefresh();
         session.Unread.Reset += (_, _) => RequestRefresh();
         session.Drafts.DraftChanged += (_, _) => RequestRefresh();
+        session.Registry.Changed += (_, _) => RequestRefresh();
         session.Users.UserChanged += (_, _) => RequestRefresh();
         session.Users.Reset += (_, _) => RequestRefresh();
         session.Contacts.Changed += (_, _) => RequestRefresh();
@@ -228,7 +229,8 @@ public partial class MessagesPageViewModel : ViewModelBase
             title,
             e.LastMessageTime,
             preview,
-            _session.Drafts.Get(key),
+            // 正在聊天视图中打开的会话不显示草稿（草稿就在输入框里）
+            _session.Registry.IsOpen(key) ? null : _session.Drafts.Get(key),
             _session.Unread.Count(key),
             _session.Unread.GetNotice(key),
             level,
