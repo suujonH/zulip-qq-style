@@ -121,7 +121,15 @@ public class FileCard : Border
         if (_sizeRequested || _files is null)
             return;
         _sizeRequested = true;
-        _size = await _files.GetSizeAsync(_link.Path);
+        try
+        {
+            _size = await _files.GetSizeAsync(_link.Path);
+        }
+        catch (Exception)
+        {
+            // 退出账号时请求被取消；大小只是附加信息，失败就不显示
+            return;
+        }
         UpdateStatus();
     }
 

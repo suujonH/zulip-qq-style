@@ -146,19 +146,22 @@ public static partial class ZulipHtml
     }
 
     /// <summary>
-    /// 把链接规范为 <c>/user_uploads/…</c> 形式的相对路径（去掉域名和查询串）；不是上传文件时返回 null。
+    /// 把链接规范为 <c>/user_uploads/…</c> 形式的相对路径（去掉查询串）；不是本组织的上传文件时返回 null。
+    /// 服务器渲染时会把指向本组织的绝对链接改写为相对链接（形如 <c>user_uploads/…</c>，没有开头的斜杠；
+    /// 已在 Zulip 12.3 上验证），所以带域名的链接都属于其它服务器，不当作上传文件。
     /// 缩略图路径（<c>/user_uploads/thumbnail/…</c>）不算上传文件。
     /// </summary>
     public static string? NormalizeUploadPath(string? href)
     {
         if (string.IsNullOrEmpty(href))
             return null;
-        var index = href.IndexOf(UploadsPrefix, StringComparison.Ordinal);
-        if (index < 0)
+        string path;
+        if (href.StartsWith(UploadsPrefix, StringComparison.Ordinal))
+            path = href;
+        else if (href.StartsWith(UploadsPrefix[1..], StringComparison.Ordinal))
+            path = "/" + href;
+        else
             return null;
-        if (index > 0 && !href.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !href.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            return null;
-        var path = href[index..];
         var cut = path.IndexOfAny(['?', '#']);
         if (cut >= 0)
             path = path[..cut];

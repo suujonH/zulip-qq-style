@@ -162,16 +162,21 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
 
         try
         {
-            await using var target = await file.OpenWriteAsync();
-            if (LocalPath(link.Path) is { } local)
+            await using (var target = await file.OpenWriteAsync())
             {
-                await using var source = File.OpenRead(local);
-                await source.CopyToAsync(target, session.Token);
+                if (LocalPath(link.Path) is { } local)
+                {
+                    await using var source = File.OpenRead(local);
+                    await source.CopyToAsync(target, session.Token);
+                }
+                else
+                {
+                    await session.Client.DownloadAsync(link.Path, target, ct: session.Token);
+                }
             }
-            else
-            {
-                await session.Client.DownloadAsync(link.Path, target, ct: session.Token);
-            }
+            // 流复制不会带上原文件的 Zone.Identifier，另存的文件同样标记为来自网络
+            if (file.TryGetLocalPath() is { } saved)
+                MarkFromInternet(saved);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

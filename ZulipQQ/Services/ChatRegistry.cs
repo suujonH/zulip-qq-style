@@ -35,18 +35,24 @@ public sealed class ChatRegistry(ZulipSession session)
     public bool IsOpen(ConversationKey key) => _open.Exists(vm => vm.Key.Equals(key));
 
     /// <summary>该会话打开在一个可见、未最小化且处于前台的窗口中。</summary>
-    public bool IsActivelyViewing(ConversationKey key) =>
-        _open.Exists(vm => vm.Key.Equals(key)
-                           && vm.HostWindow is { IsActive: true, IsVisible: true } window
-                           && window.WindowState != WindowState.Minimized);
+    public bool IsActivelyViewing(ConversationKey key) => _open.Exists(vm => vm.Key.Equals(key) && IsInActiveWindow(vm));
 
-    /// <summary>正在查看的会话收到别人的新消息时立即标记已读。</summary>
+    /// <summary>
+    /// 会话收到新消息：通知打开中的聊天；别人的消息出现在正在查看的列表末尾时立即标记已读
+    /// （正在查看较早的历史时消息不显示，保持未读）。
+    /// </summary>
     public void OnNewMessage(ChatMessage m)
     {
-        if (m.SenderId == session.SelfId || m.IsRead || !IsActivelyViewing(m.Key))
+        var chats = _open.Where(vm => vm.Key.Equals(m.Key)).ToList();
+        foreach (var vm in chats)
+            vm.OnIncomingMessage(m);
+        if (m.SenderId == session.SelfId || m.IsRead || !chats.Exists(vm => vm.ShowsLatest && IsInActiveWindow(vm)))
             return;
         session.Forget(session.Chat.MarkReadAsync([m.Id]), "标记已读");
     }
+
+    private static bool IsInActiveWindow(ChatViewModel vm) =>
+        vm.HostWindow is { IsActive: true, IsVisible: true } window && window.WindowState != WindowState.Minimized;
 
     /// <summary>
     /// 会话已在独立窗口中打开时激活该窗口并返回 true。独立聊天窗口在经典模式分支实现，目前总是返回 false。

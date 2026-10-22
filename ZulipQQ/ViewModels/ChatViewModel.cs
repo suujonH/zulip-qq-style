@@ -47,6 +47,9 @@ public partial class ChatViewModel : ViewModelBase
     private bool _loadingNewer;
     private bool _snapshotTaken;
     private bool _opened;
+
+    // 消息至少成功加载过一次；加载失败时什么都没显示，不能标记已读
+    private bool _loaded;
     private bool _closed;
 
     public ChatViewModel(ZulipSession session, ConversationKey key, Func<ConversationKey, long?, Task> openChat, Action<string> showToast)
@@ -124,6 +127,7 @@ public partial class ChatViewModel : ViewModelBase
                 await _session.Messages.LoadAroundAsync(Key, focus);
             else if (timeline is not { FoundNewest: true } || timeline.Messages.Count < 30)
                 await _session.Messages.LoadNewestAsync(Key);
+            _loaded = true;
         }
         catch (Exception ex)
         {
@@ -167,6 +171,7 @@ public partial class ChatViewModel : ViewModelBase
         {
             await _session.Messages.LoadNewestAsync(Key);
             ErrorText = null;
+            _loaded = true;
         }
         catch (Exception ex)
         {
@@ -182,6 +187,7 @@ public partial class ChatViewModel : ViewModelBase
         RebuildItems();
         ScrollRequested?.Invoke(this, ScrollRequest.Bottom);
         UpdateBottomBanner();
+        MarkReadIfViewing();
     }
 
     /// <summary>话题被整体移动或改名：换成新键并重新加载。</summary>
@@ -190,6 +196,21 @@ public partial class ChatViewModel : ViewModelBase
         Key = newKey;
         RefreshTitle();
         _ = ReloadAsync();
+    }
+
+    /// <summary>新消息会出现在列表末尾：消息已加载，且当前窗口包含最新的消息。</summary>
+    public bool ShowsLatest => _loaded && !_closed && _session.Messages.TryGet(Key) is { FoundNewest: true };
+
+    /// <summary>
+    /// 本会话收到新消息（在 MessageStore 处理之后调用）。正在查看较早的历史时消息不会追加到列表，
+    /// 这里计入右下角的“N条新消息”。
+    /// </summary>
+    public void OnIncomingMessage(ChatMessage m)
+    {
+        if (!_opened || _closed || m.SenderId == _session.SelfId || ShowsLatest)
+            return;
+        _newWhileScrolledUp++;
+        UpdateBottomBanner();
     }
 
     /// <summary>所在窗口被激活：补标已读（打开时窗口不在前台，或在后台收到了新消息）。</summary>
@@ -216,7 +237,8 @@ public partial class ChatViewModel : ViewModelBase
             LoadOlder();
         if (v.IsNearBottom && timeline is { FoundNewest: false } && !_loadingNewer)
             LoadNewer();
-        if (v.IsAtBottom)
+        // 在较早历史的底部时新消息还没有加载，提示保留到加载到最新端为止
+        if (v.IsAtBottom && timeline is { FoundNewest: true })
             _newWhileScrolledUp = 0;
 
         UpdateTopBanner();
@@ -350,7 +372,7 @@ public partial class ChatViewModel : ViewModelBase
 
     private void MarkReadIfViewing()
     {
-        if (_session.Unread.Count(Key) > 0 && _session.Registry.IsActivelyViewing(Key))
+        if (_loaded && _session.Unread.Count(Key) > 0 && _session.Registry.IsActivelyViewing(Key))
             _session.Forget(_session.Chat.MarkConversationReadAsync(Key), "标记会话已读");
     }
 
@@ -486,7 +508,7 @@ public partial class ChatViewModel : ViewModelBase
     }
 
     private void UpdateBottomBanner() =>
-        BottomBannerText = _newWhileScrolledUp > 0 && !_isAtBottom ? $"{_newWhileScrolledUp}条新消息" : null;
+        BottomBannerText = _newWhileScrolledUp > 0 && (!_isAtBottom || !ShowsLatest) ? $"{_newWhileScrolledUp}条新消息" : null;
 
     private void Flash(long id)
     {
