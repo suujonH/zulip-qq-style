@@ -112,8 +112,9 @@ public static class EventRouter
             if (s.IsDisposed)
                 return;
             s.Messages.HideByPlugin(msg.Id);
+            // 不等待服务器：事件必须按顺序处理，不应被网络请求拖慢
             if (!flags.Contains("read"))
-                await s.Chat.MarkReadAsync([msg.Id]);
+                s.Forget(s.Chat.MarkReadAsync([msg.Id]), "标记被插件拦截的消息已读");
             return;
         }
         if (s.IsDisposed)

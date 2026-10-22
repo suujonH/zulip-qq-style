@@ -62,11 +62,11 @@ internal static unsafe class HostApi
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private static int IsLoggedIn(nint ctx) => ZulipSession.Current is { IsDisposed: false } ? 1 : 0;
+    private static int IsLoggedIn(nint ctx) => CallerSession() is { IsDisposed: false } ? 1 : 0;
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static long GetLoginUserId(nint ctx) =>
-        ZulipSession.Current is { IsDisposed: false } session ? session.SelfId : Zq.ErrNotLoggedIn;
+        CallerSession() is { IsDisposed: false } session ? session.SelfId : Zq.ErrNotLoggedIn;
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static int GetLoginInfo(nint ctx, nint cb, nint user) => (int)Guard(ctx, null, (_, session) =>
@@ -290,6 +290,7 @@ internal static unsafe class HostApi
         bool requireSession = true, [CallerMemberName] string name = "")
     {
         NativePlugin? plugin = null;
+        ZulipSession? session = null;
         try
         {
             plugin = PluginOf(ctx);
@@ -302,7 +303,7 @@ internal static unsafe class HostApi
                 plugin.AddLog(Zq.LogWarning, HostCategory, $"{name}：plugin.json 未声明权限 {permission}");
                 return Zq.ErrPermission;
             }
-            var session = ZulipSession.Current;
+            session = CallerSession();
             if (requireSession && session is not { IsDisposed: false })
                 return Zq.ErrNotLoggedIn;
             return body(plugin, session!);
@@ -314,7 +315,7 @@ internal static unsafe class HostApi
         }
         catch (Exception ex) when (ex is HttpRequestException or TimeoutException or OperationCanceledException)
         {
-            if (ZulipSession.Current is not { IsDisposed: false })
+            if (session is not { IsDisposed: false })
                 return Zq.ErrNotLoggedIn;
             plugin?.AddLog(Zq.LogError, HostCategory, $"{name}：网络错误：{ex.Message}");
             return Zq.ErrNetwork;
@@ -326,6 +327,11 @@ internal static unsafe class HostApi
             return Zq.ErrUnknown;
         }
     }
+
+    // 插件线程上的回调只使用它所属的会话：旧会话的回调不会用新登录的账号发送消息；
+    // 插件自己的线程无法区分，使用当前会话
+    private static ZulipSession? CallerSession() =>
+        PluginHost.Instance.IsPluginThread ? PluginHost.CallSession : ZulipSession.Current;
 
     private static T OnUi<T>(Func<T> f) => Dispatcher.UIThread.Invoke(f);
 

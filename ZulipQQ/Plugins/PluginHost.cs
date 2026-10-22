@@ -26,17 +26,22 @@ public sealed class PluginHost
     [ThreadStatic] private static bool _inOutgoingFilter;
     [ThreadStatic] private static string? _outgoingOverride;
 
+    // 插件线程上：当前回调所属的会话（宿主函数只用它，避免旧会话的回调使用新登录的账号）
+    [ThreadStatic] private static ZulipSession? _callSession;
+
     private readonly PluginThread _thread = new();
     private readonly List<NativePlugin> _plugins = [];
     private PluginStateRepository? _states;
-    // UI 线程修改，插件线程读取
-    private volatile bool _sessionActive;
+    // 当前会话：UI 线程修改，插件线程读取
+    private volatile ZulipSession? _session;
 
     // 已经超时、仍在插件线程上执行的事件链：期间新的事件直接按 IGNORE 处理，避免越积越多
     private Task? _stuckCall;
 
-    // 插件线程上正在调用的插件（超时时用于定位）
+    // 插件线程上正在调用的插件与调用序号（超时时用于定位；同一次调用只计一次超时）
     private volatile NativePlugin? _current;
+    private long _currentCall;
+    private long _chargedCall;
 
     private PluginHost()
     {
@@ -74,13 +79,14 @@ public sealed class PluginHost
     }
 
     /// <summary>会话开始（登录完成）：依次调用已启用插件的 zq_on_start、zq_on_enable。</summary>
-    public void OnSessionStarted()
+    public void OnSessionStarted(ZulipSession session)
     {
-        _sessionActive = true;
-        _ = _thread.RunAsync(() =>
+        _session = session;
+        _ = RunAsync(session, () =>
         {
             foreach (var p in _plugins)
                 Activate(p);
+            return true;
         });
     }
 
@@ -90,10 +96,10 @@ public sealed class PluginHost
     /// </summary>
     public Task OnSessionEnded()
     {
-        if (!_sessionActive)
+        if (_session is not { } session)
             return Task.CompletedTask;
-        _sessionActive = false;
-        return _thread.RunAsync(() =>
+        _session = null;
+        return RunAsync(session, () =>
         {
             foreach (var p in _plugins)
             {
@@ -104,6 +110,7 @@ public sealed class PluginHost
                     Invoke(p, p.CallExit);
                 }
             }
+            return true;
         });
     }
 
@@ -119,7 +126,14 @@ public sealed class PluginHost
         if (enabled && !plugin.IsLoaded)
             await LoadAsync(plugin);
         else
-            await _thread.RunAsync(() => { if (plugin.Enabled) Activate(plugin); else Deactivate(plugin); });
+            await RunAsync(_session, () =>
+            {
+                if (plugin.Enabled)
+                    Activate(plugin);
+                else
+                    Deactivate(plugin);
+                return true;
+            });
     }
 
     /// <summary>插件菜单（不等待）。</summary>
@@ -127,7 +141,7 @@ public sealed class PluginHost
     {
         if (!plugin.Enabled || !plugin.IsLoaded || plugin.IsUnresponsive)
             return;
-        _ = _thread.RunAsync(() => Invoke(plugin, () => plugin.CallMenu(menuId)));
+        _ = RunAsync(_session, () => Invoke(plugin, () => plugin.CallMenu(menuId)));
     }
 
     /// <summary>
@@ -217,10 +231,11 @@ public sealed class PluginHost
     {
         try
         {
-            await _thread.RunAsync(() =>
+            await RunAsync(_session, () =>
             {
                 plugin.Load();
                 Activate(plugin);
+                return true;
             });
         }
         catch (Exception ex)
@@ -253,7 +268,7 @@ public sealed class PluginHost
 
         var cancel = new CancellationTokenSource();
         var token = cancel.Token;
-        var task = _thread.RunAsync(() =>
+        var task = RunAsync(_session, () =>
         {
             foreach (var p in candidates)
             {
@@ -271,10 +286,13 @@ public sealed class PluginHost
             return task.IsCompletedSuccessfully ? task.Result : ChainResult.Ignore;
 
         cancel.Cancel();
+        // 排在同一个慢调用后面的多条事件链只计一次超时
+        var call = Interlocked.Read(ref _currentCall);
         var stuck = _current;
         Log.Warn($"插件事件 {eventName} 超时：{stuck?.Id ?? "未知"}");
-        if (stuck is not null)
+        if (stuck is not null && call != _chargedCall)
         {
+            _chargedCall = call;
             stuck.OnTimeout();
             stuck.AddLog(Zq.LogWarning, "宿主", $"{eventName} 超过 {ChainTimeout.TotalSeconds:0} 秒没有返回"
                 + (stuck.IsUnresponsive ? "，连续多次超时，本次运行内不再派发事件" : ""));
@@ -289,10 +307,30 @@ public sealed class PluginHost
         return ChainResult.TimedOut;
     }
 
+    /// <summary>当前是否在插件线程上。</summary>
+    internal bool IsPluginThread => _thread.IsCurrent;
+
+    /// <summary>插件线程上正在执行的回调所属的会话（会话开始前加载插件时为 null）。</summary>
+    internal static ZulipSession? CallSession => _callSession;
+
+    // 投递到插件线程，执行期间记录所属的会话
+    private Task<T> RunAsync<T>(ZulipSession? session, Func<T> f) => _thread.RunAsync(() =>
+    {
+        _callSession = session;
+        try
+        {
+            return f();
+        }
+        finally
+        {
+            _callSession = null;
+        }
+    });
+
     // 插件线程上：会话进行中且插件已启用、已加载时，补发 zq_on_start、zq_on_enable
     private void Activate(NativePlugin plugin)
     {
-        if (!_sessionActive || !plugin.Enabled || !plugin.IsLoaded)
+        if (_callSession is not { } session || session != _session || !plugin.Enabled || !plugin.IsLoaded)
             return;
         if (!plugin.Started)
         {
@@ -319,6 +357,7 @@ public sealed class PluginHost
     // 只有在超时时间内返回才清零超时计数：每次都超时但最终返回的插件仍会被标记为无响应
     private int Invoke(NativePlugin plugin, Func<int> call)
     {
+        Interlocked.Increment(ref _currentCall);
         _current = plugin;
         var watch = Stopwatch.StartNew();
         try

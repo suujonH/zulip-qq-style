@@ -287,6 +287,17 @@ public partial class ComposerViewModel : ViewModelBase
             }
             if (_closed)
                 return;
+            // 插件可能改写了内容：重新检查
+            if (string.IsNullOrWhiteSpace(filtered))
+            {
+                _showToast("消息已被插件清空");
+                return;
+            }
+            if (_session.Realm.MaxMessageLength > 0 && filtered.Length > _session.Realm.MaxMessageLength)
+            {
+                _showToast("消息过长");
+                return;
+            }
             text = filtered;
 
             _loadingText = true;

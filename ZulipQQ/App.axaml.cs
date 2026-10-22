@@ -198,7 +198,7 @@ public partial class App : Application
                 _ = LogoutAsync(confirm: false, "登录已失效，请重新登录");
         };
         session.Start();
-        PluginHost.Instance.OnSessionStarted();
+        PluginHost.Instance.OnSessionStarted(session);
     }
 
     // 通知插件会话结束（会话仍有效），最多等待 2 秒
