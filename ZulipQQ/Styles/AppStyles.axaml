@@ -116,6 +116,24 @@
         <Setter Property="Background" Value="{DynamicResource CardBrush}" />
     </Style>
 
+    <!-- 群成员徽标：默认为“管理员”的蓝色，.owner 为“群主”的橙色 -->
+    <Style Selector="Border.badge">
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Padding" Value="4,1" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Background" Value="{DynamicResource AdminBadgeFillBrush}" />
+    </Style>
+    <Style Selector="Border.badge > TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+    </Style>
+    <Style Selector="Border.badge.owner">
+        <Setter Property="Background" Value="{DynamicResource OwnerBadgeFillBrush}" />
+    </Style>
+    <Style Selector="Border.badge.owner > TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource OwnerBadgeBrush}" />
+    </Style>
+
     <Style Selector="ToolTip">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Padding" Value="6,3" />

@@ -58,6 +58,7 @@ public partial class ChatView : UserControl
         LayoutUpdated += OnLayoutUpdated;
         MessageList.AddHandler(MessageContent.LinkClickedEvent, OnLinkClicked);
         TitleText.PointerReleased += OnTitlePointerReleased;
+        MorePanelDismiss.PointerPressed += (_, _) => _vm?.CloseMorePanelCommand.Execute(null);
         MessageList.AddHandler(PointerReleasedEvent, OnMessagePointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         // 隧道阶段处理：SelectableTextBlock 自带的“Copy”菜单会在冒泡阶段先处理
         MessageList.AddHandler(ContextRequestedEvent, OnMessageContextRequested, RoutingStrategies.Tunnel);
@@ -316,7 +317,7 @@ public partial class ChatView : UserControl
     }
 
     /// <summary>弹出名片；名片中点击“发消息”后关闭。没有名片（例如多人私聊的标题）时不弹出。</summary>
-    private static void ShowCard(Func<Action, ViewModelBase?> create, Control anchor, PlacementMode placement)
+    internal static void ShowCard(Func<Action, ViewModelBase?> create, Control anchor, PlacementMode placement)
     {
         var flyout = new Flyout { Placement = placement };
         flyout.FlyoutPresenterClasses.Add("card");

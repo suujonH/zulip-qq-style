@@ -1,0 +1,247 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.ChatMorePanelView"
+             x:DataType="vm:ChatMorePanelViewModel"
+             Background="{DynamicResource WindowBackgroundBrush}">
+
+    <UserControl.Styles>
+        <!-- 白色圆角分组卡片 -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,4" />
+        </Style>
+        <Style Selector="Grid.item">
+            <Setter Property="MinHeight" Value="44" />
+        </Style>
+        <Style Selector="Grid.item > TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.item">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="c|TdIcon.chevron">
+            <Setter Property="Icon" Value="{StaticResource Icon.ChevronRight}" />
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ToggleSwitch">
+            <Setter Property="OnContent" Value="" />
+            <Setter Property="OffContent" Value="" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="Border.divider">
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource DividerBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+        <!-- 主页面 -->
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !IsMemberListOpen}">
+            <StackPanel Margin="12" Spacing="12">
+                <!-- 信息卡（话题） -->
+                <Border Classes="card" Padding="14" IsVisible="{Binding IsTopic}">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <c:Avatar Width="44" Height="44" Text="{Binding Title}" Fill="{Binding AvatarFill}" />
+                        <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <c:TdIcon Icon="{StaticResource Icon.Lock}" Width="12" Height="12" IsVisible="{Binding IsPrivate}"
+                                          Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <TextBlock Classes="hint" FontSize="12" Text="{Binding ChannelText}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Button x:Name="ShareButton" Grid.Column="2" Theme="{StaticResource FlatButton}" Padding="6"
+                                ToolTip.Tip="复制话题链接" VerticalAlignment="Center">
+                            <StackPanel Spacing="2">
+                                <c:TdIcon Icon="{StaticResource Icon.Share}" Width="18" Height="18" HorizontalAlignment="Center" />
+                                <TextBlock Text="分享" FontSize="11" HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- 群聊成员 -->
+                <Border Classes="card" IsVisible="{Binding IsGroup}">
+                    <StackPanel>
+                        <Button Classes="item" Command="{Binding OpenMemberListCommand}">
+                            <Grid Classes="item" ColumnDefinitions="*,Auto,Auto">
+                                <TextBlock Text="群聊成员" />
+                                <TextBlock Grid.Column="1" Classes="hint" Text="{Binding MemberCountText}" />
+                                <c:TdIcon Grid.Column="2" Classes="chevron" />
+                            </Grid>
+                        </Button>
+                        <ItemsControl x:Name="PreviewMemberList" ItemsSource="{Binding PreviewMembers}" Margin="0,0,0,8">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemWidth="58" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ChatMemberItem">
+                                    <StackPanel Classes="member" Spacing="4" Margin="0,4" Cursor="Hand" Background="Transparent">
+                                        <c:Avatar Width="36" Height="36" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="11" HorizontalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="54"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+                            <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="邀请"
+                                    IsVisible="{Binding CanInvite}" Command="{Binding InviteCommand}" />
+                            <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="移出"
+                                    IsVisible="{Binding CanRemove}" Command="{Binding RemoveMembersCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 资料管理（仅频道管理员） -->
+                <Border Classes="card" IsVisible="{Binding CanEditChannel}">
+                    <Button Classes="item" Command="{Binding ShowChannelSettingsCommand}">
+                        <Grid Classes="item" ColumnDefinitions="*,Auto">
+                            <TextBlock Text="群资料设置" />
+                            <c:TdIcon Grid.Column="1" Classes="chevron" />
+                        </Grid>
+                    </Button>
+                </Border>
+
+                <!-- 群公告、备注 -->
+                <Border Classes="card" IsVisible="{Binding IsGroup}">
+                    <StackPanel>
+                        <Button Classes="item" Command="{Binding ShowNoticeCommand}" IsVisible="{Binding IsTopic}">
+                            <Grid Classes="item" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" Margin="0,8">
+                                <TextBlock Text="群公告" />
+                                <c:TdIcon Grid.Column="1" Classes="chevron" />
+                                <TextBlock Grid.Row="1" Classes="hint" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding NoticeText}"
+                                           IsVisible="{Binding NoticeText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                <TextBlock Grid.Row="1" Classes="hint" Margin="0,4,0,0" Text="暂无公告"
+                                           Foreground="{DynamicResource TextTertiaryBrush}"
+                                           IsVisible="{Binding NoticeText, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                            </Grid>
+                        </Button>
+                        <Border Classes="divider" IsVisible="{Binding IsTopic}" />
+                        <Grid Classes="item" ColumnDefinitions="Auto,*">
+                            <TextBlock Text="群聊备注" Margin="0,0,16,0" />
+                            <Panel Grid.Column="1">
+                                <Button Classes="item" Command="{Binding BeginEditRemarkCommand}" IsVisible="{Binding !IsEditingRemark}"
+                                        HorizontalContentAlignment="Right">
+                                    <Panel>
+                                        <TextBlock Classes="hint" Text="{Binding RemarkText}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Classes="hint" Text="未设置" Foreground="{DynamicResource TextTertiaryBrush}"
+                                                   IsVisible="{Binding RemarkText, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                                    </Panel>
+                                </Button>
+                                <c:InlineEditBox Classes="input" MaxLength="32" Text="{Binding RemarkDraft}" VerticalAlignment="Center"
+                                                 IsVisible="{Binding IsEditingRemark}"
+                                                 CommitCommand="{Binding CommitRemarkCommand}"
+                                                 CancelCommand="{Binding CancelRemarkCommand}" />
+                            </Panel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 开关 -->
+                <Border Classes="card">
+                    <StackPanel>
+                        <Grid Classes="item" ColumnDefinitions="*,Auto">
+                            <TextBlock Text="设为置顶" />
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsPinned}" />
+                        </Grid>
+                        <Grid Classes="item" ColumnDefinitions="*,Auto" IsVisible="{Binding HasDndSwitch}">
+                            <TextBlock Text="消息免打扰" />
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsDndOn}" />
+                        </Grid>
+                        <Grid Classes="item" ColumnDefinitions="*,Auto" IsVisible="{Binding IsOneToOne}">
+                            <TextBlock Text="屏蔽此人" />
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsUserMuted}" />
+                        </Grid>
+                        <Grid Classes="item" ColumnDefinitions="*,Auto" IsVisible="{Binding IsGroup}">
+                            <TextBlock Text="群消息设置" />
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding LevelOptions}" SelectedItem="{Binding SelectedLevel}"
+                                      FontSize="13" MinWidth="150" VerticalAlignment="Center" />
+                        </Grid>
+                        <Grid Classes="item" ColumnDefinitions="*,Auto" IsVisible="{Binding IsTopic}">
+                            <TextBlock Text="关注话题" />
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsFollowed}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 话题操作 -->
+                <Border Classes="card" IsVisible="{Binding HasTopicActions}">
+                    <StackPanel>
+                        <Button Classes="item" Command="{Binding ToggleResolvedCommand}" IsVisible="{Binding CanResolve}">
+                            <Grid Classes="item" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding ResolveText}" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="MoveButton" Classes="item" IsVisible="{Binding CanMove}">
+                            <Grid Classes="item" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="移动群到其他分组" />
+                                <c:TdIcon Grid.Column="1" Classes="chevron" />
+                            </Grid>
+                        </Button>
+                        <Button Classes="item" Command="{Binding RenameCommand}" IsVisible="{Binding CanRename}">
+                            <Grid Classes="item" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="重命名话题" />
+                            </Grid>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <Button Theme="{StaticResource FlatButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Height="40" CornerRadius="8" Background="{DynamicResource CardBrush}"
+                        Foreground="{DynamicResource DangerBrush}" Content="删除话题"
+                        IsVisible="{Binding CanDelete}" Command="{Binding DeleteTopicCommand}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 完整成员列表 -->
+        <DockPanel IsVisible="{Binding IsMemberListOpen}">
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" Height="44" Margin="4,0,12,0">
+                <Button Theme="{StaticResource FlatButton}" Padding="8" Command="{Binding CloseMemberListCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" Width="16" Height="16" />
+                </Button>
+                <TextBlock Grid.Column="1" Text="{Binding MemberCountText}" FontSize="14" VerticalAlignment="Center" />
+            </Grid>
+            <TextBox DockPanel.Dock="Top" Classes="input" Margin="12,0,12,8" PlaceholderText="搜索群成员"
+                     Text="{Binding MemberQuery}" />
+            <ListBox x:Name="FullMemberList" ItemsSource="{Binding FilteredMembers}" Background="Transparent">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ChatMemberItem">
+                        <Grid ColumnDefinitions="Auto,*,Auto" Height="40">
+                            <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
+                            <TextBlock Grid.Column="1" Text="{Binding DisplayName}" Margin="10,0" FontSize="13"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <Border Grid.Column="2" Classes="badge" Classes.owner="{Binding IsOwner}"
+                                    IsVisible="{Binding HasBadge}">
+                                <TextBlock Text="{Binding Badge}" />
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+    </Panel>
+</UserControl>

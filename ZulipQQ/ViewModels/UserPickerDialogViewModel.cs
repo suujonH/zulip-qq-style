@@ -28,6 +28,7 @@ public partial class UserPickerItem(long userId, string displayName, string? ava
 /// <summary>
 /// 选择用户对话框：左侧搜索并勾选，右侧显示已选用户（可移除）。
 /// 至少选择 <paramref name="minCount"/> 人才能确定。关闭时调用 onClosed：确定传入所选用户 id（按选择顺序），取消传入 null。
+/// <paramref name="include"/> 不为 null 时只列出它返回 true 的用户（例如邀请时只列出非成员）。
 /// </summary>
 public partial class UserPickerDialogViewModel : ViewModelBase
 {
@@ -39,12 +40,13 @@ public partial class UserPickerDialogViewModel : ViewModelBase
     private readonly Action<IReadOnlyList<long>?> _onClosed;
 
     public UserPickerDialogViewModel(ZulipSession session, string title, int minCount, IEnumerable<long>? preselected,
-        Action<IReadOnlyList<long>?> onClosed)
+        Action<IReadOnlyList<long>?> onClosed, Func<long, bool>? include = null)
     {
         Title = title;
         _minCount = minCount;
         _onClosed = onClosed;
         _all = session.Users.ActiveHumans(excludeSelf: true)
+            .Where(u => include?.Invoke(u.Id) ?? true)
             .Select(u => new UserPickerItem(u.Id, session.Contacts.DisplayName(u.Id), u.AvatarUrl, u.Email))
             .OrderBy(i => i.DisplayName, NameComparer)
             .ToList();

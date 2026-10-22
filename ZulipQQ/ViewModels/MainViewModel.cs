@@ -133,7 +133,7 @@ public partial class MainViewModel : ViewModelBase
         }
         _openingKey = null;
 
-        var chat = new ChatViewModel(Session, key, (k, f) => OpenChatAsync(k, f), ShowToast);
+        var chat = new ChatViewModel(Session, this, key);
         RightPane = chat;
         await chat.OpenAsync(focusMessageId);
     }

@@ -29,6 +29,10 @@
     <SolidColorBrush x:Key="OtherBubbleBrush" Color="White" />
     <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#E5E5E5" />
     <SolidColorBrush x:Key="FlashBrush" Color="#E3E3E3" />
+    <!-- 群成员徽标：群主橙色、管理员蓝色（浅底深字） -->
+    <SolidColorBrush x:Key="OwnerBadgeBrush" Color="#F5A623" />
+    <SolidColorBrush x:Key="OwnerBadgeFillBrush" Color="#FFF4E0" />
+    <SolidColorBrush x:Key="AdminBadgeFillBrush" Color="#E0F2FF" />
 
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A" />
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#999999" />
