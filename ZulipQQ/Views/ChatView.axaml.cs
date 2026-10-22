@@ -329,8 +329,10 @@ public partial class ChatView : UserControl
         var reactions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
         foreach (var emoji in vm.Session.Emoji.QuickReactions)
         {
-            var button = ReactionButton(new TextBlock { Text = emoji.Text, FontSize = 18, FontFamily = new FontFamily("Segoe UI Emoji") },
-                $":{emoji.Name}:");
+            Control content = emoji.ImageUrl is { } url
+                ? new RemoteImage { Source = url, Width = 22, Height = 22, CornerRadius = 0 }
+                : new TextBlock { Text = emoji.Text, FontSize = 18, FontFamily = new FontFamily("Segoe UI Emoji") };
+            var button = ReactionButton(content, $":{emoji.Name}:");
             button.Click += (_, _) =>
             {
                 menu.Close();

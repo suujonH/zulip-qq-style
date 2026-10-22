@@ -22,6 +22,8 @@ public sealed class EmojiService(ZulipSession session, SettingRepository setting
     // 消息右键的默认表情回应（常用不足 6 个时补齐）
     private static readonly string[] DefaultReactions = ["+1", "heart", "joy", "open_mouth", "cry", "pray"];
 
+    private static readonly System.Net.Http.HttpClient External = new() { Timeout = TimeSpan.FromSeconds(30) };
+
     private IReadOnlyList<EmojiEntry> _unicode = [];
     private IReadOnlyList<EmojiEntry> _realm = [];
     private Task? _loading;
@@ -112,13 +114,22 @@ public sealed class EmojiService(ZulipSession session, SettingRepository setting
         if (File.Exists(dataPath) && File.Exists(urlPath) && await File.ReadAllTextAsync(urlPath) == url)
             return await File.ReadAllTextAsync(dataPath);
 
-        if (!Uri.TryCreate(session.Client.RealmUrl, url, out var absolute) || absolute.Host != session.Client.RealmUrl.Host)
+        if (!Uri.TryCreate(session.Client.RealmUrl, url, out var absolute) || absolute.Scheme is not ("http" or "https"))
             return null;
-        using var buffer = new MemoryStream();
-        await session.Client.DownloadAsync(absolute.PathAndQuery, buffer, ct: session.Token);
+        string json;
+        if (absolute.Host == session.Client.RealmUrl.Host)
+        {
+            using var buffer = new MemoryStream();
+            await session.Client.DownloadAsync(absolute.PathAndQuery, buffer, ct: session.Token);
+            json = System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+        }
+        else
+        {
+            // 数据放在单独的静态资源主机（CDN）上：不带认证下载
+            json = await External.GetStringAsync(absolute, session.Token);
+        }
         if (session.IsDisposed)
             return null;
-        var json = System.Text.Encoding.UTF8.GetString(buffer.ToArray());
         Directory.CreateDirectory(AppPaths.CacheDir);
         await File.WriteAllTextAsync(dataPath, json);
         await File.WriteAllTextAsync(urlPath, url);

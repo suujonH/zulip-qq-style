@@ -198,9 +198,10 @@ public partial class ChatViewModel : ViewModelBase
     /// <summary>话题被整体移动或改名：换成新键并重新加载。</summary>
     public void Rekey(ConversationKey newKey)
     {
+        var oldKey = Key;
         Key = newKey;
         RefreshTitle();
-        Composer.OnKeyChanged();
+        Composer.OnKeyChanged(oldKey);
         _ = ReloadAsync();
     }
 
@@ -400,7 +401,10 @@ public partial class ChatViewModel : ViewModelBase
 
     /// <summary>右下角按钮：回到最新的消息。</summary>
     [RelayCommand]
-    private async Task BottomBannerClickAsync()
+    private Task BottomBannerClickAsync() => ShowLatestAsync();
+
+    /// <summary>回到最新的消息：当前窗口不包含最新的消息时重新加载，然后滚动到底部。</summary>
+    internal async Task ShowLatestAsync()
     {
         _newWhileScrolledUp = 0;
         UpdateBottomBanner();

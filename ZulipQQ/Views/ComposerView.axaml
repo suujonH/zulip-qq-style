@@ -60,6 +60,11 @@
             <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
+        <!-- @ 补全的候选不获取焦点：点击时输入框不失去焦点，补全不会被关闭 -->
+        <Style Selector="ListBox#MentionList, ListBox#MentionList ListBoxItem">
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+
         <Style Selector="Border.attachment.failed">
             <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
         </Style>

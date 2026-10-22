@@ -76,6 +76,9 @@ public partial class ComposerViewModel : ViewModelBase
     private bool _opened;
     private bool _closed;
 
+    // 最近一次草稿保存；关闭时等待它完成
+    private Task _draftSave = Task.CompletedTask;
+
     public ComposerViewModel(ChatViewModel chat, ZulipSession session, Action<string> showToast)
     {
         _chat = chat;
@@ -156,14 +159,28 @@ public partial class ComposerViewModel : ViewModelBase
         _session.Settings.Changed -= OnSettingChanged;
         _session.PermissionsChanged -= OnPermissionsChanged;
         _session.Channels.ChannelChanged -= OnChannelChanged;
-        if (!_draftDirty || _session.IsDisposed)
+        if (_session.IsDisposed)
             return Task.CompletedTask;
-        _draftDirty = false;
-        return _session.Drafts.SetAsync(_chat.Key, Text);
+        if (_draftDirty)
+        {
+            _draftDirty = false;
+            _draftSave = _session.Drafts.SetAsync(_chat.Key, Text);
+        }
+        return _draftSave;
     }
 
-    /// <summary>会话的键被替换（话题整体移动）：重新计算发言权限。</summary>
-    public void OnKeyChanged() => RefreshPermission();
+    /// <summary>
+    /// 会话的键被替换（话题整体移动）：重新计算发言权限；已保存在旧键下的草稿改存到新键下。
+    /// </summary>
+    public void OnKeyChanged(ConversationKey oldKey)
+    {
+        RefreshPermission();
+        if (!_opened || _closed || oldKey.Equals(_chat.Key) || _session.Drafts.Get(oldKey) is null)
+            return;
+        _session.Forget(_session.Drafts.DeleteAsync(oldKey), "删除草稿");
+        _draftDirty = true;
+        SaveDraft();
+    }
 
     /// <summary>引用一条消息，并把焦点移到输入框。</summary>
     public void Quote(MessageItemViewModel message)
@@ -192,7 +209,8 @@ public partial class ComposerViewModel : ViewModelBase
         if (!_draftDirty || _closed)
             return;
         _draftDirty = false;
-        _session.Forget(_session.Drafts.SetAsync(_chat.Key, Text), "保存草稿");
+        _draftSave = _session.Drafts.SetAsync(_chat.Key, Text);
+        _session.Forget(_draftSave, "保存草稿");
     }
 
     private bool CanSend() =>
@@ -209,7 +227,9 @@ public partial class ComposerViewModel : ViewModelBase
     {
         var key = _chat.Key;
         var quote = QuoteTarget;
-        var images = Attachments.Where(a => a.State == AttachmentState.Done).ToList();
+        // 等待引用原文期间可能又添加了图片：只发送、移除现在已有的附件
+        var captured = Attachments.ToList();
+        var images = captured.Where(a => a.State == AttachmentState.Done).ToList();
         _sending = true;
         SendCommand.NotifyCanExecuteChanged();
         try
@@ -255,17 +275,26 @@ public partial class ComposerViewModel : ViewModelBase
             _loadingText = false;
             _draftDirty = false;
             _draftTimer.Stop();
-            Attachments.Clear();
+            foreach (var a in captured)
+                Attachments.Remove(a);
             QuoteTarget = null;
             Mentions.Close();
             _session.Forget(_session.Drafts.DeleteAsync(key), "删除草稿");
-            _session.Forget(_session.Chat.SendAsync(key, text), "发送消息");
+            _session.Forget(SendToLatestAsync(key, text), "发送消息");
         }
         finally
         {
             _sending = false;
             SendCommand.NotifyCanExecuteChanged();
         }
+    }
+
+    // 正在查看较早的消息时，本地回显和新消息不会追加到时间线：先回到最新的消息再发送
+    private async Task SendToLatestAsync(ConversationKey key, string content)
+    {
+        await _chat.ShowLatestAsync();
+        if (!_session.IsDisposed)
+            await _session.Chat.SendAsync(key, content);
     }
 
     [RelayCommand]
@@ -374,7 +403,7 @@ public partial class ComposerViewModel : ViewModelBase
         await UploadAsync(attachment);
         if (_closed || attachment.State != AttachmentState.Done || !Attachments.Remove(attachment))
             return;
-        _session.Forget(_session.Chat.SendAsync(key, LinkMarkdown(attachment.FileName, attachment.Url!)), "发送文件");
+        _session.Forget(SendToLatestAsync(key, LinkMarkdown(attachment.FileName, attachment.Url!)), "发送文件");
     }
 
     // 上传失败时保留在列表中（显示失败），由用户移除
