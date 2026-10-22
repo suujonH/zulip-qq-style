@@ -61,6 +61,67 @@ public static partial class ZulipHtml
         return string.Join('\n', lines).Trim('\n');
     }
 
+    /// <summary>
+    /// 内容只有图片 / 视频预览和上传文件链接（聊天中不显示气泡背景）。
+    /// </summary>
+    public static bool IsAttachmentOnly(string html)
+    {
+        var root = Parse(html);
+        var inlineImages = InlineImageHrefs(root);
+        var any = false;
+        foreach (var node in root.ChildNodes)
+        {
+            if (node is IText text)
+            {
+                if (!string.IsNullOrWhiteSpace(text.Data))
+                    return false;
+                continue;
+            }
+            if (node is not IElement e)
+                continue;
+            if (IsUploadPreview(e) || (e.LocalName == "p" && IsUploadOnlyParagraph(e)))
+            {
+                any = true;
+                continue;
+            }
+            return false;
+        }
+        return any;
+    }
+
+    /// <summary>上传图片 / 视频的内联预览（<c>div.message_inline_image</c> 中指向 <c>/user_uploads/</c> 的链接）。</summary>
+    public static bool IsUploadPreview(IElement e) =>
+        e.ClassList.Contains("message_inline_image")
+        && NormalizeUploadPath(e.QuerySelector("a[href]")?.GetAttribute("href")) is not null;
+
+    /// <summary>段落中只有上传文件链接（以及空白和换行）。</summary>
+    public static bool IsUploadOnlyParagraph(IElement p)
+    {
+        var any = false;
+        foreach (var node in p.ChildNodes)
+        {
+            switch (node)
+            {
+                case IText t when string.IsNullOrWhiteSpace(t.Data):
+                    continue;
+                case IElement { LocalName: "br" }:
+                    continue;
+                case IElement { LocalName: "a" } a when NormalizeUploadPath(a.GetAttribute("href")) is not null:
+                    any = true;
+                    continue;
+                default:
+                    return false;
+            }
+        }
+        return any;
+    }
+
+    /// <summary>有内联预览的上传链接路径；段落中指向它们的文字链接不再单独显示。</summary>
+    public static HashSet<string> InlinePreviewPaths(IElement root) => InlineImageHrefs(root);
+
+    /// <summary>解析消息 HTML，返回承载内容的 body 元素。</summary>
+    public static IElement ParseFragment(string html) => Parse(html);
+
     /// <summary>是否包含非图片的上传文件。</summary>
     public static bool HasFileAttachment(string html) => ExtractUploads(html).Any(u => !u.IsImage);
 

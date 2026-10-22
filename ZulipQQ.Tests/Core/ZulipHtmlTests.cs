@@ -116,4 +116,24 @@ public class ZulipHtmlTests
     [InlineData("/user_uploads/2/a/b.txt?x=1", "/user_uploads/2/a/b.txt")]
     public void NormalizeUploadPath(string href, string? expected) =>
         Assert.Equal(expected, ZulipHtml.NormalizeUploadPath(href));
+
+    private const string UploadedImage =
+        "<p><a href=\"/user_uploads/2/ac/x/a.png\">a.png</a></p>\n" +
+        "<div class=\"message_inline_image\"><a href=\"/user_uploads/2/ac/x/a.png\" title=\"a.png\"><img data-original-dimensions=\"320x200\" src=\"/user_uploads/thumbnail/2/ac/x/a.png/840x560.webp\"></a></div>";
+
+    [Fact]
+    public void AttachmentOnly_UploadedImage() => Assert.True(ZulipHtml.IsAttachmentOnly(UploadedImage));
+
+    [Fact]
+    public void AttachmentOnly_FileLinks() => Assert.True(ZulipHtml.IsAttachmentOnly(Sample("img")));
+
+    [Fact]
+    public void AttachmentOnly_TextWithImage_IsFalse() => Assert.False(ZulipHtml.IsAttachmentOnly(RealImage));
+
+    [Fact]
+    public void AttachmentOnly_PlainText_IsFalse() => Assert.False(ZulipHtml.IsAttachmentOnly(Sample("strong")));
+
+    [Fact]
+    public void AttachmentOnly_ExternalPreview_IsFalse() => Assert.False(ZulipHtml.IsAttachmentOnly(
+        "<div class=\"message_inline_image\"><a href=\"https://example.com/a.png\"><img src=\"/external_content/abc\"></a></div>"));
 }
