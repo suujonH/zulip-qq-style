@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             x:Class="ZulipQQ.Views.ConfirmDialogView"
+             x:DataType="vm:ConfirmDialogViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Button.primary.danger">
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="dialog" Width="320">
+        <StackPanel>
+            <TextBlock Text="提示" FontSize="13" HorizontalAlignment="Center" Margin="0,7" />
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel Margin="20" Spacing="20">
+                <TextBlock Text="{Binding Message}" FontSize="13" TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button x:Name="ConfirmButton" Classes="primary" Classes.danger="{Binding IsDanger}"
+                            Theme="{StaticResource FlatButton}" Content="{Binding ConfirmText}"
+                            Command="{Binding ConfirmCommand}" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                            Command="{Binding CancelCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>
