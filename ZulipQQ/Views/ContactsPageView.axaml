@@ -21,7 +21,7 @@
             <Setter Property="Height" Value="36" />
             <Setter Property="Padding" Value="16,0" />
             <Setter Property="CornerRadius" Value="0" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         </Style>
@@ -48,7 +48,7 @@
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         </Style>
         <Style Selector="Button.tab:pointerover">
@@ -83,7 +83,7 @@
                     Click="OnFriendManagerClick">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <c:TdIcon Icon="{StaticResource Icon.UserSetting}" Width="15" Height="15" />
-                    <TextBlock Text="好友管理器" FontSize="13" VerticalAlignment="Center" />
+                    <TextBlock Text="好友管理器" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
 

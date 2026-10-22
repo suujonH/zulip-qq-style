@@ -14,21 +14,21 @@
                 <Button Theme="{StaticResource FlatButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                         Padding="0,2" Command="{Binding ShowNoticeCommand}">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="群公告" FontSize="13" FontWeight="SemiBold" />
+                        <TextBlock Text="群公告" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" />
                         <c:TdIcon Grid.Column="1" Icon="{StaticResource Icon.ChevronRight}" Width="14" Height="14"
                                   Foreground="{DynamicResource TextTertiaryBrush}" />
                     </Grid>
                 </Button>
                 <Border MaxHeight="120" ClipToBounds="True" IsVisible="{Binding HasNotice}">
-                    <c:MessageContent Html="{Binding NoticeHtml}" TextElement.FontSize="12" />
+                    <c:MessageContent Html="{Binding NoticeHtml}" TextElement.FontSize="{DynamicResource FontSizeSub}" />
                 </Border>
-                <TextBlock Classes="sub" Text="暂无公告" FontSize="12" IsVisible="{Binding !HasNotice}" />
+                <TextBlock Classes="sub" Text="暂无公告" FontSize="{DynamicResource FontSizeSub}" IsVisible="{Binding !HasNotice}" />
             </StackPanel>
         </Border>
 
         <!-- 群聊成员 -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Height="36" Margin="12,4,6,0">
-            <TextBlock Text="{Binding MembersTitle}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding MembersTitle}" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" VerticalAlignment="Center" />
             <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="26" Height="26"
                     ToolTip.Tip="搜索群成员" Command="{Binding ToggleSearchCommand}">
                 <c:TdIcon Icon="{StaticResource Icon.Search}" Width="14" Height="14" />
@@ -41,7 +41,7 @@
                 <DataTemplate x:DataType="vm:ChatMemberItem">
                     <Grid ColumnDefinitions="Auto,*,Auto" Height="34">
                         <c:Avatar Width="24" Height="24" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
-                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" Margin="8,0,4,0" FontSize="12"
+                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" Margin="8,0,4,0" FontSize="{DynamicResource FontSizeSub}"
                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <Border Grid.Column="2" Classes="badge" Classes.owner="{Binding IsOwner}" IsVisible="{Binding HasBadge}">
                             <TextBlock Text="{Binding Badge}" />

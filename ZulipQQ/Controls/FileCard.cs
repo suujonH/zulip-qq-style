@@ -39,12 +39,13 @@ public class FileCard : Border
         var name = new TextBlock
         {
             Text = link.FileName,
-            FontSize = 14,
             TextWrapping = TextWrapping.Wrap,
             MaxLines = 2,
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
-        _status = new TextBlock { FontSize = 12, Margin = new Thickness(0, 6, 0, 0) };
+        name.Bind(TextBlock.FontSizeProperty, name.GetResourceObservable("FontSizeBody"));
+        _status = new TextBlock { Margin = new Thickness(0, 6, 0, 0) };
+        _status.Bind(TextBlock.FontSizeProperty, _status.GetResourceObservable("FontSizeSub"));
         _status.Bind(TextBlock.ForegroundProperty, _status.GetResourceObservable("TextSecondaryBrush"));
 
         var icon = new TdIcon { Width = 32, Height = 32 };

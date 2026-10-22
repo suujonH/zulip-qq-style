@@ -410,6 +410,37 @@ public sealed class ZulipClient : IDisposable
     public Task SetStatusAsync(string text, CancellationToken ct = default) =>
         SendAsync(HttpMethod.Post, "api/v1/users/me/status", new FormBuilder().Add("status_text", text), DefaultTimeout, ct);
 
+    /// <summary>更换自己的头像（multipart）。组织禁止更换时服务器返回错误。</summary>
+    public async Task UploadAvatarAsync(Stream stream, string fileName, string contentType, CancellationToken ct = default)
+    {
+        using var content = new MultipartFormDataContent();
+        var file = new StreamContent(stream);
+        file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        content.Add(file, "file", fileName);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/users/me/avatar") { Content = content };
+        using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+        await ReadResultAsync(response, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>添加提醒词，返回服务器上的完整列表。</summary>
+    public async Task<List<string>> AddAlertWordsAsync(IEnumerable<string> words, CancellationToken ct = default)
+    {
+        var root = await SendAsync(HttpMethod.Post, "api/v1/users/me/alert_words", new FormBuilder().AddJson("alert_words", words.ToList()), DefaultTimeout, ct).ConfigureAwait(false);
+        return ZulipJson.Deserialize<List<string>>(root.GetProperty("alert_words"));
+    }
+
+    /// <summary>删除提醒词，返回服务器上的完整列表。</summary>
+    public async Task<List<string>> RemoveAlertWordsAsync(IEnumerable<string> words, CancellationToken ct = default)
+    {
+        var root = await SendAsync(HttpMethod.Delete, "api/v1/users/me/alert_words", new FormBuilder().AddJson("alert_words", words.ToList()), DefaultTimeout, ct).ConfigureAwait(false);
+        return ZulipJson.Deserialize<List<string>>(root.GetProperty("alert_words"));
+    }
+
+    /// <summary>修改组织设置（仅管理员）。</summary>
+    public Task UpdateRealmAsync(FormBuilder args, CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Patch, "api/v1/realm", args, DefaultTimeout, ct);
+
     // ---- 内部实现 ----
 
     /// <summary>发送请求并返回 JSON 根对象。失败时抛出 <see cref="ZulipApiException"/>、<see cref="TimeoutException"/> 或 <see cref="HttpRequestException"/>。</summary>

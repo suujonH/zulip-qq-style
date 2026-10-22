@@ -20,7 +20,7 @@
 
         <!-- 输入框：没有边框和背景，与聊天区融为一体 -->
         <Style Selector="TextBox.composer">
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
             <Setter Property="Padding" Value="20,4" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -126,7 +126,7 @@
                     <c:TdIcon Icon="{StaticResource Icon.Close}" Width="12" Height="12"
                               Foreground="{DynamicResource TextSecondaryBrush}" />
                 </Button>
-                <TextBlock Text="{Binding QuoteText, StringFormat='引用 {0}'}" FontSize="12" VerticalAlignment="Center"
+                <TextBlock Text="{Binding QuoteText, StringFormat='引用 {0}'}" FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
             </DockPanel>
         </Border>
@@ -184,10 +184,10 @@
                                 <DockPanel>
                                     <c:Avatar Width="24" Height="24" Margin="0,0,8,0" Source="{Binding AvatarUrl}"
                                               Text="{Binding AvatarText}" />
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding SubText}" FontSize="11" Margin="8,0,0,0"
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding SubText}" FontSize="{DynamicResource FontSizeCaption}" Margin="8,0,0,0"
                                                MaxWidth="140" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                                Foreground="{DynamicResource TextSecondaryBrush}" />
-                                    <TextBlock Text="{Binding Display}" FontSize="13" VerticalAlignment="Center"
+                                    <TextBlock Text="{Binding Display}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis" />
                                 </DockPanel>
                             </DataTemplate>

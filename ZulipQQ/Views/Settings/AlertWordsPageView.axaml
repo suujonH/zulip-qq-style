@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.AlertWordsPageView"
+             x:DataType="vm:AlertWordsPageViewModel">
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="提醒词" />
+        <TextBlock Classes="hint" Text="消息中出现提醒词时，会像“@我”一样提醒你。" />
+
+        <Border Classes="card" Padding="16,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox x:Name="WordBox" Classes="input" PlaceholderText="输入提醒词" MaxLength="100"
+                         Text="{Binding NewWord}" />
+                <Button Grid.Column="1" Classes="primary" Theme="{StaticResource FlatButton}" Content="添加"
+                        Margin="8,0,0,0" Command="{Binding AddCommand}" />
+            </Grid>
+        </Border>
+
+        <Border Classes="card">
+            <Panel>
+                <TextBlock Classes="hint" Text="还没有提醒词" Margin="0,12" IsVisible="{Binding !HasWords}" />
+                <ItemsControl ItemsSource="{Binding Words}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Grid Classes="item" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" />
+                                <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Padding="6" ToolTip.Tip="删除"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding $parent[UserControl].((vm:AlertWordsPageViewModel)DataContext).RemoveCommand}"
+                                        CommandParameter="{Binding}">
+                                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14"
+                                              Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Panel>
+        </Border>
+    </StackPanel>
+</UserControl>

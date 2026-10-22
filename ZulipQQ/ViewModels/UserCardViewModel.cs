@@ -152,7 +152,7 @@ public partial class UserCardViewModel : ViewModelBase
         };
         Email = user is null ? "" : user.DeliveryEmail ?? user.Email;
         StatusText = _session.Users.GetStatusText(UserId);
-        LocalTimeText = user is null ? null : LocalTime(user.Timezone);
+        LocalTimeText = user is null ? null : LocalTime(user.Timezone, _session.Settings.Zulip.TwentyFourHourTime);
         RoleText = user switch
         {
             { IsBot: true } => "机器人",
@@ -213,7 +213,7 @@ public partial class UserCardViewModel : ViewModelBase
     private void CancelRemark() => IsEditingRemark = false;
 
     // 时区为空或无法识别时不显示
-    private static string? LocalTime(string timezone)
+    private static string? LocalTime(string timezone, bool use24h)
     {
         if (string.IsNullOrEmpty(timezone))
             return null;
@@ -221,7 +221,7 @@ public partial class UserCardViewModel : ViewModelBase
         {
             var zone = TimeZoneInfo.FindSystemTimeZoneById(timezone);
             var time = TimeZoneInfo.ConvertTime(DateTimeOffset.Now, zone);
-            return $"{time.ToString("HH:mm", CultureInfo.InvariantCulture)}（{timezone}）";
+            return $"{TimeText.ClockTime(time.DateTime, use24h)}（{timezone}）";
         }
         catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
         {

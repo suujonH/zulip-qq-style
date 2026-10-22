@@ -14,25 +14,35 @@ public static class TimeText
     private static readonly string[] WeekdayNames = ["日", "一", "二", "三", "四", "五", "六"];
 
     /// <summary>
-    /// 会话列表的时间。今天：HH:mm；昨天：昨天HH:mm；今年：MM/dd；往年：yyyy/MM/dd。
+    /// 时刻。24 小时制：HH:mm；12 小时制：上午/下午h:mm。<paramref name="seconds"/> 为 true 时带秒。
     /// </summary>
-    public static string ListTime(DateTime time, DateTime now)
+    public static string ClockTime(DateTime time, bool use24h = true, bool seconds = false)
+    {
+        if (use24h)
+            return time.ToString(seconds ? "HH:mm:ss" : "HH:mm", CultureInfo.InvariantCulture);
+        return (time.Hour < 12 ? "上午" : "下午") + time.ToString(seconds ? "h:mm:ss" : "h:mm", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// 会话列表的时间。今天：时刻；昨天：昨天+时刻；今年：MM/dd；往年：yyyy/MM/dd。
+    /// </summary>
+    public static string ListTime(DateTime time, DateTime now, bool use24h = true)
     {
         if (time.Date == now.Date)
-            return time.ToString("HH:mm", CultureInfo.InvariantCulture);
+            return ClockTime(time, use24h);
         if (time.Date == now.Date.AddDays(-1))
-            return "昨天" + time.ToString("HH:mm", CultureInfo.InvariantCulture);
+            return "昨天" + ClockTime(time, use24h);
         if (time.Year == now.Year)
             return time.ToString("MM/dd", CultureInfo.InvariantCulture);
         return time.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);
     }
 
     /// <summary>
-    /// 聊天中的时间分隔条。今天：HH:mm；昨天：昨天 HH:mm；7 天以内：星期X HH:mm；其它：yyyy/MM/dd HH:mm。
+    /// 聊天中的时间分隔条。今天：时刻；昨天：昨天 时刻；7 天以内：星期X 时刻；其它：yyyy/MM/dd 时刻。
     /// </summary>
-    public static string SeparatorTime(DateTime time, DateTime now)
+    public static string SeparatorTime(DateTime time, DateTime now, bool use24h = true)
     {
-        var hm = time.ToString("HH:mm", CultureInfo.InvariantCulture);
+        var hm = ClockTime(time, use24h);
         var days = (now.Date - time.Date).TotalDays;
         if (days <= 0)
             return hm;
@@ -40,15 +50,14 @@ public static class TimeText
             return "昨天 " + hm;
         if (days < 7)
             return $"星期{WeekdayNames[(int)time.DayOfWeek]} {hm}";
-        return time.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture);
+        return time.ToString("yyyy/MM/dd ", CultureInfo.InvariantCulture) + hm;
     }
 
-    /// <summary>点击消息后显示的精确时间。同一年：MM-dd HH:mm:ss；否则：yyyy-MM-dd HH:mm:ss。</summary>
-    public static string PreciseTime(DateTime time, DateTime now)
+    /// <summary>点击消息后显示的精确时间。同一年：MM-dd 时刻（带秒）；否则：yyyy-MM-dd 时刻（带秒）。</summary>
+    public static string PreciseTime(DateTime time, DateTime now, bool use24h = true)
     {
-        return time.Year == now.Year
-            ? time.ToString("MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
-            : time.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        var date = time.ToString(time.Year == now.Year ? "MM-dd " : "yyyy-MM-dd ", CultureInfo.InvariantCulture);
+        return date + ClockTime(time, use24h, seconds: true);
     }
 
     /// <summary>文件列表的分组标题。今天：今天；今年：M月；往年：yyyy年M月。</summary>

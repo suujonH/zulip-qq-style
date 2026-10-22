@@ -14,12 +14,12 @@
 
     <Window.Styles>
         <Style Selector="CheckBox">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
             <Setter Property="MinHeight" Value="24" />
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         </Style>
         <Style Selector="Button.link, ToggleButton.link">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
             <Setter Property="Padding" Value="4,2" />
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         </Style>
@@ -64,8 +64,8 @@
                                                     <Grid ColumnDefinitions="Auto,*,Auto">
                                                         <c:Avatar Width="30" Height="30" Text="{Binding DisplayName}" />
                                                         <StackPanel Grid.Column="1" Margin="8,0" VerticalAlignment="Center">
-                                                            <TextBlock Classes="title" FontSize="13" Text="{Binding Email}" />
-                                                            <TextBlock Classes="sub" FontSize="11" Text="{Binding RealmUrl}" />
+                                                            <TextBlock Classes="title" FontSize="{DynamicResource FontSizeSmall}" Text="{Binding Email}" />
+                                                            <TextBlock Classes="sub" FontSize="{DynamicResource FontSizeCaption}" Text="{Binding RealmUrl}" />
                                                         </StackPanel>
                                                         <Button Grid.Column="2" Theme="{StaticResource FlatButton}"
                                                                 Width="22" Height="22" ToolTip.Tip="删除此账号记录"
@@ -99,7 +99,7 @@
                             Content="使用 zuliprc 登录…" Click="OnZuliprcClick" IsEnabled="{Binding !IsBusy}" />
                 </StackPanel>
 
-                <TextBlock Text="{Binding ErrorText}" IsVisible="{Binding HasError}" FontSize="12"
+                <TextBlock Text="{Binding ErrorText}" IsVisible="{Binding HasError}" FontSize="{DynamicResource FontSizeSub}"
                            Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
             </StackPanel>
         </DockPanel>

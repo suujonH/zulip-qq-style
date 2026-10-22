@@ -81,6 +81,9 @@ public sealed class UserStore(ZulipSession session)
 
     public bool IsMuted(long id) => _muted.Contains(id);
 
+    /// <summary>已静音（屏蔽）的用户。</summary>
+    public IReadOnlyCollection<long> MutedIds => _muted;
+
     /// <summary>realm_user 事件。返回值表示自己的角色是否变化（需要重建权限）。</summary>
     public bool OnRealmUserEvent(JsonElement ev)
     {

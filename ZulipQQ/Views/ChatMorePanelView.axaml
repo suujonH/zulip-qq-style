@@ -17,7 +17,7 @@
             <Setter Property="MinHeight" Value="44" />
         </Style>
         <Style Selector="Grid.item > TextBlock">
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.item">
@@ -35,7 +35,7 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="TextBlock.hint">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
@@ -60,19 +60,19 @@
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <c:Avatar Width="44" Height="44" Text="{Binding Title}" Fill="{Binding AvatarFill}" />
                         <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold"
+                            <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeH3}" FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
                             <StackPanel Orientation="Horizontal" Spacing="4">
                                 <c:TdIcon Icon="{StaticResource Icon.Lock}" Width="12" Height="12" IsVisible="{Binding IsPrivate}"
                                           Foreground="{DynamicResource TextSecondaryBrush}" />
-                                <TextBlock Classes="hint" FontSize="12" Text="{Binding ChannelText}" />
+                                <TextBlock Classes="hint" FontSize="{DynamicResource FontSizeSub}" Text="{Binding ChannelText}" />
                             </StackPanel>
                         </StackPanel>
                         <Button x:Name="ShareButton" Grid.Column="2" Theme="{StaticResource FlatButton}" Padding="6"
                                 ToolTip.Tip="复制话题链接" VerticalAlignment="Center">
                             <StackPanel Spacing="2">
                                 <c:TdIcon Icon="{StaticResource Icon.Share}" Width="18" Height="18" HorizontalAlignment="Center" />
-                                <TextBlock Text="分享" FontSize="11" HorizontalAlignment="Center"
+                                <TextBlock Text="分享" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"
                                            Foreground="{DynamicResource TextSecondaryBrush}" />
                             </StackPanel>
                         </Button>
@@ -99,7 +99,7 @@
                                 <DataTemplate x:DataType="vm:ChatMemberItem">
                                     <StackPanel Classes="member" Spacing="4" Margin="0,4" Cursor="Hand" Background="Transparent">
                                         <c:Avatar Width="36" Height="36" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
-                                        <TextBlock Text="{Binding DisplayName}" FontSize="11" HorizontalAlignment="Center"
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" MaxWidth="54"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" />
                                     </StackPanel>
@@ -199,7 +199,7 @@
                         <Grid Classes="item" ColumnDefinitions="*,Auto" IsVisible="{Binding IsGroup}">
                             <TextBlock Text="群消息设置" />
                             <ComboBox Grid.Column="1" ItemsSource="{Binding LevelOptions}" SelectedItem="{Binding SelectedLevel}"
-                                      FontSize="13" MinWidth="150" VerticalAlignment="Center" />
+                                      FontSize="{DynamicResource FontSizeSmall}" MinWidth="150" VerticalAlignment="Center" />
                         </Grid>
                         <Grid Classes="item" ColumnDefinitions="*,Auto" IsVisible="{Binding IsTopic}">
                             <TextBlock Text="关注话题" />
@@ -243,7 +243,7 @@
                 <Button Theme="{StaticResource FlatButton}" Padding="8" Command="{Binding CloseMemberListCommand}">
                     <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" Width="16" Height="16" />
                 </Button>
-                <TextBlock Grid.Column="1" Text="{Binding MemberListTitle}" FontSize="14" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding MemberListTitle}" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
             </Grid>
             <TextBox DockPanel.Dock="Top" Classes="input" Margin="12,0,12,8" PlaceholderText="搜索群成员"
                      Text="{Binding MemberQuery}" />
@@ -252,7 +252,7 @@
                     <DataTemplate x:DataType="vm:ChatMemberItem">
                         <Grid ColumnDefinitions="Auto,*,Auto" Height="40">
                             <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
-                            <TextBlock Grid.Column="1" Text="{Binding DisplayName}" Margin="10,0" FontSize="13"
+                            <TextBlock Grid.Column="1" Text="{Binding DisplayName}" Margin="10,0" FontSize="{DynamicResource FontSizeSmall}"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             <Border Grid.Column="2" Classes="badge" Classes.owner="{Binding IsOwner}"
                                     IsVisible="{Binding HasBadge}">

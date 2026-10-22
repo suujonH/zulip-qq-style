@@ -84,7 +84,10 @@ public static class EventRouter
             case "custom_profile_fields":
                 s.Realm.ProfileFields = ZulipJson.Deserialize<List<CustomProfileFieldDto>>(ev.GetProperty("fields"));
                 break;
-            // 输入状态、提醒词、定时消息等由后续阶段处理
+            case "alert_words":
+                s.Settings.OnAlertWords(ZulipJson.Deserialize<List<string>>(ev.GetProperty("alert_words")));
+                break;
+            // 输入状态、定时消息等由后续阶段处理
             default:
                 Log.Debug($"忽略事件：{ev.GetProperty("type").GetString()}");
                 break;

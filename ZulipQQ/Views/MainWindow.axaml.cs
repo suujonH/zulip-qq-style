@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using ZulipQQ.Core;
 using ZulipQQ.ViewModels;
+using ZulipQQ.ViewModels.Settings;
 
 namespace ZulipQQ.Views;
 
@@ -71,6 +72,20 @@ public partial class MainWindow : Window, ISessionWindow
         MainMenuButton.Flyout?.Hide();
         if (DataContext is MainViewModel vm)
             FilesWindow.ShowSingle(this, vm);
+    }
+
+    private void OnPaletteClick(object? sender, RoutedEventArgs e)
+    {
+        MainMenuButton.Flyout?.Hide();
+        if (DataContext is MainViewModel vm)
+            SettingsWindow.ShowSingle(this, vm, SettingsPage.Palette);
+    }
+
+    private void OnSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        MainMenuButton.Flyout?.Hide();
+        if (DataContext is MainViewModel vm)
+            SettingsWindow.ShowSingle(this, vm);
     }
 
     private void OnLogoutClick(object? sender, RoutedEventArgs e)

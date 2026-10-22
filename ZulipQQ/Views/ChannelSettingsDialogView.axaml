@@ -8,7 +8,7 @@
     <Border Classes="dialog" Width="460">
         <DockPanel>
             <Grid DockPanel.Dock="Top" Height="30">
-                <TextBlock Text="{Binding Title}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" Margin="36,0" />
                 <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
                         HorizontalAlignment="Right" Command="{Binding CancelCommand}">
@@ -25,33 +25,33 @@
 
             <ScrollViewer MaxHeight="460" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="20,14,20,0" Spacing="8">
-                    <TextBlock Classes="sub" Text="名称" FontSize="13" />
+                    <TextBlock Classes="sub" Text="名称" FontSize="{DynamicResource FontSizeSmall}" />
                     <TextBox Classes="input" Text="{Binding Name}"
                              MaxLength="{x:Static vm:CreateChannelDialogViewModel.MaxNameLength}" />
 
-                    <TextBlock Classes="sub" Text="描述（群公告）" FontSize="13" Margin="0,6,0,0" />
+                    <TextBlock Classes="sub" Text="描述（群公告）" FontSize="{DynamicResource FontSizeSmall}" Margin="0,6,0,0" />
                     <TextBox Classes="input" Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap"
                              Height="72" VerticalContentAlignment="Top"
                              MaxLength="{x:Static vm:CreateChannelDialogViewModel.MaxDescriptionLength}" />
 
-                    <CheckBox Content="私有频道（仅受邀成员可见）" FontSize="13" Margin="0,4,0,0" IsChecked="{Binding IsPrivate}" />
-                    <CheckBox Content="新成员可查看历史消息" FontSize="13" IsChecked="{Binding IsHistoryPublic}"
+                    <CheckBox Content="私有频道（仅受邀成员可见）" FontSize="{DynamicResource FontSizeSmall}" Margin="0,4,0,0" IsChecked="{Binding IsPrivate}" />
+                    <CheckBox Content="新成员可查看历史消息" FontSize="{DynamicResource FontSizeSmall}" IsChecked="{Binding IsHistoryPublic}"
                               IsEnabled="{Binding CanChangeHistory}" />
 
-                    <TextBlock Text="权限设置" FontSize="13" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <TextBlock Text="权限设置" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" Margin="0,10,0,0" />
                     <ItemsControl ItemsSource="{Binding Rows}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:PermissionRowViewModel">
                                 <Grid ColumnDefinitions="*,190" Height="38">
-                                    <TextBlock Text="{Binding Label}" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Label}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
                                     <ComboBox Grid.Column="1" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}"
                                               IsEnabled="{Binding IsEditable}" HorizontalAlignment="Stretch"
-                                              FontSize="13" VerticalAlignment="Center" />
+                                              FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Classes="sub" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,8"
+                    <TextBlock Classes="sub" FontSize="{DynamicResource FontSizeSub}" TextWrapping="Wrap" Margin="0,4,0,8"
                                Text="说明：删除消息相关的权限只是 Zulip 服务器的配置，本客户端不提供删除消息。" />
                 </StackPanel>
             </ScrollViewer>

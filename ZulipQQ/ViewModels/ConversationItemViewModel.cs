@@ -91,10 +91,10 @@ public partial class ConversationItemViewModel(ConversationKey key) : ViewModelB
     [ObservableProperty]
     public partial IBrush? AvatarFill { get; private set; }
 
-    public void Update(ConversationSnapshot s, DateTime now)
+    public void Update(ConversationSnapshot s, DateTime now, bool use24h)
     {
         Title = s.Title;
-        TimeText = s.LastMessageTime > 0 ? Core.TimeText.ListTime(Core.TimeText.FromUnix(s.LastMessageTime), now) : "";
+        TimeText = s.LastMessageTime > 0 ? Core.TimeText.ListTime(Core.TimeText.FromUnix(s.LastMessageTime), now, use24h) : "";
         HasDraft = !string.IsNullOrEmpty(s.Draft);
         PreviewText = HasDraft ? s.Draft! : s.Preview;
 

@@ -24,7 +24,7 @@
 
     <Grid ColumnDefinitions="*,Auto" Background="Transparent"
           chrome:WindowDecorationProperties.ElementRole="TitleBar">
-        <TextBlock x:Name="TitleText" Margin="12,0" FontSize="12" VerticalAlignment="Center" IsVisible="False" />
+        <TextBlock x:Name="TitleText" Margin="12,0" FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center" IsVisible="False" />
         <StackPanel Grid.Column="1" Orientation="Horizontal">
             <Button x:Name="MinimizeButton" Classes="caption" Theme="{StaticResource FlatButton}" Click="OnMinimizeClick"
                     chrome:WindowDecorationProperties.ElementRole="User">

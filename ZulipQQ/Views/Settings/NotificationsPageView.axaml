@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             x:Class="ZulipQQ.Views.Settings.NotificationsPageView"
+             x:DataType="vm:NotificationsPageViewModel">
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="消息通知" />
+
+        <TextBlock Classes="section" Text="通知" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="新消息通知" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableDesktopNotifications}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="频道消息通知" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableStreamDesktopNotifications}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="关注话题的消息通知" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableFollowedTopicDesktopNotifications}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="@全体成员时通知" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding WildcardMentionsNotify}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="通知显示消息摘要" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding PmContentInDesktopNotifications}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="通知类型" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <RadioButton GroupName="style" Content="横幅弹窗" IsChecked="{Binding IsBanner}" />
+                        <RadioButton GroupName="style" Content="仅闪烁任务栏" IsChecked="{Binding IsTrayOnly}" Margin="0" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="提示音" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="提示音" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableSounds}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="频道消息提示音" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableStreamAudibleNotifications}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

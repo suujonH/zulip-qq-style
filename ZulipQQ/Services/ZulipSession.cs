@@ -58,7 +58,7 @@ public sealed class ZulipSession : IAsyncDisposable
         Contacts = new ContactStore(new ContactRepository(db, account.Id), Users);
         Drafts = new DraftStore(this, new LocalDraftRepository(db, account.Id));
         Conversations = new ConversationListStore(this, new ConversationStateRepository(db, account.Id));
-        Settings = new SettingsStore(this);
+        Settings = new SettingsStore(this, new SettingRepository(db, account.Id));
         Chat = new ChatService(this);
         Files = new FileService(this, new DownloadRepository(db, account.Id));
         Registry = new ChatRegistry(this);
@@ -107,6 +107,9 @@ public sealed class ZulipSession : IAsyncDisposable
     /// <summary>系统组的名字；不是系统组时为 null。</summary>
     public string? SystemGroupName(long groupId) =>
         _groups.TryGetValue(groupId, out var g) && g.IsSystemGroup ? g.Name : null;
+
+    /// <summary>组织级权限设置的当前值（设置名不带 realm_ 前缀，如 <c>can_invite_users_group</c>）。</summary>
+    public GroupSettingValue? RealmGroupSetting(string name) => _realmGroupSettings.GetValueOrDefault(name);
 
     /// <summary>权限设置可以选择的组的限制，键为 (范围, 设置名)。</summary>
     public IReadOnlyDictionary<(string Scope, string Name), PermissionSettingInfo> PermissionSettings { get; private set; } =

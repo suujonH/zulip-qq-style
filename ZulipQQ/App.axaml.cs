@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using ZulipQQ.Data;
 using ZulipQQ.Services;
 using ZulipQQ.ViewModels;
@@ -36,7 +37,17 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // 退出账号时会话的请求被取消：命令和事件处理器中漏出的取消异常不应使程序崩溃
+            Dispatcher.UIThread.UnhandledException += (_, e) =>
+            {
+                if (e.Exception is OperationCanceledException)
+                {
+                    Log.Debug("忽略已取消的操作", e.Exception);
+                    e.Handled = true;
+                }
+            };
             LocalDb.Instance = LocalDb.Open(AppPaths.DatabasePath);
+            ThemeService.Initialize(LocalDb.Instance);
             // 登录窗与主窗口会互相替换，由代码决定何时退出
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
@@ -72,6 +83,10 @@ public partial class App : Application
             await CloseChatsAsync(session);
             CloseSessionWindows();
             await session.DisposeAsync();
+            // 登录窗使用默认外观与字号
+            ThemeService.SetPreviewDark(false);
+            ThemeService.ApplyColorScheme(1);
+            ThemeService.ApplyFontSize(ThemeService.DefaultFontSize);
             ShowLogin(accounts.Get(session.Account.Id) ?? session.Account, error);
         }
         finally
@@ -124,6 +139,19 @@ public partial class App : Application
             ct.ThrowIfCancellationRequested();
         }
 
+        ApplySessionTheme(session);
+        session.Settings.Changed += (_, name) =>
+        {
+            if (name == "color_scheme")
+                ThemeService.ApplyColorScheme(session.Settings.Zulip.ColorScheme);
+        };
+        session.Settings.Local.Changed += (_, key) =>
+        {
+            if (key == "font_size")
+                ThemeService.ApplyFontSize(session.Settings.Local.FontSize);
+        };
+        session.Resynced += (_, _) => ApplySessionTheme(session);
+
         var mainVm = new MainViewModel(session);
         var main = new MainWindow { DataContext = mainVm };
         Desktop.MainWindow = main;
@@ -146,6 +174,13 @@ public partial class App : Application
                 _ = LogoutAsync(confirm: false, "登录已失效，请重新登录");
         };
         session.Start();
+    }
+
+    // 外观（Zulip 的 color_scheme）与本地字号
+    private static void ApplySessionTheme(ZulipSession session)
+    {
+        ThemeService.ApplyColorScheme(session.Settings.Zulip.ColorScheme);
+        ThemeService.ApplyFontSize(session.Settings.Local.FontSize);
     }
 
     // 主窗口不在前台时闪烁任务栏；需要时弹出通知，点击后把主窗口带到前台并打开会话

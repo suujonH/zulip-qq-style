@@ -9,12 +9,12 @@
         <!-- 资料行：左侧灰色标签，右侧内容 -->
         <Style Selector="TextBlock.label">
             <Setter Property="Width" Value="64" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="TextBlock.value">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
@@ -30,7 +30,7 @@
         <Style Selector="Border.badge">
             <Setter Property="CornerRadius" Value="3" />
             <Setter Property="Padding" Value="5,1" />
-            <Setter Property="Background" Value="#E6F4FF" />
+            <Setter Property="Background" Value="{DynamicResource RoleBadgeFillBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </UserControl.Styles>
@@ -45,10 +45,10 @@
                 </Panel>
                 <StackPanel Grid.Column="1" Margin="14,2,0,0" Spacing="4">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="{Binding DisplayName}" FontSize="18" FontWeight="SemiBold"
+                        <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" MaxWidth="170" />
                         <Border Classes="badge" IsVisible="{Binding HasRole}">
-                            <TextBlock Text="{Binding RoleText}" FontSize="11" Foreground="{DynamicResource BrandBrush}" />
+                            <TextBlock Text="{Binding RoleText}" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource BrandBrush}" />
                         </Border>
                     </StackPanel>
                     <TextBlock Classes="sub" IsVisible="{Binding HasNickname}"
@@ -102,7 +102,7 @@
                 <DockPanel Classes="row" IsVisible="{Binding CanEditContact}">
                     <TextBlock Classes="label" Text="分组" />
                     <ComboBox ItemsSource="{Binding GroupChoices}" SelectedItem="{Binding SelectedGroup}"
-                              MinWidth="140" FontSize="13">
+                              MinWidth="140" FontSize="{DynamicResource FontSizeSmall}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:GroupChoice">
                                 <TextBlock Text="{Binding Name}" />

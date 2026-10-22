@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             x:Class="ZulipQQ.Views.Settings.FilesPageView"
+             x:DataType="vm:FilesPageViewModel">
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="聊天中的文件" />
+
+        <TextBlock Classes="section" Text="默认保存位置" />
+        <Border Classes="card" Padding="16,12">
+            <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto">
+                <TextBlock Classes="hint" Text="{Binding DownloadRoot}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <Button x:Name="ChangeButton" Grid.Column="1" Classes="secondary" Theme="{StaticResource FlatButton}"
+                        Content="更改" Margin="12,0,8,0" />
+                <Button Grid.Column="2" Classes="secondary" Theme="{StaticResource FlatButton}"
+                        Content="打开" Command="{Binding OpenFolderCommand}" />
+                <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Classes="hint" Margin="0,8,0,0"
+                           Text="另存为时默认打开系统下载目录。" />
+            </Grid>
+        </Border>
+
+        <TextBlock Classes="section" Text="点击聊天中的文件时" />
+        <Border Classes="card">
+            <StackPanel Orientation="Horizontal" MinHeight="44">
+                <RadioButton GroupName="click" Content="下载后直接打开" IsChecked="{Binding IsOpenAfterDownload}" />
+                <RadioButton GroupName="click" Content="仅下载" IsChecked="{Binding IsDownloadOnly}" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

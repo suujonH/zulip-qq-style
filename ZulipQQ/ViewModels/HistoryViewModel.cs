@@ -36,7 +36,7 @@ public sealed class HistoryGroup(DateTime date, bool isGrid) : ViewModelBase
 }
 
 /// <summary>聊天记录中的一条消息（“全部”“链接”标签页）。</summary>
-public sealed partial class HistoryMessageItem(HistoryViewModel owner, MessageDto dto, string senderName, string? avatarUrl, bool isFirst)
+public sealed partial class HistoryMessageItem(HistoryViewModel owner, MessageDto dto, string senderName, string? avatarUrl, bool isFirst, bool use24h)
     : ViewModelBase
 {
     public long MessageId { get; } = dto.Id;
@@ -47,7 +47,7 @@ public sealed partial class HistoryMessageItem(HistoryViewModel owner, MessageDt
 
     public string? AvatarUrl { get; } = avatarUrl;
 
-    public string TimeText { get; } = Core.TimeText.FromUnix(dto.Timestamp).ToString("HH:mm", CultureInfo.InvariantCulture);
+    public string TimeText { get; } = Core.TimeText.ClockTime(Core.TimeText.FromUnix(dto.Timestamp), use24h);
 
     /// <summary>显示的内容：搜索时为带高亮的 <c>match_content</c>。</summary>
     public string Html { get; } = dto.MatchContent ?? dto.Content;
@@ -506,6 +506,6 @@ public partial class HistoryViewModel : ViewModelBase
     {
         var user = _session.Users.Get(dto.SenderId);
         var name = user is null ? dto.SenderFullName : _session.Contacts.DisplayName(dto.SenderId);
-        return new HistoryMessageItem(this, dto, name, user?.AvatarUrl ?? dto.AvatarUrl, isFirst);
+        return new HistoryMessageItem(this, dto, name, user?.AvatarUrl ?? dto.AvatarUrl, isFirst, _session.Settings.Zulip.TwentyFourHourTime);
     }
 }

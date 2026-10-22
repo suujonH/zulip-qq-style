@@ -30,7 +30,7 @@
             <Setter Property="Height" Value="16" />
         </Style>
         <Style Selector="Button.category TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -94,7 +94,7 @@
 
         <!-- 右栏：分类标题与收藏列表 -->
         <Grid Grid.Column="1" RowDefinitions="30,Auto,*">
-            <TextBlock Grid.Row="1" Text="{Binding CategoryTitle}" FontSize="15" Margin="20,0,0,10" />
+            <TextBlock Grid.Row="1" Text="{Binding CategoryTitle}" FontSize="{DynamicResource FontSizeH3}" Margin="20,0,0,10" />
 
             <Panel Grid.Row="2">
                 <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Disabled">
@@ -121,19 +121,19 @@
                                                             IsVisible="{Binding File, Converter={x:Static ObjectConverters.IsNotNull}}">
                                                     <c:TdIcon IconKey="{Binding FileIconKey}" Width="36" Height="36"
                                                               Foreground="{DynamicResource BrandBrush}" />
-                                                    <TextBlock Text="{Binding File.FileName}" FontSize="14" MaxWidth="420"
+                                                    <TextBlock Text="{Binding File.FileName}" FontSize="{DynamicResource FontSizeBody}" MaxWidth="420"
                                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
-                                                <TextBlock Text="{Binding Text}" FontSize="14" MaxWidth="520" MaxLines="3"
+                                                <TextBlock Text="{Binding Text}" FontSize="{DynamicResource FontSizeBody}" MaxWidth="520" MaxLines="3"
                                                            TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                                            VerticalAlignment="Center"
                                                            IsVisible="{Binding Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4"
                                                         Margin="16,0,0,0">
-                                                <TextBlock Text="{Binding DateText}" FontSize="12" HorizontalAlignment="Right"
+                                                <TextBlock Text="{Binding DateText}" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Right"
                                                            Foreground="{DynamicResource TextSecondaryBrush}" />
-                                                <TextBlock Text="{Binding FromText}" FontSize="12" HorizontalAlignment="Right"
+                                                <TextBlock Text="{Binding FromText}" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Right"
                                                            MaxWidth="160" TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource TextSecondaryBrush}" />
                                             </StackPanel>
@@ -144,7 +144,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="加载中…" FontSize="12" HorizontalAlignment="Center" Margin="0,12"
+                        <TextBlock Text="加载中…" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Center" Margin="0,12"
                                    Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsLoadingMore}" />
                     </StackPanel>
                 </ScrollViewer>
@@ -154,7 +154,7 @@
                 <Border Background="#CC000000" CornerRadius="6" Padding="16,8" HorizontalAlignment="Center"
                         VerticalAlignment="Top" Margin="0,16,0,0"
                         IsVisible="{Binding ToastText, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="13" />
+                    <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="{DynamicResource FontSizeSmall}" />
                 </Border>
             </Panel>
         </Grid>

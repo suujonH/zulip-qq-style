@@ -24,11 +24,11 @@
         <DataTemplate DataType="vm:SearchSection">
             <StackPanel IsVisible="{Binding IsVisible}" Margin="0,0,0,6">
                 <Grid ColumnDefinitions="*,Auto" Margin="12,8,8,4">
-                    <TextBlock Text="{Binding Title}" FontSize="12" VerticalAlignment="Center"
+                    <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                     <Button Grid.Column="1" Classes="more" IsVisible="{Binding HasMore}" Command="{Binding ExpandCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="2">
-                            <TextBlock Text="更多" FontSize="12" VerticalAlignment="Center" />
+                            <TextBlock Text="更多" FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center" />
                             <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" Width="12" Height="12" />
                         </StackPanel>
                     </Button>
@@ -42,8 +42,8 @@
                                               Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
                                     <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="2">
                                         <c:HighlightTextBlock Source="{Binding Title}" Highlight="{Binding Highlight}"
-                                                              FontSize="14" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Subtitle}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                                              FontSize="{DynamicResource FontSizeBody}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Subtitle}" FontSize="{DynamicResource FontSizeSub}" TextTrimming="CharacterEllipsis"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" />
                                     </StackPanel>
                                 </Grid>
@@ -51,7 +51,7 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="搜索中…" FontSize="12" Margin="16,6" IsVisible="{Binding IsLoading}"
+                <TextBlock Text="搜索中…" FontSize="{DynamicResource FontSizeSub}" Margin="16,6" IsVisible="{Binding IsLoading}"
                            Foreground="{DynamicResource TextSecondaryBrush}" />
             </StackPanel>
         </DataTemplate>
@@ -68,7 +68,7 @@
                     <ContentControl Content="{Binding Messages}" />
                 </StackPanel>
             </ScrollViewer>
-            <TextBlock Text="未找到相关结果" FontSize="13" HorizontalAlignment="Center" Margin="0,40,0,0"
+            <TextBlock Text="未找到相关结果" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" Margin="0,40,0,0"
                        VerticalAlignment="Top" Foreground="{DynamicResource TextSecondaryBrush}"
                        IsVisible="{Binding IsEmpty}" />
         </Panel>

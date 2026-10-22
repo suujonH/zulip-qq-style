@@ -51,6 +51,11 @@ public partial class MessagesPageViewModel : ViewModelBase
         session.Contacts.Changed += (_, _) => RequestRefresh();
         session.Channels.ChannelChanged += (_, _) => RequestRefresh();
         session.Channels.Reset += (_, _) => RequestRefresh();
+        session.Settings.Changed += (_, name) =>
+        {
+            if (name is "" or "twenty_four_hour_time")
+                RequestRefresh();
+        };
         session.ConnectionChanged += (_, _) => UpdateConnection();
 
         Refresh();
@@ -272,7 +277,7 @@ public partial class MessagesPageViewModel : ViewModelBase
     {
         if (!_items.TryGetValue(key, out var item))
             _items[key] = item = new ConversationItemViewModel(key);
-        item.Update(snapshot, now);
+        item.Update(snapshot, now, _session.Settings.Zulip.TwentyFourHourTime);
         return item;
     }
 
