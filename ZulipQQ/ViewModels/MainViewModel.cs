@@ -309,6 +309,14 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         Dialogs.Add(dialog);
     }
 
+    /// <summary>邀请新成员加入组织（有邀请权限时“+”菜单中才有这一项）。</summary>
+    public void ShowInviteDialog()
+    {
+        InviteDialogViewModel dialog = null!;
+        dialog = new InviteDialogViewModel(Session, this, () => Dialogs.Remove(dialog));
+        Dialogs.Add(dialog);
+    }
+
     // ---- 个性签名 ----
 
     [RelayCommand]

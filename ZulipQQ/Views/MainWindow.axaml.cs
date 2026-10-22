@@ -199,6 +199,8 @@ public partial class MainWindow : Window, ISessionWindow
         flyout.Items.Add(ConversationMenus.Item("加入频道", vm.ShowBrowseChannels));
         if (vm.CanCreateChannel)
             flyout.Items.Add(ConversationMenus.Item("创建频道", vm.ShowCreateChannelDialog));
+        if (vm.Session.Permissions.CanInviteUsers)
+            flyout.Items.Add(ConversationMenus.Item("邀请成员", vm.ShowInviteDialog));
         flyout.ShowAt(button);
     }
 }
