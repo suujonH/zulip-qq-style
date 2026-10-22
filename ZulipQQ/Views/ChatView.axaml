@@ -267,9 +267,14 @@
         <!-- 标题栏 -->
         <Border Grid.ColumnSpan="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold" Margin="20,0"
-                           HorizontalAlignment="Left" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                           Cursor="Hand" Background="Transparent" />
+                <StackPanel Margin="20,0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold"
+                               HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Cursor="Hand" Background="Transparent" />
+                    <!-- 正在输入 -->
+                    <TextBlock Text="{Binding TypingText}" FontSize="{DynamicResource FontSizeCaption}" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               IsVisible="{Binding TypingText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
                 <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,4,0"
                         ToolTip.Tip="群文件" IsVisible="{Binding IsTopic}" Click="OnGroupFilesClick">
                     <c:TdIcon Icon="{StaticResource Icon.Folder}" Width="20" Height="20" />

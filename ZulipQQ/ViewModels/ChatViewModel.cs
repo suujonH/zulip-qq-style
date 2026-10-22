@@ -51,6 +51,10 @@ public partial class ChatViewModel : ViewModelBase
     private bool _loaded;
     private bool _closed;
 
+    // 正在输入的用户与其状态的过期时间（UTC）；超过 started_expiry 没有收到新的 start 即视为停止
+    private readonly Dictionary<long, DateTime> _typers = [];
+    private DispatcherTimer? _typingTimer;
+
     public ChatViewModel(ZulipSession session, MainViewModel main, ConversationKey key)
     {
         _session = session;
@@ -119,6 +123,10 @@ public partial class ChatViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial string Title { get; private set; } = "";
+
+    /// <summary>标题下方的“对方正在输入…”；没有人在输入时为 null。</summary>
+    [ObservableProperty]
+    public partial string? TypingText { get; private set; }
 
     public ObservableCollection<ViewModelBase> Items { get; } = [];
 
@@ -206,6 +214,7 @@ public partial class ChatViewModel : ViewModelBase
         if (_closed)
             return Task.CompletedTask;
         _closed = true;
+        ClearTyping();
         CloseMorePanel();
         ExitMultiSelect();
         Unsubscribe();
@@ -252,6 +261,7 @@ public partial class ChatViewModel : ViewModelBase
     {
         var oldKey = Key;
         ExitMultiSelect();
+        ClearTyping();
         Key = newKey;
         RefreshTitle();
         Composer.OnKeyChanged(oldKey);
@@ -267,10 +277,55 @@ public partial class ChatViewModel : ViewModelBase
     /// </summary>
     public void OnIncomingMessage(ChatMessage m)
     {
+        // 对方发出了消息：不再显示正在输入
+        if (_typers.Remove(m.SenderId))
+            RefreshTyping();
         if (!_opened || _closed || m.SenderId == _session.SelfId || ShowsLatest)
             return;
         _newWhileScrolledUp++;
         UpdateBottomBanner();
+    }
+
+    /// <summary>本会话的 typing 事件。</summary>
+    public void OnTyping(long userId, bool started)
+    {
+        if (_closed)
+            return;
+        if (started)
+            _typers[userId] = DateTime.UtcNow.AddMilliseconds(_session.Realm.TypingStartedExpiryMs);
+        else if (!_typers.Remove(userId))
+            return;
+        RefreshTyping();
+    }
+
+    // 一对一私聊显示“对方正在输入…”；其它会话显示名字（超过 3 人时显示“多人正在输入…”）
+    private void RefreshTyping()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var id in _typers.Where(p => p.Value <= now).Select(p => p.Key).ToList())
+            _typers.Remove(id);
+        if (_typers.Count == 0)
+        {
+            TypingText = null;
+            _typingTimer?.Stop();
+            return;
+        }
+        TypingText = Key is DmKey { OtherUserIds.Length: 1 } ? "对方正在输入…"
+            : _typers.Count > 3 ? "多人正在输入…"
+            : string.Join("、", _typers.Keys.Select(_session.Contacts.DisplayName)) + " 正在输入…";
+        if (_typingTimer is null)
+        {
+            _typingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _typingTimer.Tick += (_, _) => RefreshTyping();
+        }
+        _typingTimer.Start();
+    }
+
+    private void ClearTyping()
+    {
+        _typers.Clear();
+        _typingTimer?.Stop();
+        TypingText = null;
     }
 
     /// <summary>所在窗口被激活：补标已读（打开时窗口不在前台，或在后台收到了新消息）。</summary>

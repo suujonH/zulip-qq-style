@@ -69,6 +69,7 @@ public partial class ComposerViewModel : ViewModelBase
     private readonly ZulipSession _session;
     private readonly Action<string> _showToast;
     private readonly DispatcherTimer _draftTimer = new() { Interval = DraftDelay };
+    private readonly TypingNotifier _typing;
 
     // 载入草稿、发送后清空时不触发保存
     private bool _loadingText;
@@ -85,6 +86,7 @@ public partial class ComposerViewModel : ViewModelBase
         _session = session;
         _showToast = showToast;
         Mentions = new MentionCompletionViewModel(chat, session);
+        _typing = new TypingNotifier(session);
         _draftTimer.Tick += (_, _) => SaveDraft();
         Attachments.CollectionChanged += (_, _) =>
         {
@@ -165,6 +167,7 @@ public partial class ComposerViewModel : ViewModelBase
             return Task.CompletedTask;
         _closed = true;
         _draftTimer.Stop();
+        _typing.Stop();
         foreach (var a in Attachments)
             a.Cancellation.Cancel();
         _session.Settings.Changed -= OnSettingChanged;
@@ -185,6 +188,7 @@ public partial class ComposerViewModel : ViewModelBase
     /// </summary>
     public void OnKeyChanged(ConversationKey oldKey)
     {
+        _typing.Stop();
         RefreshPermission();
         if (!_opened || _closed || oldKey.Equals(_chat.Key) || _session.Drafts.Get(oldKey) is null)
             return;
@@ -212,6 +216,7 @@ public partial class ComposerViewModel : ViewModelBase
         _draftDirty = true;
         _draftTimer.Stop();
         _draftTimer.Start();
+        _typing.OnInput(_chat.Key, !string.IsNullOrWhiteSpace(value));
     }
 
     private void SaveDraft()
@@ -305,6 +310,7 @@ public partial class ComposerViewModel : ViewModelBase
             _loadingText = false;
             _draftDirty = false;
             _draftTimer.Stop();
+            _typing.Stop();
             foreach (var a in captured)
                 Attachments.Remove(a);
             QuoteTarget = null;

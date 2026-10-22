@@ -90,6 +90,9 @@ public static class EventRouter
             case "alert_words":
                 s.Settings.OnAlertWords(ZulipJson.Deserialize<List<string>>(ev.GetProperty("alert_words")));
                 break;
+            case "typing":
+                s.Registry.OnTyping(ev);
+                break;
             case "scheduled_messages":
                 s.Scheduled.OnEvent(ev);
                 break;

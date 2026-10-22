@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using ZulipQQ.Core;
@@ -74,6 +75,27 @@ public sealed class ChatRegistry(ZulipSession session)
         if (m.SenderId == session.SelfId || m.IsRead || !chats.Exists(vm => vm.ShowsLatest && IsInActiveWindow(vm)))
             return;
         session.Forget(session.Chat.MarkReadAsync([m.Id]), "标记已读");
+    }
+
+    /// <summary>
+    /// typing 事件：通知该会话打开中的聊天（标题下方显示“正在输入”）。自己和被屏蔽的用户的输入状态忽略。
+    /// </summary>
+    public void OnTyping(JsonElement ev)
+    {
+        var senderId = ev.GetProperty("sender").GetProperty("user_id").GetInt64();
+        if (senderId == session.SelfId || session.Users.IsMuted(senderId))
+            return;
+        ConversationKey key;
+        if (ev.TryGetProperty("stream_id", out var streamId))
+            key = new TopicKey(streamId.GetInt64(), ev.TryGetProperty("topic", out var topic) ? topic.GetString() ?? "" : "");
+        else if (ev.TryGetProperty("recipients", out var recipients))
+            key = DmKey.Create(recipients.EnumerateArray().Select(r => r.GetProperty("user_id").GetInt64()), session.SelfId);
+        else
+            return;
+
+        var started = ev.GetProperty("op").GetString() == "start";
+        foreach (var vm in _open.Where(vm => vm.Key.Equals(key)).ToList())
+            vm.OnTyping(senderId, started);
     }
 
     private static bool IsInActiveWindow(ChatViewModel vm) =>
