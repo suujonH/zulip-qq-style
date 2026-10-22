@@ -22,6 +22,7 @@ public enum SettingsPage
     Privacy,
     AlertWords,
     Organization,
+    Plugins,
     About,
 }
 
@@ -170,6 +171,7 @@ public partial class SettingsViewModel : ViewModelBase
         SettingsPage.Privacy => new PrivacyPageViewModel(this),
         SettingsPage.AlertWords => new AlertWordsPageViewModel(this),
         SettingsPage.Organization => new OrganizationPageViewModel(this),
+        SettingsPage.Plugins => new PluginsPageViewModel(this),
         _ => new AboutPageViewModel(this),
     };
 
@@ -186,6 +188,7 @@ public partial class SettingsViewModel : ViewModelBase
         Nav.Add(new SettingsNavItem(SettingsPage.AlertWords, "提醒词"));
         if (Session.Permissions.IsOrgAdmin)
             Nav.Add(new SettingsNavItem(SettingsPage.Organization, "组织管理"));
+        Nav.Add(new SettingsNavItem(SettingsPage.Plugins, "插件"));
         Nav.Add(new SettingsNavItem(SettingsPage.About, "关于"));
     }
 
