@@ -1,0 +1,12 @@
+{
+  "id": "com.zulipqq.keyword-filter",
+  "name": "关键词过滤",
+  "version": "1.0.0",
+  "author": "ZulipQQ",
+  "description": "按关键词屏蔽消息，发送时替换 {time}",
+  "api_version": 1,
+  "library": "KeywordFilter.dll",
+  "permissions": ["read_message", "send_message", "read_contacts", "modify_message", "upload_file"],
+  "events": { "on_message": 30000, "filter_incoming": 20000, "filter_outgoing": 30000 },
+  "menus": [ { "id": 1, "name": "打开配置目录" } ]
+}

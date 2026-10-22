@@ -16,6 +16,23 @@ dotnet test --solution ZulipQQ.slnx
 dotnet run --project ZulipQQ
 ```
 
+## 插件
+
+插件是导出 `zq_plugin_init` 的 x64 原生 DLL，接口定义见 [`sdk/zulipqq_plugin.h`](sdk/zulipqq_plugin.h)。
+安装目录为 `<程序目录>\plugins\<id>\`，其中放 `plugin.json` 与 DLL；插件随程序启动，
+可在“设置 > 插件”中启用、停用并查看日志。
+
+| 示例 | 说明 |
+|---|---|
+| `samples/plugins/KeywordFilter` | C# NativeAOT，随程序内置：按 `keywords.txt` 屏蔽消息，发送时替换 `{time}` |
+| `samples/plugins/EchoC` | C 语言（`build.cmd`）：私聊收到 `ping` 回复 `pong` |
+
+本地编译内置插件（需要 Visual Studio 的 C++ 工具）：
+
+```powershell
+./tools/build-plugins.ps1 -OutDir ZulipQQ/bin/Debug/net10.0-windows/plugins
+```
+
 ## 发布
 
 推送 `v*` 形式的 tag（例如 `v0.1.0`）后，GitHub Actions 会编译 win-x64 自包含版本，
