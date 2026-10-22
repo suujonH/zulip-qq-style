@@ -86,7 +86,7 @@ public sealed class MessageStore(ZulipSession session)
     {
         _byId.Clear();
         _timelines.Clear();
-        _pending.Clear();
+        // 本地回显保留：发送中的由 10 秒兜底补上，发送失败的仍可重发
         Reset?.Invoke(this, EventArgs.Empty);
     }
 
@@ -358,6 +358,9 @@ public sealed class MessageStore(ZulipSession session)
         return msg;
     }
 
+    /// <summary>本地回显是否仍在等待服务器的消息替换。</summary>
+    public bool IsPending(string localId) => _pending.ContainsKey(localId);
+
     public void MarkFailed(string localId)
     {
         if (!_pending.TryGetValue(localId, out var msg))
@@ -403,7 +406,8 @@ public sealed class MessageStore(ZulipSession session)
 
     private void ReplaceWindow(Timeline timeline, IEnumerable<MessageDto> messages, bool foundOldest, bool foundNewest)
     {
-        var pending = timeline.Messages.Where(m => m.Id < 0).ToList();
+        // 本地回显以 _pending 为准（窗口被淘汰或重建后也能恢复发送失败的消息）；负 id 越大越早发送
+        var pending = _pending.Values.Where(m => m.Key.Equals(timeline.Key)).OrderByDescending(m => m.Id).ToList();
         timeline.Messages.Clear();
         timeline.Messages.AddRange(messages.OrderBy(m => m.Id).Select(Intern));
         timeline.FoundOldest = foundOldest;

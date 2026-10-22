@@ -63,6 +63,7 @@ public sealed class ZulipSession : IAsyncDisposable
         Files = new FileService(this, new DownloadRepository(db, account.Id));
         Registry = new ChatRegistry(this);
         Presence = new PresenceService(this);
+        Emoji = new EmojiService(this, new SettingRepository(db, account.Id));
 
         Messages.IsKeptOpen = Registry.IsOpen;
         Conversations.ConversationRekeyed += (_, e) => Registry.Rekey(e.Old, e.New);
@@ -89,6 +90,13 @@ public sealed class ZulipSession : IAsyncDisposable
     public FileService Files { get; }
     public ChatRegistry Registry { get; }
     public PresenceService Presence { get; }
+    public EmojiService Emoji { get; }
+
+    /// <summary>当前事件队列 id；发送消息时带上，服务器会在对应的 message 事件中返回 local_message_id。</summary>
+    public string QueueId => _queueId;
+
+    /// <summary>组织的用户组（含系统组）。</summary>
+    public IEnumerable<UserGroupDto> UserGroups => _groups.Values;
 
     public ConnectionState Connection { get; private set; } = ConnectionState.Connected;
 
@@ -303,6 +311,7 @@ public sealed class ZulipSession : IAsyncDisposable
         RebuildPermissions();
 
         Settings.Load(reg);
+        Emoji.LoadRealm(reg.RealmEmoji);
         Drafts.Load(reg);
         Unread.Load(reg.UnreadMsgs);
         Messages.Clear();

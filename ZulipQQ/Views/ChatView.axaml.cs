@@ -1,12 +1,20 @@
 using System;
 using System.Collections.Specialized;
+using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ZulipQQ.Controls;
+using ZulipQQ.Core;
+using ZulipQQ.Services;
 using ZulipQQ.ViewModels;
 
 namespace ZulipQQ.Views;
@@ -30,6 +38,9 @@ public partial class ChatView : UserControl
     // 第一次滚动定位之前不报告可见范围，避免在初始位置把首屏以外的消息误判为已看到
     private bool _firstScrollDone;
 
+    // 最近一次滚动后是否停在底部
+    private bool _atBottom;
+
     // 链接点击之后的同一次鼠标抬起不再切换时间显示
     private bool _suppressTap;
 
@@ -41,12 +52,17 @@ public partial class ChatView : UserControl
             _viewportTimer.Stop();
             ReportViewport();
         };
-        MessageScroller.ScrollChanged += (_, _) => ScheduleViewport();
+        MessageScroller.ScrollChanged += OnScrollChanged;
         MessageScroller.SizeChanged += (_, _) => UpdateSizes();
         SizeChanged += (_, _) => UpdateSizes();
         LayoutUpdated += OnLayoutUpdated;
         MessageList.AddHandler(MessageContent.LinkClickedEvent, OnLinkClicked);
         MessageList.AddHandler(PointerReleasedEvent, OnMessagePointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
+        // 隧道阶段处理：SelectableTextBlock 自带的“Copy”菜单会在冒泡阶段先处理
+        MessageList.AddHandler(ContextRequestedEvent, OnMessageContextRequested, RoutingStrategies.Tunnel);
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DropEvent, OnDrop);
         RootGrid.RowDefinitions[1].MinHeight = 100;
         RootGrid.RowDefinitions[3].MinHeight = 120;
     }
@@ -112,6 +128,7 @@ public partial class ChatView : UserControl
         _pendingScroll = null;
         _anchor = null;
         _firstScrollDone = false;
+        _atBottom = false;
         _viewportTimer.Stop();
     }
 
@@ -211,6 +228,19 @@ public partial class ChatView : UserControl
 
     private double ContentY(Control container) => container.TranslatePoint(default, MessageList)?.Y ?? 0;
 
+    // 停在底部时，内容变高（贴表情、图片加载完成）或视口变矮（输入区变高）后仍然停在底部
+    private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (_firstScrollDone && _atBottom && _pendingScroll is null && _anchor is null
+            && (e.ExtentDelta.Y > 0 || e.ViewportDelta.Y < 0))
+        {
+            MessageScroller.ScrollToEnd();
+            return;
+        }
+        _atBottom = MessageScroller.Offset.Y >= MessageScroller.Extent.Height - MessageScroller.Viewport.Height - BottomTolerance;
+        ScheduleViewport();
+    }
+
     private void ScheduleViewport()
     {
         if (!_firstScrollDone)
@@ -269,6 +299,130 @@ public partial class ChatView : UserControl
         Dispatcher.UIThread.Post(() => _suppressTap = false);
         var item = (e.Source as StyledElement)?.DataContext as MessageItemViewModel;
         _ = _vm.HandleLinkAsync(item, e.Target, TopLevel.GetTopLevel(this));
+    }
+
+    // 文件拖到聊天区：图片进入待发送列表，其它文件上传后直接发送
+    private void OnDragOver(object? sender, DragEventArgs e) =>
+        e.DragEffects = _vm?.Composer.HasSendPermission == true && e.DataTransfer.Contains(DataFormat.File)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        if (_vm is null || e.DataTransfer.TryGetFiles() is not { Length: > 0 } files)
+            return;
+        _vm.Composer.AddFiles(files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList());
+    }
+
+    /// <summary>
+    /// 消息右键菜单：第一行是快捷表情回应（最后一个“+”打开表情选择器），然后是复制、收藏、引用。
+    /// 不提供删除和撤回。发送中的本地回显没有菜单。
+    /// </summary>
+    private void OnMessageContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (_vm is null || FindBubble(e.Source as Visual) is not { DataContext: MessageItemViewModel { Id: > 0 } item } bubble)
+            return;
+        e.Handled = true;
+        var vm = _vm;
+        var menu = new ContextMenu();
+
+        var reactions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+        foreach (var emoji in vm.Session.Emoji.QuickReactions)
+        {
+            Control content = emoji.ImageUrl is { } url
+                ? new RemoteImage { Source = url, Width = 22, Height = 22, CornerRadius = 0 }
+                : new TextBlock { Text = emoji.Text, FontSize = 18, FontFamily = new FontFamily("Segoe UI Emoji") };
+            var button = ReactionButton(content, $":{emoji.Name}:");
+            button.Click += (_, _) =>
+            {
+                menu.Close();
+                _ = vm.ReactAsync(item, emoji);
+            };
+            reactions.Children.Add(button);
+        }
+        var more = ReactionButton(new TdIcon { Icon = this.FindResource("Icon.Add") as TdIconData, Width = 16, Height = 16 }, "更多表情");
+        more.Click += (_, _) =>
+        {
+            menu.Close();
+            ShowReactionPicker(vm, item, bubble);
+        };
+        reactions.Children.Add(more);
+        menu.Items.Add(new MenuItem { Header = reactions, StaysOpenOnClick = true });
+        menu.Items.Add(new Separator());
+
+        menu.Items.Add(MenuItem("复制", () => _ = CopyAsync(item, bubble)));
+        menu.Items.Add(MenuItem(item.IsStarred ? "取消收藏" : "收藏", () => _ = vm.ToggleStarAsync(item)));
+        menu.Items.Add(MenuItem("引用", () => vm.Composer.Quote(item)));
+        menu.Open(bubble);
+    }
+
+    private static Button ReactionButton(Control content, string tip)
+    {
+        var button = new Button { Content = content, Width = 32, Height = 32, Padding = new Thickness(0) };
+        button.Theme = (Avalonia.Styling.ControlTheme?)Application.Current?.FindResource("FlatButton");
+        ToolTip.SetTip(button, tip);
+        return button;
+    }
+
+    private static MenuItem MenuItem(string header, Action action)
+    {
+        var item = new MenuItem { Header = header };
+        item.Click += (_, _) => action();
+        return item;
+    }
+
+    private void ShowReactionPicker(ChatViewModel vm, MessageItemViewModel item, Control anchor)
+    {
+        var picker = new EmojiPickerViewModel(vm.Session.Emoji);
+        var flyout = new Flyout { Content = new EmojiPickerView { DataContext = picker }, Placement = PlacementMode.TopEdgeAlignedLeft };
+        picker.Picked += (_, emoji) =>
+        {
+            flyout.Hide();
+            _ = vm.ReactAsync(item, emoji);
+        };
+        flyout.ShowAt(anchor);
+    }
+
+    /// <summary>
+    /// 复制：气泡中有选中的文字时复制选中部分；只有图片的消息复制原图；否则复制纯文本。
+    /// </summary>
+    private async Task CopyAsync(MessageItemViewModel item, Control bubble)
+    {
+        if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+            return;
+        try
+        {
+            var selected = bubble.GetVisualDescendants().OfType<SelectableTextBlock>()
+                .Select(t => t.SelectedText).FirstOrDefault(s => !string.IsNullOrEmpty(s));
+            if (selected is not null)
+            {
+                await clipboard.SetTextAsync(selected);
+                return;
+            }
+
+            var images = bubble.GetVisualDescendants().OfType<RemoteImage>().ToList();
+            if (item.IsBare && images.Count == 1 && !bubble.GetVisualDescendants().OfType<FileCard>().Any()
+                && await ImageCache.Shared.GetAsync(images[0].Href ?? images[0].Source ?? "", null) is { } bitmap)
+            {
+                await clipboard.SetBitmapAsync(bitmap);
+                return;
+            }
+            await clipboard.SetTextAsync(ZulipHtml.ToPlainText(item.ContentHtml));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("复制失败", ex);
+        }
+    }
+
+    private Border? FindBubble(Visual? source)
+    {
+        for (var v = source; v is not null && v != MessageList; v = v.GetVisualParent())
+        {
+            if (v is Border border && border.Classes.Contains("bubble"))
+                return border;
+        }
+        return null;
     }
 
     // 点击气泡：显示 / 隐藏精确时间。拖动选择文字、点击链接时不切换

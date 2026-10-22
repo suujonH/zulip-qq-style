@@ -60,6 +60,9 @@ public partial class MessageItemViewModel : ViewModelBase
     public partial bool IsFailed { get; private set; }
 
     [ObservableProperty]
+    public partial bool IsStarred { get; private set; }
+
+    [ObservableProperty]
     public partial IReadOnlyList<ReactionViewModel> Reactions { get; private set; } = [];
 
     [ObservableProperty]
@@ -94,6 +97,7 @@ public partial class MessageItemViewModel : ViewModelBase
         IsEdited = Message.LastEditTimestamp is not null;
         IsPending = Message.SendState == MessageSendState.Pending;
         IsFailed = Message.SendState == MessageSendState.Failed;
+        IsStarred = Message.IsStarred;
 
         // 同一表情合并为一项，按第一次出现的顺序
         Reactions = Message.Reactions
@@ -105,6 +109,10 @@ public partial class MessageItemViewModel : ViewModelBase
     }
 
     internal Task ToggleReactionAsync(ReactionViewModel reaction) => _chat.ToggleReactionAsync(this, reaction);
+
+    /// <summary>点击发送失败的红色感叹号：重发。</summary>
+    [RelayCommand]
+    private void Retry() => _chat.Retry(this);
 }
 
 /// <summary>气泡下方的一个表情回应：表情、人数，自己回应过时高亮。</summary>
@@ -116,9 +124,15 @@ public partial class ReactionViewModel(
     public string Code { get; } = code;
     public string Type { get; } = type;
 
-    /// <summary>Unicode 表情直接显示字符；组织自定义表情暂显示为 :名称:。</summary>
+    /// <summary>组织自定义表情的图片；Unicode 表情为 null。</summary>
+    public string? ImageUrl { get; } =
+        type == EmojiEntry.RealmType ? session.Emoji.Catalog.TryGet(name) is { Type: EmojiEntry.RealmType } e ? e.ImageUrl : null : null;
+
+    public bool HasImage => ImageUrl is not null;
+
+    /// <summary>Unicode 表情显示字符；没有图片的其它表情显示为 :名称:。</summary>
     public string EmojiText { get; } =
-        (type == "unicode_emoji" ? ZulipHtml.EmojiFromClass("emoji-" + code) : null) ?? $":{name}:";
+        (type == EmojiEntry.UnicodeType ? EmojiCatalog.UnicodeFromCode(code) : null) ?? $":{name}:";
 
     public int Count { get; } = userIds.Count;
 

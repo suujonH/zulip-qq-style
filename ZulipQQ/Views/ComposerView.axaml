@@ -1,0 +1,196 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.ComposerView"
+             x:DataType="vm:ComposerViewModel">
+
+    <UserControl.Styles>
+        <!-- 工具栏图标按钮 -->
+        <Style Selector="Button.tool">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+        </Style>
+        <Style Selector="Button.tool c|TdIcon">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+
+        <!-- 输入框：没有边框和背景，与聊天区融为一体 -->
+        <Style Selector="TextBox.composer">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="20,4" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+        </Style>
+        <Style Selector="TextBox.composer /template/ Border#PART_BorderElement,
+                         TextBox.composer:pointerover /template/ Border#PART_BorderElement,
+                         TextBox.composer:focus /template/ Border#PART_BorderElement,
+                         TextBox.composer:disabled /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <!-- 发送分体按钮：左边发送，右边下拉；不能发送时整体变浅 -->
+        <Style Selector="Button.send">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.send:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrandHoverBrush}" />
+        </Style>
+        <Style Selector="Button.send:disabled">
+            <Setter Property="Background" Value="{DynamicResource BrandDisabledBrush}" />
+        </Style>
+
+        <!-- 待发送的附件 -->
+        <Style Selector="Border.attachment">
+            <Setter Property="Width" Value="64" />
+            <Setter Property="Height" Value="64" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <!-- @ 补全的候选不获取焦点：点击时输入框不失去焦点，补全不会被关闭 -->
+        <Style Selector="ListBox#MentionList, ListBox#MentionList ListBoxItem">
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+
+        <Style Selector="Border.attachment.failed">
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel>
+        <!-- 工具栏：表情、文件、图片 -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,6,14,0" Spacing="4"
+                    IsEnabled="{Binding CanEdit}">
+            <Button x:Name="EmojiButton" Classes="tool" ToolTip.Tip="表情">
+                <c:TdIcon Icon="{StaticResource Icon.Smile}" />
+                <Button.Flyout>
+                    <Flyout Placement="TopEdgeAlignedLeft" />
+                </Button.Flyout>
+            </Button>
+            <Button x:Name="FileButton" Classes="tool" ToolTip.Tip="发送文件">
+                <c:TdIcon Icon="{StaticResource Icon.Folder}" />
+            </Button>
+            <Button x:Name="ImageButton" Classes="tool" ToolTip.Tip="发送图片">
+                <c:TdIcon Icon="{StaticResource Icon.Image}" />
+            </Button>
+        </StackPanel>
+
+        <!-- 发送按钮 -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,20,12">
+            <Button Classes="send" Content="发送" Width="64" CornerRadius="4,0,0,4" Command="{Binding SendCommand}" />
+            <Border Width="1" Background="White" Opacity="0.4" />
+            <Button Classes="send" Width="28" CornerRadius="0,4,4,0" ToolTip.Tip="发送设置">
+                <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" Width="14" Height="14" Foreground="White" />
+                <Button.Flyout>
+                    <MenuFlyout Placement="TopEdgeAlignedRight">
+                        <MenuItem Header="按Enter键发送消息" ToggleType="Radio" IsChecked="{Binding EnterSends, Mode=OneWay}"
+                                  Command="{Binding SetEnterSendsCommand}">
+                            <MenuItem.CommandParameter>
+                                <x:Boolean>True</x:Boolean>
+                            </MenuItem.CommandParameter>
+                        </MenuItem>
+                        <MenuItem Header="按Ctrl+Enter键发送消息" ToggleType="Radio" IsChecked="{Binding !EnterSends, Mode=OneWay}"
+                                  Command="{Binding SetEnterSendsCommand}">
+                            <MenuItem.CommandParameter>
+                                <x:Boolean>False</x:Boolean>
+                            </MenuItem.CommandParameter>
+                        </MenuItem>
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
+        </StackPanel>
+
+        <!-- 引用 -->
+        <Border DockPanel.Dock="Top" IsVisible="{Binding HasQuote}" Margin="20,4,20,0" Padding="10,4,4,4" CornerRadius="4"
+                Background="{DynamicResource FillBrush}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Theme="{StaticResource FlatButton}" Width="22" Height="22"
+                        Command="{Binding ClearQuoteCommand}" ToolTip.Tip="取消引用">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="12" Height="12"
+                              Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Button>
+                <TextBlock Text="{Binding QuoteText, StringFormat='引用 {0}'}" FontSize="12" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </DockPanel>
+        </Border>
+
+        <!-- 待发送的图片 / 上传中的文件 -->
+        <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Attachments}" IsVisible="{Binding HasAttachments}"
+                      Margin="20,6,20,0">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:PendingAttachment">
+                    <Panel Margin="0,6,8,6" ToolTip.Tip="{Binding FileName}">
+                        <Border Classes="attachment" Classes.failed="{Binding IsFailed}">
+                            <Panel>
+                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                                       IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                <StackPanel VerticalAlignment="Center" Spacing="2" Margin="4"
+                                            IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}">
+                                    <c:TdIcon Icon="{StaticResource Icon.File}" Width="22" Height="22"
+                                              Foreground="{DynamicResource BrandBrush}" />
+                                    <TextBlock Text="{Binding FileName}" FontSize="10" TextTrimming="CharacterEllipsis"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                                <ProgressBar VerticalAlignment="Bottom" Height="3" MinHeight="3" Minimum="0" Maximum="1"
+                                             Value="{Binding Progress}" IsVisible="{Binding IsUploading}" />
+                            </Panel>
+                        </Border>
+                        <Button Theme="{StaticResource FlatButton}" Width="18" Height="18" CornerRadius="9"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,-6,0"
+                                Background="#99000000" ToolTip.Tip="移除"
+                                Command="{Binding $parent[UserControl].((vm:ComposerViewModel)DataContext).RemoveAttachmentCommand}"
+                                CommandParameter="{Binding}">
+                            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="10" Height="10" Foreground="White" />
+                        </Button>
+                    </Panel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Panel>
+            <TextBox x:Name="InputBox" Classes="composer" Text="{Binding Text}" PlaceholderText="{Binding Placeholder}"
+                     IsEnabled="{Binding CanEdit}" />
+
+            <!-- @ 补全 -->
+            <Popup x:Name="MentionPopup" PlacementTarget="{Binding #InputBox}" Placement="TopEdgeAlignedLeft"
+                   HorizontalOffset="16" IsOpen="{Binding Mentions.IsOpen, Mode=OneWay}">
+                <Border Classes="dialog" Width="280" Padding="4">
+                    <ListBox x:Name="MentionList" ItemsSource="{Binding Mentions.Items}"
+                             SelectedIndex="{Binding Mentions.SelectedIndex}" MaxHeight="300" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="vm:MentionCandidate">
+                                <DockPanel>
+                                    <c:Avatar Width="24" Height="24" Margin="0,0,8,0" Source="{Binding AvatarUrl}"
+                                              Text="{Binding AvatarText}" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding SubText}" FontSize="11" Margin="8,0,0,0"
+                                               MaxWidth="140" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBlock Text="{Binding Display}" FontSize="13" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </Popup>
+        </Panel>
+    </DockPanel>
+</UserControl>

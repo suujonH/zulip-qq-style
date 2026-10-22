@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:core="using:ZulipQQ.Core"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.EmojiPickerView"
+             x:DataType="vm:EmojiPickerViewModel"
+             Width="352" Height="340">
+
+    <UserControl.Styles>
+        <Style Selector="Button.emoji">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Command" Value="{Binding $parent[UserControl].((vm:EmojiPickerViewModel)DataContext).PickCommand}" />
+        </Style>
+        <Style Selector="Button.emoji TextBlock">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontFamily" Value="Segoe UI Emoji" />
+        </Style>
+        <Style Selector="TextBlock.groupTitle">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Margin" Value="4,6,0,4" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="core:EmojiEntry">
+            <Button Classes="emoji" CommandParameter="{Binding}" ToolTip.Tip="{Binding Name, StringFormat=':{0}:'}">
+                <Panel>
+                    <TextBlock Text="{Binding Text}" IsVisible="{Binding ImageUrl, Converter={x:Static ObjectConverters.IsNull}}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <c:RemoteImage Width="24" Height="24" CornerRadius="0" Source="{Binding ImageUrl}"
+                                   IsVisible="{Binding ImageUrl, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </Panel>
+            </Button>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <DockPanel Margin="8">
+        <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Classes="search" PlaceholderText="搜索表情" Text="{Binding Query}"
+                 Margin="0,0,0,4">
+            <TextBox.InnerLeftContent>
+                <c:TdIcon Icon="{StaticResource Icon.Search}" Width="14" Height="14" Margin="8,0,0,0"
+                          Foreground="{DynamicResource TextSecondaryBrush}" />
+            </TextBox.InnerLeftContent>
+        </TextBox>
+
+        <StackPanel DockPanel.Dock="Top" IsVisible="{Binding ShowRecent}">
+            <TextBlock Classes="groupTitle" Text="常用" />
+            <ItemsControl ItemsSource="{Binding Recent}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <TextBlock Classes="groupTitle" Text="全部表情" />
+        </StackPanel>
+
+        <!-- 按行虚拟化 -->
+        <ListBox ItemsSource="{Binding Rows}" ItemContainerTheme="{StaticResource PlainListBoxItem}"
+                 Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="vm:EmojiRow">
+                    <ItemsControl ItemsSource="{Binding Items}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+</UserControl>
