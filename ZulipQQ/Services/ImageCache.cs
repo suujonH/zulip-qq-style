@@ -20,6 +20,9 @@ public sealed class ImageCache
 {
     private const int MemoryCapacity = 300;
 
+    // 组织外的图片（如 Gravatar）换图后地址不变，磁盘缓存超过这个时间就重新下载
+    private static readonly TimeSpan ExternalMaxAge = TimeSpan.FromDays(1);
+
     private static readonly HttpClient External = new() { Timeout = TimeSpan.FromSeconds(30) };
 
     private readonly Dictionary<(string Url, int Width), LinkedListNode<(string Url, int Width, Bitmap Bitmap)>> _map = [];
@@ -101,14 +104,16 @@ public sealed class ImageCache
     {
         var path = Path.Combine(AppPaths.ImageCacheDir,
             Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(url.AbsoluteUri))));
-        if (File.Exists(path))
+        // 组织内上传的头像和图片地址带内容哈希，可以一直使用磁盘缓存
+        var isRealm = client is not null && IsSameHost(url, client.RealmUrl);
+        if (File.Exists(path) && (isRealm || DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < ExternalMaxAge))
             return await File.ReadAllBytesAsync(path, ct);
 
         byte[] bytes;
-        if (client is not null && IsSameHost(url, client.RealmUrl))
+        if (isRealm)
         {
             using var buffer = new MemoryStream();
-            await client.DownloadAsync(url.PathAndQuery, buffer, ct: ct);
+            await client!.DownloadAsync(url.PathAndQuery, buffer, ct: ct);
             bytes = buffer.ToArray();
         }
         else

@@ -98,14 +98,17 @@
             <Setter Property="RenderTransform" Value="translateX(-96px)" />
             <Setter Property="Opacity" Value="0" />
             <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="IsEnabled" Value="False" />
         </Style>
         <Style Selector="DockPanel.helperLayer">
             <Setter Property="RenderTransform" Value="translateX(320px)" />
             <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="IsEnabled" Value="False" />
         </Style>
         <Style Selector="DockPanel.helperLayer.helperOpen">
             <Setter Property="RenderTransform" Value="translateX(0px)" />
             <Setter Property="IsHitTestVisible" Value="True" />
+            <Setter Property="IsEnabled" Value="True" />
         </Style>
     </UserControl.Styles>
 
@@ -159,7 +162,7 @@
 
         <Panel ClipToBounds="True">
             <Panel Classes="mainLayer" Classes.helperOpen="{Binding IsHelperOpen}">
-                <ListBox ItemsSource="{Binding Conversations}"
+                <ListBox x:Name="MainList" ItemsSource="{Binding Conversations}"
                          SelectedItem="{Binding SelectedConversation}"
                          ItemTemplate="{StaticResource ConversationTemplate}"
                          ItemContainerTheme="{StaticResource PlainListBoxItem}"
@@ -183,7 +186,7 @@
                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </DockPanel>
 
-                <ListBox ItemsSource="{Binding HelperConversations}"
+                <ListBox x:Name="HelperList" ItemsSource="{Binding HelperConversations}"
                          SelectedItem="{Binding SelectedHelperConversation}"
                          ItemTemplate="{StaticResource ConversationTemplate}"
                          ItemContainerTheme="{StaticResource PlainListBoxItem}"
