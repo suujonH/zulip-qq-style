@@ -61,6 +61,7 @@ public sealed class ConversationEntry
 public sealed class ConversationListStore(ZulipSession session, ConversationStateRepository repo)
 {
     private const int BackfillIntervalMs = 300;
+    private const int BackfillCount = 5;
 
     private readonly Dictionary<ConversationKey, ConversationEntry> _entries = [];
 
@@ -98,7 +99,9 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
     /// </summary>
     public void Bootstrap(IEnumerable<MessageDto> recent)
     {
-        foreach (var group in recent.GroupBy(m => ConversationKey.FromMessage(m, session.SelfId)))
+        // 被插件拦截的消息不作为预览
+        foreach (var group in recent.Where(m => !session.Messages.IsHiddenByPlugin(m.Id))
+                     .GroupBy(m => ConversationKey.FromMessage(m, session.SelfId)))
         {
             var latest = group.MaxBy(m => m.Id)!;
             ApplyLatest(group.Key, latest.Id, latest.Timestamp, latest.SenderId, ZulipHtml.ToPreview(latest.Content), latest.Subject);
@@ -403,10 +406,13 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
                 {
                     var narrow = Narrow.For(key, session.SelfId, key is TopicKey t ? GetTopicName(t) : null);
                     var before = _entries.TryGetValue(key, out var e0) ? e0.LastMessageId : 0;
-                    var result = await session.Client.GetMessagesAsync(new MessageQuery(narrow, "newest", 1, 0), session.Token);
+                    var result = await session.Client.GetMessagesAsync(new MessageQuery(narrow, "newest", BackfillCount, 0), session.Token);
                     if (session.IsDisposed)
                         return;
-                    var latest = result.Messages.LastOrDefault();
+                    // 跳过被插件拦截的消息；最近几条都被拦截时保留原预览
+                    var latest = result.Messages.LastOrDefault(m => !session.Messages.IsHiddenByPlugin(m.Id));
+                    if (latest is null && result.Messages.Count > 0)
+                        continue;
                     // 请求期间收到了更新的消息：响应已过时，保留事件写入的预览
                     if (_entries.TryGetValue(key, out var e1) && e1.LastMessageId != before && (latest?.Id ?? 0) < e1.LastMessageId)
                         continue;

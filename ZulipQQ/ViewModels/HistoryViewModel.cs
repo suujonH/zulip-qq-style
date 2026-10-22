@@ -463,6 +463,8 @@ public partial class HistoryViewModel : ViewModelBase
     // 消息按从新到旧的顺序追加：同一天的放进最后一组。返回是否产生了条目
     private bool Append(MessageDto dto)
     {
+        if (_session.Messages.IsHiddenByPlugin(dto.Id))
+            return false;
         List<ViewModelBase> entries = Tab switch
         {
             HistoryTab.Media => MediaEntries(dto),

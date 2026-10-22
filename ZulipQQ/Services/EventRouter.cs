@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using ZulipQQ.Core;
 using ZulipQQ.Models;
+using ZulipQQ.Plugins;
 using ZulipQQ.Zulip;
 using ZulipQQ.Zulip.Dtos;
 
@@ -25,8 +26,7 @@ public static class EventRouter
                     s.Realm.ZulipVersion = version.GetString() ?? s.Realm.ZulipVersion;
                 break;
             case "message":
-                OnMessage(s, ev);
-                break;
+                return OnMessageAsync(s, ev);
             case "update_message":
                 OnUpdateMessage(s, ev);
                 break;
@@ -95,7 +95,7 @@ public static class EventRouter
         return Task.CompletedTask;
     }
 
-    private static void OnMessage(ZulipSession s, JsonElement ev)
+    private static async Task OnMessageAsync(ZulipSession s, JsonElement ev)
     {
         var dto = ZulipJson.Deserialize<MessageDto>(ev.GetProperty("message"));
         var flags = ev.TryGetProperty("flags", out var f)
@@ -106,11 +106,26 @@ public static class EventRouter
         var msg = ChatMessage.FromDto(dto, ConversationKey.FromMessage(dto, s.SelfId));
         msg.Flags = [.. flags];
 
+        // 插件过滤（自己发送的消息不经过）：被拦截的消息标记已读，不进入任何 Store
+        if (msg.SenderId != s.SelfId && await PluginHost.Instance.FilterIncomingAsync(msg, s))
+        {
+            if (s.IsDisposed)
+                return;
+            s.Messages.HideByPlugin(msg.Id);
+            // 不等待服务器：事件必须按顺序处理，不应被网络请求拖慢
+            if (!flags.Contains("read"))
+                s.Forget(s.Chat.MarkReadAsync([msg.Id]), "标记被插件拦截的消息已读");
+            return;
+        }
+        if (s.IsDisposed)
+            return;
+
         s.Messages.OnNewMessage(msg, localId);
         s.Channels.OnNewMessage(msg);
         s.Unread.OnNewMessage(msg, flags);
         s.Conversations.OnNewMessage(msg);
         s.Notifications.OnNewMessage(msg, flags);
+        PluginHost.Instance.DispatchMessage(msg, s);
         s.Registry.OnNewMessage(msg);
     }
 

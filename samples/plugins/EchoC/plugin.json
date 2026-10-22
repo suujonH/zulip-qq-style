@@ -1,0 +1,11 @@
+{
+  "id": "com.zulipqq.echo-c",
+  "name": "EchoC 示例",
+  "version": "1.0.0",
+  "author": "ZulipQQ",
+  "description": "私聊收到 ping 时回复 pong",
+  "api_version": 1,
+  "library": "echo.dll",
+  "permissions": ["read_message", "send_message"],
+  "events": { "on_message": 30000 }
+}
