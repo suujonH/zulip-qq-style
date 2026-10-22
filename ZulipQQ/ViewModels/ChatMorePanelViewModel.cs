@@ -80,6 +80,9 @@ public partial class ChatMorePanelViewModel : ViewModelBase
     [ObservableProperty]
     public partial string MemberCountText { get; private set; } = "";
 
+    [ObservableProperty]
+    public partial string MemberListTitle { get; private set; } = "";
+
     /// <summary>面板切换到完整的成员列表。</summary>
     [ObservableProperty]
     public partial bool IsMemberListOpen { get; private set; }
@@ -313,6 +316,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
         _members = ChatMembers.Build(Session, channel, ids);
         PreviewMembers = _members.Take(PreviewMemberCount).ToList();
         MemberCountText = $"查看{_members.Count}名群成员";
+        MemberListTitle = $"群聊成员 {_members.Count}";
         ApplyMemberFilter();
     }
 

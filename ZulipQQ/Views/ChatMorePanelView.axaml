@@ -223,11 +223,11 @@
                 <Button Theme="{StaticResource FlatButton}" Padding="8" Command="{Binding CloseMemberListCommand}">
                     <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" Width="16" Height="16" />
                 </Button>
-                <TextBlock Grid.Column="1" Text="{Binding MemberCountText}" FontSize="14" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding MemberListTitle}" FontSize="14" VerticalAlignment="Center" />
             </Grid>
             <TextBox DockPanel.Dock="Top" Classes="input" Margin="12,0,12,8" PlaceholderText="搜索群成员"
                      Text="{Binding MemberQuery}" />
-            <ListBox x:Name="FullMemberList" ItemsSource="{Binding FilteredMembers}" Background="Transparent">
+            <ListBox x:Name="FullMemberList" Classes="members" ItemsSource="{Binding FilteredMembers}" Background="Transparent">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:ChatMemberItem">
                         <Grid ColumnDefinitions="Auto,*,Auto" Height="40">

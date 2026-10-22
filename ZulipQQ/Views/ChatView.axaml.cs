@@ -27,6 +27,7 @@ public partial class ChatView : UserControl
 {
     private const double BottomTolerance = 20;
     private const double LoadMoreDistance = 300;
+    private const double SidebarMinChatWidth = 640;
 
     private readonly DispatcherTimer _viewportTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private ChatViewModel? _vm;
@@ -286,6 +287,8 @@ public partial class ChatView : UserControl
 
     private void UpdateSizes()
     {
+        // 右侧栏只在显示后消息区仍不小于 640 时显示
+        SidebarView.IsVisible = _vm?.Sidebar is not null && Bounds.Width - SidebarView.Width >= SidebarMinChatWidth;
         if (_vm is not null && MessageScroller.Bounds.Width > 0)
             _vm.BubbleMaxWidth = Math.Max(200, MessageScroller.Bounds.Width * 0.65);
         if (Bounds.Height > 0)

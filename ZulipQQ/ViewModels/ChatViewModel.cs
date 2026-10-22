@@ -60,10 +60,14 @@ public partial class ChatViewModel : ViewModelBase
         _showToast = main.ShowToast;
         Key = key;
         Composer = new ComposerViewModel(this, session, _showToast);
+        Sidebar = key is TopicKey ? new TopicSidebarViewModel(this) : null;
         RefreshTitle();
     }
 
     public MainViewModel Main { get; }
+
+    /// <summary>话题聊天的右侧栏（群公告、群聊成员）；私聊为 null。</summary>
+    public TopicSidebarViewModel? Sidebar { get; }
 
     public ComposerViewModel Composer { get; }
 
