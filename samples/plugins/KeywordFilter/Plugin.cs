@@ -112,10 +112,11 @@ internal static unsafe class Plugin
             var time = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : default;
             if (time == _keywordsTime)
                 return;
-            _keywordsTime = time;
             _keywords = time == default
                 ? []
                 : File.ReadAllLines(path).Select(l => l.Trim()).Where(l => l.Length > 0).Distinct().ToList();
+            // 读取成功后才记录时间：文件被占用时下次继续重试
+            _keywordsTime = time;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

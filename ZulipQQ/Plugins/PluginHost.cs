@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -28,7 +29,8 @@ public sealed class PluginHost
     private readonly PluginThread _thread = new();
     private readonly List<NativePlugin> _plugins = [];
     private PluginStateRepository? _states;
-    private bool _sessionActive;
+    // UI 线程修改，插件线程读取
+    private volatile bool _sessionActive;
 
     // 已经超时、仍在插件线程上执行的事件链：期间新的事件直接按 IGNORE 处理，避免越积越多
     private Task? _stuckCall;
@@ -66,7 +68,7 @@ public sealed class PluginHost
             if (plugin.Manifest is not null && enabled.GetValueOrDefault(plugin.Id, true))
             {
                 plugin.Enabled = true;
-                _ = LoadAsync(plugin, notifyEnable: false);
+                _ = LoadAsync(plugin);
             }
         }
     }
@@ -77,17 +79,14 @@ public sealed class PluginHost
         _sessionActive = true;
         _ = _thread.RunAsync(() =>
         {
-            foreach (var p in _plugins.Where(p => p.Enabled && p.IsLoaded))
-            {
-                Invoke(p, p.CallStart);
-                Invoke(p, p.CallEnable);
-            }
+            foreach (var p in _plugins)
+                Activate(p);
         });
     }
 
     /// <summary>
-    /// 会话结束（退出账号或退出程序，在销毁会话之前）：依次调用已启用插件的 zq_on_disable、zq_on_exit。
-    /// 幂等；返回的任务在调用结束后完成，等待时间由调用方控制。
+    /// 会话结束（退出账号或退出程序，在销毁会话之前）：对收到过 zq_on_enable / zq_on_start 的插件
+    /// 依次调用 zq_on_disable、zq_on_exit。幂等；返回的任务在调用结束后完成，等待时间由调用方控制。
     /// </summary>
     public Task OnSessionEnded()
     {
@@ -96,10 +95,14 @@ public sealed class PluginHost
         _sessionActive = false;
         return _thread.RunAsync(() =>
         {
-            foreach (var p in _plugins.Where(p => p.Enabled && p.IsLoaded))
+            foreach (var p in _plugins)
             {
-                Invoke(p, p.CallDisable);
-                Invoke(p, p.CallExit);
+                Deactivate(p);
+                if (p.Started)
+                {
+                    p.Started = false;
+                    Invoke(p, p.CallExit);
+                }
             }
         });
     }
@@ -112,14 +115,11 @@ public sealed class PluginHost
         _states?.SetEnabled(plugin.Id, enabled);
         plugin.Enabled = enabled;
         Changed?.Invoke(this, EventArgs.Empty);
-        if (enabled)
-        {
-            await LoadAsync(plugin, notifyEnable: _sessionActive);
-        }
-        else if (_sessionActive && plugin.IsLoaded)
-        {
-            await _thread.RunAsync(() => Invoke(plugin, plugin.CallDisable));
-        }
+        // 生命周期回调在插件线程上按当时的状态决定，期间又切换回来时不会重复或遗漏
+        if (enabled && !plugin.IsLoaded)
+            await LoadAsync(plugin);
+        else
+            await _thread.RunAsync(() => { if (plugin.Enabled) Activate(plugin); else Deactivate(plugin); });
     }
 
     /// <summary>插件菜单（不等待）。</summary>
@@ -213,15 +213,14 @@ public sealed class PluginHost
         }
     }
 
-    private async Task LoadAsync(NativePlugin plugin, bool notifyEnable)
+    private async Task LoadAsync(NativePlugin plugin)
     {
         try
         {
             await _thread.RunAsync(() =>
             {
                 plugin.Load();
-                if (notifyEnable && plugin.IsLoaded)
-                    Invoke(plugin, plugin.CallEnable);
+                Activate(plugin);
             });
         }
         catch (Exception ex)
@@ -290,14 +289,43 @@ public sealed class PluginHost
         return ChainResult.TimedOut;
     }
 
-    // 插件线程上：调用一个导出函数，记录正在执行的插件；托管异常记入插件日志（原生崩溃无法捕获）
+    // 插件线程上：会话进行中且插件已启用、已加载时，补发 zq_on_start、zq_on_enable
+    private void Activate(NativePlugin plugin)
+    {
+        if (!_sessionActive || !plugin.Enabled || !plugin.IsLoaded)
+            return;
+        if (!plugin.Started)
+        {
+            plugin.Started = true;
+            Invoke(plugin, plugin.CallStart);
+        }
+        if (!plugin.Active)
+        {
+            plugin.Active = true;
+            Invoke(plugin, plugin.CallEnable);
+        }
+    }
+
+    // 插件线程上：收到过 zq_on_enable 的插件调用 zq_on_disable
+    private void Deactivate(NativePlugin plugin)
+    {
+        if (!plugin.Active)
+            return;
+        plugin.Active = false;
+        Invoke(plugin, plugin.CallDisable);
+    }
+
+    // 插件线程上：调用一个导出函数，记录正在执行的插件；托管异常记入插件日志（原生崩溃无法捕获）。
+    // 只有在超时时间内返回才清零超时计数：每次都超时但最终返回的插件仍会被标记为无响应
     private int Invoke(NativePlugin plugin, Func<int> call)
     {
         _current = plugin;
+        var watch = Stopwatch.StartNew();
         try
         {
             var result = call();
-            plugin.OnReturned();
+            if (watch.Elapsed < ChainTimeout)
+                plugin.OnReturned();
             return result;
         }
         catch (Exception ex)

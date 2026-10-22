@@ -127,9 +127,9 @@ typedef struct zq_host_api {
 
 /* ---- 插件导出（init 必须，其余可选） ---- */
 ZQ_EXPORT int32_t ZQ_CALL zq_plugin_init(const zq_host_api* api);   /* 返回 ZQ_OK 表示成功 */
-ZQ_EXPORT int32_t ZQ_CALL zq_on_start(void);     /* 登录完成（会话开始） */
+ZQ_EXPORT int32_t ZQ_CALL zq_on_start(void);     /* 会话开始：登录完成，或会话中启用插件时；与 zq_on_exit 成对 */
 ZQ_EXPORT int32_t ZQ_CALL zq_on_exit(void);      /* 会话结束（退出账号或退出程序） */
-ZQ_EXPORT int32_t ZQ_CALL zq_on_enable(void);
+ZQ_EXPORT int32_t ZQ_CALL zq_on_enable(void);    /* 会话中插件被启用（在 zq_on_start 之后）；与 zq_on_disable 成对 */
 ZQ_EXPORT int32_t ZQ_CALL zq_on_disable(void);
 ZQ_EXPORT int32_t ZQ_CALL zq_on_message(const zq_message* msg);           /* 新消息回调（含自己发送的消息） */
 ZQ_EXPORT int32_t ZQ_CALL zq_filter_incoming(const zq_message* msg);      /* BLOCK = 不显示（本次运行内加载历史时也不显示）、不提醒、标记已读；自己发送的消息不经过 */

@@ -367,8 +367,21 @@ public sealed class MessageStore(ZulipSession session)
         return msg;
     }
 
-    /// <summary>记录被插件拦截的消息（实时事件中，消息尚未进入索引）。</summary>
-    public void HideByPlugin(long id) => _hiddenByPlugin.Add(id);
+    /// <summary>
+    /// 记录被插件拦截的消息。消息通常尚未进入索引；等待插件期间被加载进来时，标记后通知所在的会话重建。
+    /// </summary>
+    public void HideByPlugin(long id)
+    {
+        _hiddenByPlugin.Add(id);
+        if (_byId.TryGetValue(id, out var msg) && !msg.IsHiddenByPlugin)
+        {
+            msg.IsHiddenByPlugin = true;
+            Raise(msg.Key, new TimelineChange(TimelineChangeKind.Removed));
+        }
+    }
+
+    /// <summary>本次会话中被插件拦截的消息（聊天记录窗口同样不显示）。</summary>
+    public bool IsHiddenByPlugin(long id) => _hiddenByPlugin.Contains(id);
 
     /// <summary>本地回显是否仍在等待服务器的消息替换。</summary>
     public bool IsPending(string localId) => _pending.ContainsKey(localId);

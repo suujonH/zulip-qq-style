@@ -216,11 +216,13 @@ internal static unsafe class HostApi
             return Zq.ErrInvalidArg;
         if (!OnUi(() => session.Channels.Get(streamId) is { IsSubscribed: true }))
             return Zq.ErrNotFound;
-        var topics = Dispatcher.UIThread.InvokeAsync(() => session.Channels.GetTopicsAsync(streamId)).GetAwaiter().GetResult();
-        foreach (var t in topics)
+        var cached = Dispatcher.UIThread.InvokeAsync(() => session.Channels.GetTopicsAsync(streamId)).GetAwaiter().GetResult();
+        // 缓存的列表会在 UI 线程上随新消息修改：先在 UI 线程上复制
+        var topics = OnUi(() => cached.Select(t => (t.Name, t.MaxId)).ToList());
+        foreach (var (name, maxId) in topics)
         {
             using var scope = new Utf8Scope();
-            var native = new ZqTopic { StructSize = (uint)sizeof(ZqTopic), StreamId = streamId, MaxMessageId = t.MaxId, Name = scope.Str(t.Name) };
+            var native = new ZqTopic { StructSize = (uint)sizeof(ZqTopic), StreamId = streamId, MaxMessageId = maxId, Name = scope.Str(name) };
             ((delegate* unmanaged[Cdecl]<ZqTopic*, nint, void>)cb)(&native, user);
         }
         return topics.Count;

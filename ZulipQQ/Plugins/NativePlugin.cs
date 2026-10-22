@@ -54,6 +54,12 @@ public sealed unsafe class NativePlugin
         internal set => _enabled = value;
     }
 
+    /// <summary>本次会话已调用 zq_on_start、尚未调用 zq_on_exit（只在插件线程上读写）。</summary>
+    internal bool Started { get; set; }
+
+    /// <summary>已调用 zq_on_enable、尚未调用 zq_on_disable（只在插件线程上读写）。</summary>
+    internal bool Active { get; set; }
+
     /// <summary>连续多次超时：本次运行内不再派发事件。</summary>
     public bool IsUnresponsive => _unresponsive;
 
