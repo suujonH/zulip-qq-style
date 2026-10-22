@@ -283,7 +283,8 @@ public partial class ContactsPageViewModel : ViewModelBase
             desired.Add(section);
         }
 
-        foreach (var channel in Session.Channels.Subscribed())
+        // 已归档的频道不再显示（与网页端左侧栏一致）
+        foreach (var channel in Session.Channels.Subscribed().Where(c => !c.IsArchived))
         {
             var section = SectionFor(GroupSections, ContactSectionKind.Channel, channel.StreamId);
             var streamId = channel.StreamId;
