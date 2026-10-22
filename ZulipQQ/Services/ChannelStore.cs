@@ -105,12 +105,14 @@ public sealed class ChannelStore(ZulipSession session)
 
     private async Task LoadAllTopicsAsync()
     {
-        foreach (var streamId in Subscribed().Select(c => c.StreamId).ToList())
+        // 每轮重新找下一个未加载的频道：运行期间被事件清掉缓存的频道也会补上；每个频道本轮只试一次
+        HashSet<long> attempted = [];
+        while (Subscribed().Select(c => c.StreamId).FirstOrDefault(id => !_topics.ContainsKey(id) && !attempted.Contains(id))
+               is var streamId and not 0)
         {
             if (session.IsDisposed)
                 return;
-            if (_topics.ContainsKey(streamId))
-                continue;
+            attempted.Add(streamId);
             try
             {
                 await GetTopicsAsync(streamId);

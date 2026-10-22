@@ -188,7 +188,7 @@
                                                                 </Grid.ContextMenu>
                                                                 <Panel Width="40" Height="40" Margin="16,0,12,0">
                                                                     <c:RemoteImage Width="40" Height="40" CornerRadius="4"
-                                                                                   Source="{Binding Path}" IsVisible="{Binding IsImage}" />
+                                                                                   Source="{Binding ImagePath}" IsVisible="{Binding IsImage}" />
                                                                     <c:TdIcon IconKey="{Binding IconKey}" Width="34" Height="34"
                                                                               Foreground="{DynamicResource BrandBrush}"
                                                                               IsVisible="{Binding !IsImage}" />

@@ -174,6 +174,8 @@ public partial class SearchViewModel : ViewModelBase
             _groupsRefreshPending = false;
             if (Query.Trim() is not { Length: > 0 } q)
                 return;
+            // 话题改名、移动或删除会清掉整个频道的缓存，搜索期间要重新加载，否则该频道的结果一直缺失
+            _session.Forget(_session.Channels.EnsureAllTopicsLoadedAsync(), "加载全部话题");
             Groups.Set(SearchGroups(q), keepExpanded: true);
             OnPropertyChanged(nameof(IsEmpty));
         }, DispatcherPriority.Background);

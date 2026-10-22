@@ -71,6 +71,9 @@ public sealed partial class FileEntry : ViewModelBase
 
     public bool IsImage => Kind == FileKind.Image;
 
+    /// <summary>缩略图地址；非图片为 null，避免隐藏的图片控件把整个文件下载下来。</summary>
+    public string? ImagePath => IsImage ? Link.Path : null;
+
     public string IconKey => FileKinds.IconKey(Link.Path);
 
     public long MessageId { get; }
@@ -204,6 +207,7 @@ public partial class FilesViewModel : ViewModelBase
         };
         session.Files.StateChanged += OnFileStateChanged;
         session.Resynced += OnResynced;
+        session.Conversations.ConversationRekeyed += OnRekeyed;
     }
 
     public ZulipSession Session => _session;
@@ -310,6 +314,9 @@ public partial class FilesViewModel : ViewModelBase
     public void Navigate(FilesView view, ConversationKey? key = null)
     {
         View = view;
+        // 群文件不显示筛选下拉，不能留着其它视图的筛选
+        if (view == FilesView.Group)
+            Filter = null;
         SelectedSource = null;
         BuildSources(key);
         Reload();
@@ -323,6 +330,7 @@ public partial class FilesViewModel : ViewModelBase
         _sizeQueue.Clear();
         _session.Files.StateChanged -= OnFileStateChanged;
         _session.Resynced -= OnResynced;
+        _session.Conversations.ConversationRekeyed -= OnRekeyed;
     }
 
     [RelayCommand]
@@ -497,6 +505,20 @@ public partial class FilesViewModel : ViewModelBase
     private void OnResynced(object? sender, EventArgs e)
     {
         if (!_closed)
+            Reload();
+    }
+
+    // 话题被整体移动或改名：中间栏和已加载的文件都换成新键，选中的话题跟着换
+    private void OnRekeyed(object? sender, (ConversationKey Old, ConversationKey New) e)
+    {
+        if (_closed)
+            return;
+        if (Sources.Any(s => e.Old.Equals(s.Key)))
+        {
+            var select = SelectedSource?.Key;
+            Navigate(View, e.Old.Equals(select) ? e.New : select);
+        }
+        else if (_entries.Any(f => f.Key.Equals(e.Old)))
             Reload();
     }
 
