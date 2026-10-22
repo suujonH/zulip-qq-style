@@ -228,7 +228,8 @@ public partial class FavoritesViewModel : ViewModelBase
     private async Task LocateAsync(FavoriteItem item)
     {
         await _main.OpenChatAsync(item.Key, item.MessageId);
-        if (!_closed)
+        // 会话在独立窗口中打开时由该窗口显示在前台，不再激活主面板
+        if (!_closed && _main.ShowsInRightPane(item.Key))
             MainWindowRequested?.Invoke(this, EventArgs.Empty);
     }
 

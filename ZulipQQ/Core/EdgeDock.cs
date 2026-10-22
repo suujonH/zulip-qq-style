@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Linq;
+
 namespace ZulipQQ.Core;
 
 /// <summary>主窗口停靠的屏幕边缘。</summary>
@@ -38,6 +41,19 @@ public static class EdgeDock
             return DockEdge.Right;
         return DockEdge.None;
     }
+
+    /// <summary>
+    /// 屏幕的这条边外侧紧挨着另一块屏幕（多显示器之间的边界）。这样的边不能隐藏：
+    /// 缩进去的部分会显示在相邻的屏幕上。<paramref name="screen"/> 与 <paramref name="others"/> 为屏幕的完整范围。
+    /// </summary>
+    public static bool HasNeighbor(DockEdge edge, PixelBox screen, IEnumerable<PixelBox> others) =>
+        others.Any(o => edge switch
+        {
+            DockEdge.Top => o.Bottom == screen.Y && o.X < screen.Right && o.Right > screen.X,
+            DockEdge.Left => o.Right == screen.X && o.Y < screen.Bottom && o.Bottom > screen.Y,
+            DockEdge.Right => o.X == screen.Right && o.Y < screen.Bottom && o.Bottom > screen.Y,
+            _ => false,
+        });
 
     /// <summary>停靠时的显示位置：把窗口贴齐边缘（拖出屏幕外的部分拉回来）。</summary>
     public static (int X, int Y) ShownPosition(DockEdge edge, PixelBox window, PixelBox work) => edge switch

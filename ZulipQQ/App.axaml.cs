@@ -202,7 +202,7 @@ public partial class App : Application
     // 主窗口不在前台时闪烁任务栏和托盘图标；需要时弹出通知，点击后把主窗口带到前台并打开会话
     private void ShowNotification(MainWindow main, MainViewModel vm, NotificationRequest request)
     {
-        if (!main.IsActive)
+        if (!main.IsActive || EdgeHideController.IsHiddenAtEdge(main))
         {
             TaskbarFlash.Start(main);
             _tray?.StartFlashing();

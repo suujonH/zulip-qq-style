@@ -50,8 +50,11 @@ public partial class MainWindow : Window, ISessionWindow
             ApplyLayout();
             RestoreBounds();
             var local = _vm.Session.Settings.Local;
+            var registry = _vm.Session.Registry;
             _edgeHide?.Dispose();
             _edgeHide = new EdgeHideController(this, () => local.EdgeAutoHide);
+            // 缩进边缘期间到达的消息保持未读，移回后与窗口被激活时一样标记已读
+            _edgeHide.Revealed += (_, _) => registry.OnWindowRevealed(this);
         }
     }
 

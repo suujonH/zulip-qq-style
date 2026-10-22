@@ -77,7 +77,15 @@ public sealed class ChatRegistry(ZulipSession session)
     }
 
     private static bool IsInActiveWindow(ChatViewModel vm) =>
-        vm.HostWindow is { IsActive: true, IsVisible: true } window && window.WindowState != WindowState.Minimized;
+        vm.HostWindow is { IsActive: true, IsVisible: true } window && window.WindowState != WindowState.Minimized
+        && !EdgeHideController.IsHiddenAtEdge(window);
+
+    /// <summary>缩进屏幕边缘的窗口移回：其中的聊天与窗口被激活时一样补标已读。</summary>
+    public void OnWindowRevealed(Window window)
+    {
+        foreach (var vm in _open.Where(vm => vm.HostWindow == window).ToList())
+            vm.OnHostActivated();
+    }
 
     /// <summary>
     /// 会话已在独立窗口中打开时还原并激活该窗口（有 <paramref name="focusMessageId"/> 时跳转到该消息），返回 true。

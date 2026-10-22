@@ -30,6 +30,11 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
     private readonly Dictionary<ConversationKey, SemaphoreSlim> _locks = [];
     private readonly SemaphoreSlim _modeGate = new(1, 1);
 
+    // 已请求、尚未完成的保存 / 删除（null 为删除）。同一会话的操作串行执行，排队期间 Get 返回最新请求的值，
+    // 否则关闭聊天后立即重新打开会读到旧草稿
+    private readonly Dictionary<ConversationKey, (int Seq, string? Text)> _queued = [];
+    private int _queueSeq;
+
     // 最近一次关闭同步前的状态：设置页提交设置失败时用它恢复服务器模式
     private (Dictionary<ConversationKey, List<DraftEntry>> Server, Dictionary<ConversationKey, string> Local,
         Dictionary<ConversationKey, string> Transferred)? _beforeDisable;
@@ -43,6 +48,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
     {
         _server.Clear();
         _local.Clear();
+        _queued.Clear();
         UseServer = reg.UserSettings.EnableDraftsSynchronization;
         if (UseServer)
             LoadServer(reg.Drafts);
@@ -54,6 +60,8 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
     /// <summary>会话的草稿；没有时为 null。</summary>
     public string? Get(ConversationKey key)
     {
+        if (_queued.TryGetValue(key, out var queued))
+            return queued.Text;
         if (UseServer && _server.TryGetValue(key, out var list) && list.Count > 0)
             return list.MaxBy(d => d.Timestamp)!.Content;
         return _local.GetValueOrDefault(key);
@@ -68,6 +76,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
             return;
         }
 
+        var seq = Enqueue(key, text);
         var gate = Lock(key);
         await gate.WaitAsync();
         try
@@ -114,6 +123,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
         }
         finally
         {
+            Dequeue(key, seq);
             gate.Release();
         }
     }
@@ -121,6 +131,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
     /// <summary>删除会话的全部草稿。</summary>
     public async Task DeleteAsync(ConversationKey key)
     {
+        var seq = Enqueue(key, null);
         var gate = Lock(key);
         await gate.WaitAsync();
         try
@@ -153,6 +164,7 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
         }
         finally
         {
+            Dequeue(key, seq);
             gate.Release();
         }
     }
@@ -359,6 +371,20 @@ public sealed class DraftStore(ZulipSession session, LocalDraftRepository localR
         if (!_server.TryGetValue(key, out var list))
             _server[key] = list = [];
         return list;
+    }
+
+    private int Enqueue(ConversationKey key, string? text)
+    {
+        var seq = ++_queueSeq;
+        _queued[key] = (seq, text);
+        return seq;
+    }
+
+    // 只移除自己的记录：之后排队的操作仍未完成
+    private void Dequeue(ConversationKey key, int seq)
+    {
+        if (_queued.TryGetValue(key, out var queued) && queued.Seq == seq)
+            _queued.Remove(key);
     }
 
     private SemaphoreSlim Lock(ConversationKey key)

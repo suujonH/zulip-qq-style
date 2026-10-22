@@ -28,6 +28,9 @@ public sealed class EdgeHideController : IDisposable
     // 打开中的弹出层（右键菜单、Flyout 等）；属于本窗口的弹出层打开时不隐藏
     private static readonly HashSet<Popup> OpenPopups = [];
 
+    // 缩进边缘中的窗口：仍是活动窗口，但看不到内容
+    private static readonly HashSet<Window> HiddenWindows = [];
+
     private readonly Window _window;
     private readonly Func<bool> _enabled;
     private readonly DispatcherTimer _pollTimer = new() { Interval = PollInterval };
@@ -58,7 +61,27 @@ public sealed class EdgeHideController : IDisposable
     }
 
     /// <summary>窗口已缩进边缘。</summary>
-    public bool IsHidden { get; private set; }
+    public bool IsHidden
+    {
+        get => HiddenWindows.Contains(_window);
+        private set
+        {
+            if (value)
+            {
+                HiddenWindows.Add(_window);
+            }
+            else if (HiddenWindows.Remove(_window))
+            {
+                Revealed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    /// <summary>缩进边缘的窗口开始移回。</summary>
+    public event EventHandler? Revealed;
+
+    /// <summary>窗口缩进在屏幕边缘（此时即使是活动窗口也看不到其中的聊天）。</summary>
+    public static bool IsHiddenAtEdge(Window window) => HiddenWindows.Contains(window);
 
     /// <summary>窗口的正常位置：隐藏时为移回后的位置（保存窗口位置时使用）。</summary>
     public PixelPoint RestingPosition => IsHidden ? _shownPosition : _window.Position;
@@ -91,6 +114,7 @@ public sealed class EdgeHideController : IDisposable
     {
         _pollTimer.Stop();
         _animationTimer?.Stop();
+        HiddenWindows.Remove(_window);
         _window.Activated -= OnActivated;
     }
 
@@ -124,8 +148,12 @@ public sealed class EdgeHideController : IDisposable
             _outsideSince = null;
             return;
         }
-        var work = new PixelBox(screen.WorkingArea.X, screen.WorkingArea.Y, screen.WorkingArea.Width, screen.WorkingArea.Height);
+        var work = ToBox(screen.WorkingArea);
         var edge = EdgeDock.Detect(box, work);
+        // 多显示器之间的边界不隐藏
+        if (edge != DockEdge.None && EdgeDock.HasNeighbor(edge, ToBox(screen.Bounds),
+                _window.Screens.All.Where(s => s.Bounds != screen.Bounds).Select(s => ToBox(s.Bounds))))
+            edge = DockEdge.None;
         if (edge == DockEdge.None || box.Contains(cursor.X, cursor.Y, PointerMargin) || HasOpenPopup())
         {
             _outsideSince = null;
@@ -159,6 +187,8 @@ public sealed class EdgeHideController : IDisposable
         var size = _window.FrameSize ?? _window.Bounds.Size;
         return (new PixelBox(position.X, position.Y, (int)Math.Round(size.Width * scale), (int)Math.Round(size.Height * scale)), default);
     }
+
+    private static PixelBox ToBox(PixelRect r) => new(r.X, r.Y, r.Width, r.Height);
 
     private bool HasOpenPopup() =>
         OpenPopups.Any(p => TopLevel.GetTopLevel((Visual?)p.PlacementTarget ?? p) == _window);

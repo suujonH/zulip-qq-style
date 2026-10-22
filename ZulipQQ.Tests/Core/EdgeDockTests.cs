@@ -47,4 +47,20 @@ public class EdgeDockTests
         Assert.True(box.Contains(115, 50, margin: 8));
         Assert.False(box.Contains(2, 50, margin: 7));
     }
+
+    [Fact]
+    public void HasNeighbor()
+    {
+        var left = new PixelBox(0, 0, 1920, 1080);
+        var right = new PixelBox(1920, 200, 1280, 1024);
+        var above = new PixelBox(0, -1080, 1920, 1080);
+        Assert.True(EdgeDock.HasNeighbor(DockEdge.Right, left, [right]));
+        Assert.True(EdgeDock.HasNeighbor(DockEdge.Left, right, [left]));
+        Assert.False(EdgeDock.HasNeighbor(DockEdge.Left, left, [right]));
+        Assert.True(EdgeDock.HasNeighbor(DockEdge.Top, left, [above, right]));
+        Assert.False(EdgeDock.HasNeighbor(DockEdge.Top, right, [above, left]));
+        // 只在角上相接（没有重叠的一段边）不算相邻
+        Assert.False(EdgeDock.HasNeighbor(DockEdge.Right, left, [new PixelBox(1920, 1080, 800, 600)]));
+        Assert.False(EdgeDock.HasNeighbor(DockEdge.Right, left, []));
+    }
 }

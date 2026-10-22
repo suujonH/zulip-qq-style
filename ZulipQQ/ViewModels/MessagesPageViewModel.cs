@@ -197,6 +197,13 @@ public partial class MessagesPageViewModel : ViewModelBase
         _openChat(value.Key);
     }
 
+    /// <summary>再次点击已选中的会话：重新打开（已在独立窗口中时激活该窗口）。</summary>
+    public void Reopen(ConversationItemViewModel item)
+    {
+        if (!item.IsHelper)
+            _openChat(item.Key);
+    }
+
     partial void OnSelectedHelperConversationChanged(ConversationItemViewModel? value)
     {
         if (_selecting || value is null)

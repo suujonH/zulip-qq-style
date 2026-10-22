@@ -187,6 +187,9 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         ChatWindowRequested?.Invoke(this, new ChatWindowRequest(key, existing, focusMessageId));
     }
 
+    /// <summary>会话显示在主窗口右侧。</summary>
+    public bool ShowsInRightPane(ConversationKey key) => RightPane is ChatViewModel chat && chat.Key.Equals(key);
+
     /// <summary>独立聊天窗口关闭：列表中仍选中该会话时取消选中，否则再次点击不会重新打开。</summary>
     public void OnChatWindowClosed(ConversationKey key)
     {
