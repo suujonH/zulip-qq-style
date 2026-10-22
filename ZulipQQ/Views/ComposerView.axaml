@@ -73,7 +73,7 @@
     <DockPanel>
         <!-- 工具栏：表情、文件、图片 -->
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,6,14,0" Spacing="4"
-                    IsEnabled="{Binding HasSendPermission}">
+                    IsEnabled="{Binding CanEdit}">
             <Button x:Name="EmojiButton" Classes="tool" ToolTip.Tip="表情">
                 <c:TdIcon Icon="{StaticResource Icon.Smile}" />
                 <Button.Flyout>
@@ -167,7 +167,7 @@
 
         <Panel>
             <TextBox x:Name="InputBox" Classes="composer" Text="{Binding Text}" PlaceholderText="{Binding Placeholder}"
-                     IsEnabled="{Binding HasSendPermission}" />
+                     IsEnabled="{Binding CanEdit}" />
 
             <!-- @ 补全 -->
             <Popup x:Name="MentionPopup" PlacementTarget="{Binding #InputBox}" Placement="TopEdgeAlignedLeft"

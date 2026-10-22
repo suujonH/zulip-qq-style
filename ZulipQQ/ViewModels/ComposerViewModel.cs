@@ -72,7 +72,6 @@ public partial class ComposerViewModel : ViewModelBase
     // 载入草稿、发送后清空时不触发保存
     private bool _loadingText;
     private bool _draftDirty;
-    private bool _sending;
     private bool _opened;
     private bool _closed;
 
@@ -114,11 +113,19 @@ public partial class ComposerViewModel : ViewModelBase
 
     /// <summary>话题所在频道是否允许自己发言；没有权限时输入框禁用。</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Placeholder))]
+    [NotifyPropertyChangedFor(nameof(Placeholder), nameof(CanEdit))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     public partial bool HasSendPermission { get; private set; } = true;
 
     public string Placeholder => HasSendPermission ? "" : "你没有在此频道发言的权限";
+
+    /// <summary>正在准备发送（获取引用原文）：此时禁止编辑，避免发送内容与输入框不一致。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEdit))]
+    public partial bool IsSending { get; private set; }
+
+    /// <summary>输入框是否可以编辑。</summary>
+    public bool CanEdit => HasSendPermission && !IsSending;
 
     /// <summary>Zulip 的 enter_sends：true 为 Enter 发送，false 为 Ctrl+Enter 发送。</summary>
     public bool EnterSends => _session.Settings.Zulip.EnterSends;
@@ -214,7 +221,7 @@ public partial class ComposerViewModel : ViewModelBase
     }
 
     private bool CanSend() =>
-        HasSendPermission && !_sending
+        HasSendPermission && !IsSending
         && Attachments.All(a => a.State != AttachmentState.Uploading)
         && (!string.IsNullOrWhiteSpace(Text) || Attachments.Any(a => a.State == AttachmentState.Done));
 
@@ -230,7 +237,7 @@ public partial class ComposerViewModel : ViewModelBase
         // 等待引用原文期间可能又添加了图片：只发送、移除现在已有的附件
         var captured = Attachments.ToList();
         var images = captured.Where(a => a.State == AttachmentState.Done).ToList();
-        _sending = true;
+        IsSending = true;
         SendCommand.NotifyCanExecuteChanged();
         try
         {
@@ -279,22 +286,27 @@ public partial class ComposerViewModel : ViewModelBase
                 Attachments.Remove(a);
             QuoteTarget = null;
             Mentions.Close();
-            _session.Forget(_session.Drafts.DeleteAsync(key), "删除草稿");
-            _session.Forget(SendToLatestAsync(key, text), "发送消息");
+            // 关闭时等待删除完成，否则退出账号会取消请求，已发送的草稿下次登录又出现
+            _draftSave = _session.Drafts.DeleteAsync(_chat.Key);
+            _session.Forget(_draftSave, "删除草稿");
+            _session.Forget(SendToLatestAsync(text), "发送消息");
         }
         finally
         {
-            _sending = false;
+            IsSending = false;
             SendCommand.NotifyCanExecuteChanged();
+            if (quote is not null)
+                FocusRequested?.Invoke(this, EventArgs.Empty);
         }
     }
 
-    // 正在查看较早的消息时，本地回显和新消息不会追加到时间线：先回到最新的消息再发送
-    private async Task SendToLatestAsync(ConversationKey key, string content)
+    // 正在查看较早的消息时，本地回显和新消息不会追加到时间线：先回到最新的消息再发送。
+    // 会话的键在 await 之后取：话题可能在上传或加载期间被移动
+    private async Task SendToLatestAsync(string content)
     {
         await _chat.ShowLatestAsync();
         if (!_session.IsDisposed)
-            await _session.Chat.SendAsync(key, content);
+            await _session.Chat.SendAsync(_chat.Key, content);
     }
 
     [RelayCommand]
@@ -397,13 +409,12 @@ public partial class ComposerViewModel : ViewModelBase
 
     private async Task UploadAndSendFileAsync(string path)
     {
-        var key = _chat.Key;
         var attachment = new PendingAttachment(path, isImage: false);
         Attachments.Add(attachment);
         await UploadAsync(attachment);
         if (_closed || attachment.State != AttachmentState.Done || !Attachments.Remove(attachment))
             return;
-        _session.Forget(SendToLatestAsync(key, LinkMarkdown(attachment.FileName, attachment.Url!)), "发送文件");
+        _session.Forget(SendToLatestAsync(LinkMarkdown(attachment.FileName, attachment.Url!)), "发送文件");
     }
 
     // 上传失败时保留在列表中（显示失败），由用户移除
