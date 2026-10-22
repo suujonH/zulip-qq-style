@@ -21,6 +21,7 @@
     <SolidColorBrush x:Key="OnlineBrush" Color="#2BD158" />
     <SolidColorBrush x:Key="MutedBadgeBrush" Color="#C8C8C8" />
     <SolidColorBrush x:Key="PlaceholderLogoBrush" Color="#EBEBEB" />
+    <SolidColorBrush x:Key="HelperAvatarBrush" Color="#FA9D3B" />
 
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A" />
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#999999" />

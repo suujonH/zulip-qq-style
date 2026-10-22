@@ -4,11 +4,14 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using ZulipQQ.Services;
 
 namespace ZulipQQ.Controls;
 
 /// <summary>
-/// 文字头像：圆形色块 + 名称首字。颜色由名称稳定地映射到 TDesign 色板，同名每次启动颜色一致。
+/// 头像：有 <see cref="Source"/> 时异步加载图片并裁成圆形；加载完成前或失败时显示文字头像
+/// （圆形色块 + 名称首字，颜色由名称稳定地映射到 TDesign 色板，或由 <see cref="Fill"/> 指定）。
 /// </summary>
 public class Avatar : Control
 {
@@ -29,9 +32,31 @@ public class Avatar : Control
     public static readonly StyledProperty<FontFamily> FontFamilyProperty =
         TextElement.FontFamilyProperty.AddOwner<Avatar>();
 
+    /// <summary>图片地址（组织内的相对路径或完整地址）。</summary>
+    public static readonly StyledProperty<string?> SourceProperty =
+        AvaloniaProperty.Register<Avatar, string?>(nameof(Source));
+
+    /// <summary>文字头像的背景色；为 null 时按名称取色板颜色。</summary>
+    public static readonly StyledProperty<IBrush?> FillProperty =
+        AvaloniaProperty.Register<Avatar, IBrush?>(nameof(Fill));
+
+    private Bitmap? _bitmap;
+
     static Avatar()
     {
-        AffectsRender<Avatar>(TextProperty, FontFamilyProperty);
+        AffectsRender<Avatar>(TextProperty, FontFamilyProperty, FillProperty);
+    }
+
+    public string? Source
+    {
+        get => GetValue(SourceProperty);
+        set => SetValue(SourceProperty, value);
+    }
+
+    public IBrush? Fill
+    {
+        get => GetValue(FillProperty);
+        set => SetValue(FillProperty, value);
     }
 
     public string? Text
@@ -48,6 +73,39 @@ public class Avatar : Control
 
     protected override Size MeasureOverride(Size availableSize) => new(40, 40);
 
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == SourceProperty)
+            LoadSource();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        // 会话切换后内存缓存被清空，重新挂载时按需重新加载
+        if (_bitmap is null)
+            LoadSource();
+    }
+
+    private async void LoadSource()
+    {
+        var source = Source;
+        _bitmap = null;
+        InvalidateVisual();
+        if (string.IsNullOrEmpty(source))
+            return;
+
+        // 按显示尺寸的 2 倍解码，高 DPI 下也清晰
+        var size = double.IsNaN(Width) ? 40 : Width;
+        var decodeWidth = (int)Math.Ceiling(size * 2);
+        var bitmap = ImageCache.Shared.TryGet(source, decodeWidth) ?? await ImageCache.Shared.GetAsync(source, decodeWidth);
+        if (bitmap is null || Source != source)
+            return;
+        _bitmap = bitmap;
+        InvalidateVisual();
+    }
+
     public override void Render(DrawingContext context)
     {
         var size = Math.Min(Bounds.Width, Bounds.Height);
@@ -56,7 +114,17 @@ public class Avatar : Control
 
         var text = Text ?? string.Empty;
         var center = new Point(Bounds.Width / 2, Bounds.Height / 2);
-        context.DrawEllipse(Palette[StableHash(text) % Palette.Length], null, center, size / 2, size / 2);
+        if (_bitmap is not null)
+        {
+            var rect = new Rect(center.X - size / 2, center.Y - size / 2, size, size);
+            // 透明背景的头像（如默认的几何图案）垫一层白色圆形
+            context.DrawEllipse(Brushes.White, null, center, size / 2, size / 2);
+            using (context.PushGeometryClip(new EllipseGeometry(rect)))
+                context.DrawImage(_bitmap, rect);
+            return;
+        }
+
+        context.DrawEllipse(Fill ?? Palette[StableHash(text) % Palette.Length], null, center, size / 2, size / 2);
 
         if (text.Length == 0)
             return;

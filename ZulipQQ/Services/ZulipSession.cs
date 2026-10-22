@@ -124,6 +124,7 @@ public sealed class ZulipSession : IAsyncDisposable
             session.Conversations.LoadFromDb();
             await session.LoadStateAsync(reg, linked.Token);
             Current = session;
+            ImageCache.Shared.Attach(client);
             return session;
         }
         catch
@@ -168,7 +169,10 @@ public sealed class ZulipSession : IAsyncDisposable
             Log.Debug("删除事件队列失败", ex);
         }
         if (Current == this)
+        {
             Current = null;
+            ImageCache.Shared.Attach(null);
+        }
         Client.Dispose();
     }
 
