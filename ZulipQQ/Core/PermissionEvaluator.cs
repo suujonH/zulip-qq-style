@@ -148,10 +148,14 @@ public sealed class PermissionEvaluator(PermissionInputs inputs)
     public bool CanCreateTopic(IChannelPermissions ch) =>
         ch.CanCreateTopicGroup is null || Allows(ch.CanCreateTopicGroup, Stream, "can_create_topic_group");
 
-    /// <summary>自己加入频道：公开频道非访客都可以；否则需要在 can_subscribe_group 中，或者是频道管理员。</summary>
+    /// <summary>
+    /// 自己加入频道：公开频道非访客都可以；否则需要在 can_subscribe_group 或频道的 can_add_subscribers_group 中，
+    /// 或者是频道管理员。
+    /// </summary>
     public bool CanSubscribe(IChannelPermissions ch, bool inviteOnly, GroupSettingValue? canSubscribeGroup) =>
         (!inviteOnly && !IsGuest)
         || Allows(canSubscribeGroup, Stream, "can_subscribe_group")
+        || Allows(ch.CanAddSubscribersGroup, Stream, "can_add_subscribers_group")
         || CanAdministerChannel(ch);
 
     public bool CanAddSubscribers(IChannelPermissions ch) =>

@@ -103,6 +103,9 @@ public sealed class TopicActions(MainViewModel main)
         }
         if (Session.IsDisposed)
             return;
+        // 话题已不存在，同时取消置顶，否则联系人页的“置顶群聊”中会留下空条目
+        if (Session.Conversations.Get(key) is { PinnedAt: not null })
+            Session.Conversations.SetPinned(key, false);
         Session.Conversations.Remove(key);
         await main.CloseChatAsync(key);
     }

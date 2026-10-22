@@ -27,7 +27,8 @@ public partial class TopicCardViewModel : ViewModelBase
         Refresh();
     }
 
-    public TopicKey Key { get; }
+    /// <summary>话题被改名或移动时随之更新。</summary>
+    public TopicKey Key { get; private set; }
 
     [ObservableProperty]
     public partial string Title { get; private set; } = "";
@@ -56,6 +57,7 @@ public partial class TopicCardViewModel : ViewModelBase
             return;
         _attached = true;
         _session.Conversations.EntryChanged += OnEntryChanged;
+        _session.Conversations.ConversationRekeyed += OnRekeyed;
         _session.Channels.ChannelChanged += OnChannelChanged;
         Refresh();
     }
@@ -66,7 +68,16 @@ public partial class TopicCardViewModel : ViewModelBase
             return;
         _attached = false;
         _session.Conversations.EntryChanged -= OnEntryChanged;
+        _session.Conversations.ConversationRekeyed -= OnRekeyed;
         _session.Channels.ChannelChanged -= OnChannelChanged;
+    }
+
+    private void OnRekeyed(object? sender, (ConversationKey Old, ConversationKey New) e)
+    {
+        if (!e.Old.Equals(Key) || e.New is not TopicKey key)
+            return;
+        Key = key;
+        Refresh();
     }
 
     private void OnEntryChanged(object? sender, ConversationKey key)

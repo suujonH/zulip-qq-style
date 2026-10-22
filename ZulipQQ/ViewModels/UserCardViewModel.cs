@@ -249,11 +249,7 @@ public partial class UserCardViewModel : ViewModelBase
         switch (field.Type)
         {
             case 3 when value.ValueKind == JsonValueKind.String:
-                return field.FieldData.ValueKind == JsonValueKind.Object
-                       && field.FieldData.TryGetProperty(value.GetString()!, out var option)
-                       && option.TryGetProperty("text", out var text)
-                    ? text.GetString()
-                    : value.GetString();
+                return OptionText(field.FieldData, value.GetString()!) ?? value.GetString();
             case 6 when value.ValueKind == JsonValueKind.Array:
                 return string.Join("、", value.EnumerateArray().Select(v => _session.Contacts.DisplayName(v.GetInt64())));
             case 6 when value.ValueKind == JsonValueKind.String:
@@ -274,5 +270,27 @@ public partial class UserCardViewModel : ViewModelBase
                     _ => null,
                 };
         }
+    }
+
+    /// <summary>选项字段的选项文字；field_data 可能是对象，也可能是 JSON 编码后的字符串。找不到时返回 null。</summary>
+    private static string? OptionText(JsonElement fieldData, string optionId)
+    {
+        if (fieldData.ValueKind == JsonValueKind.String)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(fieldData.GetString()!);
+                return OptionText(doc.RootElement, optionId);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+        return fieldData.ValueKind == JsonValueKind.Object
+               && fieldData.TryGetProperty(optionId, out var option)
+               && option.TryGetProperty("text", out var text)
+            ? text.GetString()
+            : null;
     }
 }
