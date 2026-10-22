@@ -74,7 +74,7 @@ public partial class ChannelSettingsDialogViewModel : ViewModelBase
     ];
 
     private readonly ZulipSession _session;
-    private readonly MainViewModel _main;
+    private readonly IDialogHost _host;
     private readonly long _streamId;
     private readonly Action _onClosed;
     private readonly string _originalName;
@@ -82,10 +82,10 @@ public partial class ChannelSettingsDialogViewModel : ViewModelBase
     private readonly bool _originalPrivate;
     private readonly bool _originalHistoryPublic;
 
-    private ChannelSettingsDialogViewModel(MainViewModel main, Channel channel, Action onClosed)
+    private ChannelSettingsDialogViewModel(MainViewModel main, IDialogHost host, Channel channel, Action onClosed)
     {
         _session = main.Session;
-        _main = main;
+        _host = host;
         _streamId = channel.StreamId;
         _onClosed = onClosed;
         Title = $"群资料设置 - #{channel.Name}";
@@ -97,13 +97,13 @@ public partial class ChannelSettingsDialogViewModel : ViewModelBase
     }
 
     /// <summary>在主窗口的对话框层中打开；频道不存在时不做任何事。</summary>
-    public static void Show(MainViewModel main, long streamId)
+    public static void Show(MainViewModel main, IDialogHost host, long streamId)
     {
         if (main.Session.Channels.Get(streamId) is not { } channel)
             return;
         ChannelSettingsDialogViewModel dialog = null!;
-        dialog = new ChannelSettingsDialogViewModel(main, channel, () => main.Dialogs.Remove(dialog));
-        main.Dialogs.Add(dialog);
+        dialog = new ChannelSettingsDialogViewModel(main, host, channel, () => host.Dialogs.Remove(dialog));
+        host.Dialogs.Add(dialog);
     }
 
     public string Title { get; }
@@ -195,16 +195,16 @@ public partial class ChannelSettingsDialogViewModel : ViewModelBase
         {
             await _session.Client.UpdateChannelAsync(_streamId, args, _session.Token);
             _onClosed();
-            _main.ShowToast("设置已保存");
+            _host.ShowToast("设置已保存");
         }
         catch (ZulipApiException e) when (e.Code == "EXPECTATION_MISMATCH" && !_session.IsDisposed)
         {
-            _main.ShowToast("设置已被他人修改，请重新打开");
+            _host.ShowToast("设置已被他人修改，请重新打开");
         }
         catch (Exception ex) when (!_session.IsDisposed)
         {
             Log.Warn($"修改频道设置失败：{_streamId}", ex);
-            _main.ShowToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"保存失败：{api.Message}" : "保存失败");
+            _host.ShowToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"保存失败：{api.Message}" : "保存失败");
         }
         finally
         {

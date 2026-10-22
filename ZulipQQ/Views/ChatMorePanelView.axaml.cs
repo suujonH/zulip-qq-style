@@ -17,7 +17,7 @@ public partial class ChatMorePanelView : UserControl
         ShareButton.Click += (_, _) =>
         {
             if (_vm is { } vm)
-                _ = ConversationMenus.CopyAsync(ShareButton, vm.Link, vm.Main);
+                _ = ConversationMenus.CopyAsync(ShareButton, vm.Link, vm.Host);
         };
         MoveButton.Click += (_, _) => ShowMoveMenu();
         HistoryButton.Click += (_, _) =>

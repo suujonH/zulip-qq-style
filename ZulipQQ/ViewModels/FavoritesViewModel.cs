@@ -228,7 +228,8 @@ public partial class FavoritesViewModel : ViewModelBase
     private async Task LocateAsync(FavoriteItem item)
     {
         await _main.OpenChatAsync(item.Key, item.MessageId);
-        if (!_closed)
+        // 会话在独立窗口中打开时由该窗口显示在前台，不再激活主面板
+        if (!_closed && _main.ShowsInRightPane(item.Key))
             MainWindowRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -259,7 +260,7 @@ public partial class FavoritesViewModel : ViewModelBase
         var session = _session;
         var id = item.MessageId;
         MainWindowRequested?.Invoke(this, EventArgs.Empty);
-        ForwardDialogViewModel.Show(_main, $"{item.SenderName}：{ZulipHtml.ToPreview(item.Content)}",
+        ForwardDialogViewModel.Show(_main, _main, $"{item.SenderName}：{ZulipHtml.ToPreview(item.Content)}",
             async () => [await session.Chat.GetRawContentAsync(id)]);
     }
 

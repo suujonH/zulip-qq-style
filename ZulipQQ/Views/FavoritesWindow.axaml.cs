@@ -21,7 +21,6 @@ public partial class FavoritesWindow : Window, ISessionWindow
     private static FavoritesWindow? _current;
 
     private FavoritesViewModel? _vm;
-    private Window? _mainWindow;
 
     public FavoritesWindow()
     {
@@ -43,8 +42,8 @@ public partial class FavoritesWindow : Window, ISessionWindow
         }
 
         var vm = new FavoritesViewModel(main.Session, main);
-        var window = new FavoritesWindow { DataContext = vm, _vm = vm, _mainWindow = owner };
-        vm.MainWindowRequested += window.OnMainWindowRequested;
+        var window = new FavoritesWindow { DataContext = vm, _vm = vm };
+        vm.MainWindowRequested += OnMainWindowRequested;
         vm.CopyRequested += window.OnCopyRequested;
         _current = window;
         // 与聊天记录窗口相同：不设 Owner，避免“定位到聊天”后挡住主窗口；手动居中于主窗口
@@ -67,7 +66,7 @@ public partial class FavoritesWindow : Window, ISessionWindow
             _current = null;
     }
 
-    private void OnMainWindowRequested(object? sender, EventArgs e) => WindowPlacement.BringToFront(_mainWindow);
+    private static void OnMainWindowRequested(object? sender, EventArgs e) => App.Current.ShowMainWindow();
 
     private async void OnCopyRequested(object? sender, string text)
     {

@@ -33,11 +33,15 @@ public partial class ContactsPageView : UserControl
             FriendManagerWindow.ShowSingle(owner, vm.Session);
     }
 
-    // 单击显示资料，双击打开聊天
+    // 单击显示资料（经典模式没有右侧面板，弹出名片），双击打开聊天
     private void OnItemTapped(object? sender, TappedEventArgs e)
     {
-        if (sender is Control { DataContext: ViewModelBase item })
-            Vm?.Select(item);
+        if (sender is not Control { DataContext: ViewModelBase item } control || Vm is not { } vm)
+            return;
+        if (Main is { IsClassicMode: true })
+            ChatView.ShowCard(close => vm.CreateCard(item, close), control, PlacementMode.RightEdgeAlignedTop);
+        else
+            vm.Select(item);
     }
 
     private void OnItemDoubleTapped(object? sender, TappedEventArgs e)

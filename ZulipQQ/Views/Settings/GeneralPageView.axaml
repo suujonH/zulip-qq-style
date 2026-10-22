@@ -27,8 +27,44 @@
                 </Grid>
                 <Border Classes="divider" />
                 <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="打开新聊天" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding CanChooseOpenChat}">
+                        <RadioButton GroupName="openChat" Content="在主窗口中" IsChecked="{Binding IsOpenChatInMain}" />
+                        <RadioButton GroupName="openChat" Content="在独立窗口中" IsChecked="{Binding IsOpenChatInWindow}" Margin="0" />
+                    </StackPanel>
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
                     <TextBlock Text="24 小时制显示时间" />
                     <ToggleSwitch Grid.Column="1" IsChecked="{Binding TwentyFourHourTime}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="主界面" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="经典模式" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding ClassicMode}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="停靠在屏幕边缘时自动隐藏" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EdgeAutoHide}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="显示托盘图标" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowTrayIcon}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="关闭主面板时" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding ShowTrayIcon}">
+                        <RadioButton GroupName="close" Content="最小化到托盘" IsChecked="{Binding IsCloseToTray}" />
+                        <RadioButton GroupName="close" Content="退出程序" IsChecked="{Binding IsCloseExit}" Margin="0" />
+                    </StackPanel>
                 </Grid>
             </StackPanel>
         </Border>

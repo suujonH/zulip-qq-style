@@ -3,7 +3,7 @@ using ZulipQQ.Services;
 
 namespace ZulipQQ.ViewModels.Settings;
 
-/// <summary>通用：外观（Zulip color_scheme）、发送消息的按键、24 小时制、字体大小。</summary>
+/// <summary>通用：外观（Zulip color_scheme）、发送消息的按键、打开聊天的方式、24 小时制、主界面（边缘隐藏、托盘、关闭行为、经典模式）、字体大小。</summary>
 public sealed class GeneralPageViewModel : SettingsPageViewModel
 {
     public GeneralPageViewModel(SettingsViewModel owner) : base(owner)
@@ -50,6 +50,70 @@ public sealed class GeneralPageViewModel : SettingsPageViewModel
             if (value != Session.Settings.Zulip.TwentyFourHourTime)
                 SetZulip("twenty_four_hour_time", value);
         }
+    }
+
+    private LocalSettings Local => Session.Settings.Local;
+
+    public bool IsOpenChatInMain
+    {
+        get => !Local.OpenChatInNewWindow;
+        set
+        {
+            if (value)
+                Local.OpenChatInNewWindow = false;
+        }
+    }
+
+    public bool IsOpenChatInWindow
+    {
+        get => Local.OpenChatInNewWindow;
+        set
+        {
+            if (value)
+                Local.OpenChatInNewWindow = true;
+        }
+    }
+
+    /// <summary>经典模式下聊天总是在独立窗口中打开，打开方式不可选。</summary>
+    public bool CanChooseOpenChat => !Local.ClassicMode;
+
+    public bool EdgeAutoHide
+    {
+        get => Local.EdgeAutoHide;
+        set => Local.EdgeAutoHide = value;
+    }
+
+    public bool ShowTrayIcon
+    {
+        get => Local.ShowTrayIcon;
+        set => Local.ShowTrayIcon = value;
+    }
+
+    /// <summary>托盘图标隐藏时只能退出程序，关闭行为不可选（显示为“退出程序”）。</summary>
+    public bool IsCloseToTray
+    {
+        get => Local.EffectiveCloseAction == CloseAction.MinimizeToTray;
+        set
+        {
+            if (value)
+                Local.CloseAction = CloseAction.MinimizeToTray;
+        }
+    }
+
+    public bool IsCloseExit
+    {
+        get => Local.EffectiveCloseAction == CloseAction.Exit;
+        set
+        {
+            if (value)
+                Local.CloseAction = CloseAction.Exit;
+        }
+    }
+
+    public bool ClassicMode
+    {
+        get => Local.ClassicMode;
+        set => Local.ClassicMode = value;
     }
 
     public double MinFontSize => ThemeService.MinFontSize;

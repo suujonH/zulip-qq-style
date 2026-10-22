@@ -56,7 +56,8 @@ public partial class ChatViewModel : ViewModelBase
         _session = session;
         Main = main;
         _openChat = (k, f) => main.OpenChatAsync(k, f);
-        _showToast = main.ShowToast;
+        Host = main;
+        _showToast = text => Host.ShowToast(text);
         Key = key;
         Composer = new ComposerViewModel(this, session, _showToast);
         Sidebar = key is TopicKey ? new TopicSidebarViewModel(this) : null;
@@ -64,6 +65,12 @@ public partial class ChatViewModel : ViewModelBase
     }
 
     public MainViewModel Main { get; }
+
+    /// <summary>显示对话框和提示的窗口：在主窗口右侧时为主窗口，移入独立聊天窗口后为该窗口。</summary>
+    public IDialogHost Host { get; set; }
+
+    /// <summary>聊天在独立聊天窗口中打开。</summary>
+    public bool IsStandalone { get; set; }
 
     /// <summary>话题聊天的右侧栏（群公告、群聊成员）；私聊为 null。</summary>
     public TopicSidebarViewModel? Sidebar { get; }
@@ -203,8 +210,13 @@ public partial class ChatViewModel : ViewModelBase
         ExitMultiSelect();
         Unsubscribe();
         _session.Registry.Unregister(this);
-        return Composer.CloseAsync();
+        var saving = Composer.CloseAsync();
+        _session.Registry.TrackClosing(saving);
+        return saving;
     }
+
+    /// <summary>已经关闭（或正在关闭）：不能再交给独立窗口使用。</summary>
+    public bool IsClosed => _closed;
 
     /// <summary>重新加载最新的消息并滚动到底部（事件队列重建、话题被移动后）。</summary>
     [RelayCommand]
@@ -495,7 +507,7 @@ public partial class ChatViewModel : ViewModelBase
             return ForwardFormatter.Merge(forwarded, session.Realm.MaxMessageLength);
         }
 
-        ForwardDialogViewModel.Show(Main, preview, BuildAsync);
+        ForwardDialogViewModel.Show(Main, Host, preview, BuildAsync);
     }
 
     internal Task ToggleReactionAsync(MessageItemViewModel item, ReactionViewModel reaction) =>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using ZulipQQ.Core;
 using ZulipQQ.Models;
@@ -12,6 +13,7 @@ namespace ZulipQQ.Services;
 public sealed class ChatRegistry(ZulipSession session)
 {
     private readonly List<ChatViewModel> _open = [];
+    private readonly List<Task> _closing = [];
 
     /// <summary>打开或关闭了聊天（会话列表据此决定是否显示草稿）。</summary>
     public event EventHandler? Changed;
@@ -24,6 +26,29 @@ public sealed class ChatRegistry(ZulipSession session)
             return;
         _open.Add(vm);
         Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>记录关闭中的聊天保存草稿的任务；结束会话前由 <see cref="WaitClosingAsync"/> 等待，避免草稿保存被取消。</summary>
+    public void TrackClosing(Task task)
+    {
+        _closing.RemoveAll(t => t.IsCompleted);
+        if (!task.IsCompleted)
+            _closing.Add(task);
+    }
+
+    /// <summary>等待所有关闭中的聊天保存完草稿（失败已由保存方记录日志）。</summary>
+    public async Task WaitClosingAsync()
+    {
+        var tasks = _closing.ToList();
+        _closing.Clear();
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("关闭聊天时保存草稿失败", ex);
+        }
     }
 
     public void Unregister(ChatViewModel vm)
@@ -52,12 +77,41 @@ public sealed class ChatRegistry(ZulipSession session)
     }
 
     private static bool IsInActiveWindow(ChatViewModel vm) =>
-        vm.HostWindow is { IsActive: true, IsVisible: true } window && window.WindowState != WindowState.Minimized;
+        vm.HostWindow is { IsActive: true, IsVisible: true } window && window.WindowState != WindowState.Minimized
+        && !EdgeHideController.IsHiddenAtEdge(window);
+
+    /// <summary>缩进屏幕边缘的窗口移回：其中的聊天与窗口被激活时一样补标已读。</summary>
+    public void OnWindowRevealed(Window window)
+    {
+        foreach (var vm in _open.Where(vm => vm.HostWindow == window).ToList())
+            vm.OnHostActivated();
+    }
 
     /// <summary>
-    /// 会话已在独立窗口中打开时激活该窗口并返回 true。独立聊天窗口在经典模式分支实现，目前总是返回 false。
+    /// 会话已在独立窗口中打开时还原并激活该窗口（有 <paramref name="focusMessageId"/> 时跳转到该消息），返回 true。
     /// </summary>
-    public bool Activate(ConversationKey key, long? focusMessageId) => false;
+    public bool Activate(ConversationKey key, long? focusMessageId)
+    {
+        if (_open.FirstOrDefault(vm => vm.IsStandalone && vm.Key.Equals(key)) is not { } chat)
+            return false;
+        if (chat.HostWindow is { } window)
+        {
+            window.Show();
+            if (window.WindowState == WindowState.Minimized)
+                window.WindowState = WindowState.Normal;
+            window.Activate();
+        }
+        if (focusMessageId is { } id)
+            session.Forget(chat.JumpToMessageAsync(id), "跳转到消息");
+        return true;
+    }
+
+    /// <summary>关闭该会话的独立聊天窗口（例如话题被删除）。</summary>
+    public void CloseWindows(ConversationKey key)
+    {
+        foreach (var chat in _open.Where(vm => vm.IsStandalone && vm.Key.Equals(key)).ToList())
+            chat.HostWindow?.Close();
+    }
 
     /// <summary>话题被整体移动或改名：打开中的聊天换成新键并重新加载。</summary>
     public void Rekey(ConversationKey oldKey, ConversationKey newKey)

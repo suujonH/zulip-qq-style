@@ -17,7 +17,6 @@ public partial class FilesWindow : Window, ISessionWindow
     private static FilesWindow? _current;
 
     private FilesViewModel? _vm;
-    private Window? _mainWindow;
 
     public FilesWindow()
     {
@@ -43,8 +42,8 @@ public partial class FilesWindow : Window, ISessionWindow
         }
 
         var vm = new FilesViewModel(main.Session, main);
-        var window = new FilesWindow { DataContext = vm, _vm = vm, _mainWindow = owner };
-        vm.MainWindowRequested += window.OnMainWindowRequested;
+        var window = new FilesWindow { DataContext = vm, _vm = vm };
+        vm.MainWindowRequested += OnMainWindowRequested;
         vm.SaveAsRequested += window.OnSaveAsRequested;
         _current = window;
         WindowPlacement.CenterOn(window, owner);
@@ -66,7 +65,7 @@ public partial class FilesWindow : Window, ISessionWindow
             _current = null;
     }
 
-    private void OnMainWindowRequested(object? sender, EventArgs e) => WindowPlacement.BringToFront(_mainWindow);
+    private static void OnMainWindowRequested(object? sender, EventArgs e) => App.Current.ShowMainWindow();
 
     private async void OnSaveAsRequested(object? sender, FileEntry entry)
     {

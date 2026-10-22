@@ -22,7 +22,6 @@ public partial class HistoryWindow : Window, ISessionWindow
     private static readonly Dictionary<ConversationKey, HistoryWindow> Open = [];
 
     private HistoryViewModel? _vm;
-    private Window? _mainWindow;
 
     public HistoryWindow()
     {
@@ -49,11 +48,11 @@ public partial class HistoryWindow : Window, ISessionWindow
         }
 
         var vm = new HistoryViewModel(main.Session, main, key, query);
-        var window = new HistoryWindow { DataContext = vm, _mainWindow = owner };
+        var window = new HistoryWindow { DataContext = vm };
         window._vm = vm;
         // 文件卡片从这里取下载状态
         MessageContent.SetFiles(window, main.Session.Files);
-        vm.MainWindowRequested += window.OnMainWindowRequested;
+        vm.MainWindowRequested += OnMainWindowRequested;
         vm.Rekeyed += window.OnRekeyed;
         Open[key] = window;
         WindowPlacement.CenterOn(window, owner);
@@ -83,7 +82,7 @@ public partial class HistoryWindow : Window, ISessionWindow
             Open.TryAdd(_vm.Key, this);
     }
 
-    private void OnMainWindowRequested(object? sender, EventArgs e) => WindowPlacement.BringToFront(_mainWindow);
+    private static void OnMainWindowRequested(object? sender, EventArgs e) => App.Current.ShowMainWindow();
 
     // Esc 关闭窗口；菜单、弹出层打开时由它们自己处理
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)

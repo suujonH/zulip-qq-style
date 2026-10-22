@@ -312,7 +312,8 @@ public partial class HistoryViewModel : ViewModelBase
     public async Task OpenChatAsync(ConversationKey key, long? messageId)
     {
         await _main.OpenChatAsync(key, messageId);
-        if (!_closed)
+        // 会话在独立窗口中打开时由该窗口显示在前台，不再激活主面板
+        if (!_closed && _main.ShowsInRightPane(key))
             MainWindowRequested?.Invoke(this, EventArgs.Empty);
     }
 

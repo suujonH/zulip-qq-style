@@ -21,15 +21,23 @@ public partial class MessagesPageView : UserControl
         InitializeComponent();
         MainList.AddHandler(ContextRequestedEvent, OnContextRequested);
         HelperList.AddHandler(ContextRequestedEvent, OnContextRequested);
-        // 右键只弹出菜单，不选中（不打开）会话
-        MainList.AddHandler(PointerPressedEvent, SuppressRightPress, RoutingStrategies.Tunnel);
-        HelperList.AddHandler(PointerPressedEvent, SuppressRightPress, RoutingStrategies.Tunnel);
+        MainList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
+        HelperList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
     }
 
-    private static void SuppressRightPress(object? sender, PointerPressedEventArgs e)
+    // 右键只弹出菜单，不选中（不打开）会话。左键点击已选中的会话时选中项不变、不会触发打开，
+    // 这里直接再打开一次：会话在独立窗口中时把被遮住或最小化的窗口带到前台
+    private void OnListPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(sender as Visual).Properties.IsRightButtonPressed)
+        var point = e.GetCurrentPoint(sender as Visual);
+        if (point.Properties.IsRightButtonPressed)
+        {
             e.Handled = true;
+            return;
+        }
+        if (point.Properties.IsLeftButtonPressed
+            && (e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(includeSelf: true) is { IsSelected: true, DataContext: ConversationItemViewModel item })
+            _vm?.Reopen(item);
     }
 
     /// <summary>
@@ -71,6 +79,9 @@ public partial class MessagesPageView : UserControl
                 ConversationMenus.AppendManagement(menu.Items, main, topic);
             }
             menu.Items.Add(new Separator());
+            // 已经总是在独立窗口中打开时不需要这一项
+            if (TopLevel.GetTopLevel(this)?.DataContext is MainViewModel { UsesChatWindows: false } owner)
+                menu.Items.Add(ConversationMenus.Item("打开独立聊天窗口", () => owner.OpenInWindow(item.Key)));
             menu.Items.Add(ConversationMenus.Item("从消息列表中移除", () => _ = vm.RemoveAsync(item)));
         }
         menu.Open(container);

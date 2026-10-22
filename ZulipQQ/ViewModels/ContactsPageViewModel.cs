@@ -88,24 +88,32 @@ public partial class ContactsPageViewModel : ViewModelBase
     /// <summary>单击：选中条目并在右侧显示资料。</summary>
     public void Select(ViewModelBase item)
     {
-        ViewModelBase card;
+        if (CreateCard(item) is not { } card)
+            return;
+        _selected = item switch
+        {
+            FriendItemViewModel f => f.UserId,
+            TopicItemViewModel t => t.Key,
+            _ => null,
+        };
+        ApplySelection();
+        _ = _main.ShowPaneAsync(new ProfilePaneViewModel(card));
+    }
+
+    /// <summary>条目的名片（资料面板，或经典模式下单击弹出的名片）；<paramref name="onOpened"/> 在点击“发消息”后调用。</summary>
+    public ViewModelBase? CreateCard(ViewModelBase item, Action? onOpened = null)
+    {
         switch (item)
         {
             case FriendItemViewModel f:
-                _selected = f.UserId;
-                card = new UserCardViewModel(Session, f.UserId, OpenChat);
-                break;
+                return new UserCardViewModel(Session, f.UserId, OpenChat, onOpened);
             case TopicItemViewModel t:
-                _selected = t.Key;
                 // 确保有会话记录，话题被改名或移动时名片才能收到通知
                 Session.Conversations.EnsureEntry(t.Key, Session.Conversations.GetTopicName(t.Key));
-                card = new TopicCardViewModel(Session, t.Key, OpenChat);
-                break;
+                return new TopicCardViewModel(Session, t.Key, OpenChat, onOpened);
             default:
-                return;
+                return null;
         }
-        ApplySelection();
-        _ = _main.ShowPaneAsync(new ProfilePaneViewModel(card));
     }
 
     /// <summary>双击：打开聊天。</summary>

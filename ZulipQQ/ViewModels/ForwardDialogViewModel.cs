@@ -43,7 +43,7 @@ public partial class ForwardDialogViewModel : ViewModelBase
     private const int MaxResults = 50;
 
     private readonly ZulipSession _session;
-    private readonly MainViewModel _main;
+    private readonly IDialogHost _host;
     private readonly Func<Task<IReadOnlyList<string>>> _build;
     private readonly Action _onClosed;
     private readonly Dictionary<ConversationKey, ForwardTargetItem> _items = [];
@@ -52,10 +52,10 @@ public partial class ForwardDialogViewModel : ViewModelBase
     // 超过上限时撤销勾选，期间不再处理勾选变化
     private bool _reverting;
 
-    private ForwardDialogViewModel(MainViewModel main, string preview, Func<Task<IReadOnlyList<string>>> build, Action onClosed)
+    private ForwardDialogViewModel(MainViewModel main, IDialogHost host, string preview, Func<Task<IReadOnlyList<string>>> build, Action onClosed)
     {
         _session = main.Session;
-        _main = main;
+        _host = host;
         Preview = preview;
         _build = build;
         _onClosed = onClosed;
@@ -66,11 +66,11 @@ public partial class ForwardDialogViewModel : ViewModelBase
     /// <summary>
     /// 在主窗口的对话框层中打开。<paramref name="build"/> 在点击发送后调用，返回要发送给每个目标的消息（按顺序）。
     /// </summary>
-    public static void Show(MainViewModel main, string preview, Func<Task<IReadOnlyList<string>>> build)
+    public static void Show(MainViewModel main, IDialogHost host, string preview, Func<Task<IReadOnlyList<string>>> build)
     {
         ForwardDialogViewModel dialog = null!;
-        dialog = new ForwardDialogViewModel(main, preview, build, () => main.Dialogs.Remove(dialog));
-        main.Dialogs.Add(dialog);
+        dialog = new ForwardDialogViewModel(main, host, preview, build, () => host.Dialogs.Remove(dialog));
+        host.Dialogs.Add(dialog);
     }
 
     /// <summary>被转发内容的预览。</summary>
@@ -172,7 +172,7 @@ public partial class ForwardDialogViewModel : ViewModelBase
                 _reverting = true;
                 item.IsChecked = false;
                 _reverting = false;
-                _main.ShowToast($"最多选择{MaxTargets}个会话");
+                _host.ShowToast($"最多选择{MaxTargets}个会话");
                 return;
             }
             Selected.Add(item);
@@ -206,7 +206,7 @@ public partial class ForwardDialogViewModel : ViewModelBase
             if (_session.IsDisposed)
                 return;
             Log.Warn("获取转发内容失败", ex);
-            _main.ShowToast("转发失败");
+            _host.ShowToast("转发失败");
             IsBusy = false;
             return;
         }
@@ -227,7 +227,7 @@ public partial class ForwardDialogViewModel : ViewModelBase
             if (_session.IsDisposed)
                 return;
         }
-        _main.ShowToast(ok ? "已转发" : "部分消息转发失败");
+        _host.ShowToast(ok ? "已转发" : "部分消息转发失败");
     }
 
     [RelayCommand]

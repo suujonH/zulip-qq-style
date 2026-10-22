@@ -403,7 +403,7 @@ public partial class FilesViewModel : ViewModelBase
     {
         var markdown = ComposerViewModel.LinkMarkdown(entry.FileName, entry.Path);
         MainWindowRequested?.Invoke(this, EventArgs.Empty);
-        ForwardDialogViewModel.Show(_main, $"[文件]{entry.FileName}", () => Task.FromResult<IReadOnlyList<string>>([markdown]));
+        ForwardDialogViewModel.Show(_main, _main, $"[文件]{entry.FileName}", () => Task.FromResult<IReadOnlyList<string>>([markdown]));
     }
 
     public void Locate(FileEntry entry) => _ = LocateAsync(entry);
@@ -411,7 +411,8 @@ public partial class FilesViewModel : ViewModelBase
     private async Task LocateAsync(FileEntry entry)
     {
         await _main.OpenChatAsync(entry.Key, entry.MessageId);
-        if (!_closed)
+        // 会话在独立窗口中打开时由该窗口显示在前台，不再激活主面板
+        if (!_closed && _main.ShowsInRightPane(entry.Key))
             MainWindowRequested?.Invoke(this, EventArgs.Empty);
     }
 

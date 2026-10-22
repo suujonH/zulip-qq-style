@@ -58,7 +58,7 @@ public sealed class ZulipSession : IAsyncDisposable
         Contacts = new ContactStore(new ContactRepository(db, account.Id), Users);
         Drafts = new DraftStore(this, new LocalDraftRepository(db, account.Id));
         Conversations = new ConversationListStore(this, new ConversationStateRepository(db, account.Id));
-        Settings = new SettingsStore(this, new SettingRepository(db, account.Id));
+        Settings = new SettingsStore(this, new SettingRepository(db, account.Id), new SettingRepository(db, null));
         Chat = new ChatService(this);
         Files = new FileService(this, new DownloadRepository(db, account.Id));
         Registry = new ChatRegistry(this);
