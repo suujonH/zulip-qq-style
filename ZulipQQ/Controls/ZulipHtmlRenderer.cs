@@ -68,7 +68,7 @@ internal static partial class ZulipHtmlRenderer
 
         foreach (var node in nodes)
         {
-            if (node is IElement e && BlockTags.Contains(e.LocalName))
+            if (node is IElement e && IsBlock(e))
             {
                 Flush();
                 BuildBlock(e, target, ctx);
@@ -80,6 +80,11 @@ internal static partial class ZulipHtmlRenderer
         }
         Flush();
     }
+
+    // 图片预览和图库容器按块处理，不论服务器用的是 div 还是 span
+    private static bool IsBlock(IElement e) =>
+        BlockTags.Contains(e.LocalName)
+        || e.ClassList.Contains("message_inline_image") || e.ClassList.Contains("message-thumbnail-gallery");
 
     private static void BuildBlock(IElement e, Panel target, Context ctx)
     {
@@ -380,10 +385,12 @@ internal static partial class ZulipHtmlRenderer
                     AddText(TimeText(e), style, link);
                     return;
                 case "img":
-                    if (cls.Contains("emoji") && e.GetAttribute("src") is { Length: > 0 } src)
+                    if (e.GetAttribute("src") is not { Length: > 0 } src)
+                        AddText(cls.Contains("emoji") ? e.GetAttribute("alt") ?? "" : "[图片]", style, link);
+                    else if (cls.Contains("emoji"))
                         AddUi(new RemoteImage { Width = 20, Height = 20, CornerRadius = 0, Source = src });
                     else
-                        AddText(cls.Contains("emoji") ? e.GetAttribute("alt") ?? "" : "[图片]", style, link);
+                        AddUi(InlineImage(e, src));
                     return;
             }
 
@@ -482,6 +489,17 @@ internal static partial class ZulipHtmlRenderer
         {
             foreach (var child in e.ChildNodes)
                 Append(child, style, link);
+        }
+
+        // 嵌在行内元素里的图片（例如编辑历史的差异中被高亮包裹的图片预览）：显示图片，点击打开原图
+        private static RemoteImage InlineImage(IElement img, string src)
+        {
+            var href = img.Closest("a[href]")?.GetAttribute("href");
+            var path = ZulipHtml.NormalizeUploadPath(href);
+            if (img.ClassList.Contains("image-loading-placeholder") && path is not null)
+                src = path;
+            var (width, height) = FitSize(img.GetAttribute("data-original-dimensions"));
+            return new RemoteImage { Width = width, Height = height, Source = src, Href = string.IsNullOrEmpty(href) ? null : href };
         }
 
         private static MessageLinkTarget LinkOf(string href, string text) =>
