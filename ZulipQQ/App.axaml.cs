@@ -268,9 +268,11 @@ public partial class App : Application
                 ShowMain(main);
         };
         main.Activated += (_, _) => tray.StopFlashing();
+        // 没有需要处理的未读时停止闪烁：允许提醒的会话的未读，以及免打扰会话中提醒过（@我、@全体、提醒词）的未读消息
         session.Unread.ConversationChanged += (_, _) =>
         {
-            if (tray.IsFlashing && session.Unread.TotalForBadge(session.Conversations.GetEffectiveLevel) == 0)
+            if (tray.IsFlashing && session.Unread.TotalForBadge(session.Conversations.GetEffectiveLevel) == 0
+                && !session.Notifications.HasUnreadMutedAlerts())
                 tray.StopFlashing();
         };
     }
