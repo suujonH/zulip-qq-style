@@ -169,4 +169,11 @@ public class ZulipHtmlTests
         const string html = "<div class=\"message_inline_image\"><a href=\"/user_uploads/2/ac/x/a.png\"><img class=\"image-loading-placeholder\" src=\"/static/images/loading/loader-black.svg\"></a></div>";
         Assert.Equal("/user_uploads/2/ac/x/a.png", Assert.Single(ZulipHtml.ExtractInlineImages(html)).Src);
     }
+
+    [Fact]
+    public void ExtractInlineImages_SpanPreview()
+    {
+        const string html = "<div class=\"message-thumbnail-gallery\"><span class=\"message_inline_image\"><a href=\"/user_uploads/2/ac/x/a.png\"><img src=\"/user_uploads/thumbnail/2/ac/x/a.png/840x560.webp\"></a></span></div>";
+        Assert.Equal("/user_uploads/thumbnail/2/ac/x/a.png/840x560.webp", Assert.Single(ZulipHtml.ExtractInlineImages(html)).Src);
+    }
 }

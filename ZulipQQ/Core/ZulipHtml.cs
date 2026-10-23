@@ -233,7 +233,7 @@ public static partial class ZulipHtml
     public static IReadOnlyList<InlineImage> ExtractInlineImages(string html)
     {
         var result = new List<InlineImage>();
-        foreach (var div in Parse(html).QuerySelectorAll("div.message_inline_image"))
+        foreach (var div in Parse(html).QuerySelectorAll(".message_inline_image"))
         {
             if (div.ClassList.Contains("message_inline_video") || div.QuerySelector("img") is not { } img)
                 continue;
@@ -249,7 +249,7 @@ public static partial class ZulipHtml
     private static HashSet<string> InlineImageHrefs(IElement root)
     {
         var set = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var a in root.QuerySelectorAll("div.message_inline_image a[href]"))
+        foreach (var a in root.QuerySelectorAll(".message_inline_image a[href]"))
         {
             if (NormalizeUploadPath(a.GetAttribute("href")) is { } path)
                 set.Add(path);
