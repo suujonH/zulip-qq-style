@@ -30,6 +30,12 @@ internal static class MessageLinks
             };
             if (key is not null)
             {
+                if (link.NearMessageId is { } near)
+                {
+                    key = await CurrentKeyOfAsync(session, near) ?? key;
+                    if (session.IsDisposed)
+                        return;
+                }
                 await openChat(key, link.NearMessageId);
                 return;
             }
@@ -44,6 +50,27 @@ internal static class MessageLinks
         catch (Exception ex)
         {
             Log.Warn($"打开链接失败：{uri}", ex);
+        }
+    }
+
+    /// <summary>
+    /// 消息当前所在的会话。链接中的话题名是生成链接时的，话题之后可能被改名、标记已解决或移到其它频道，
+    /// 所以与网页端一样以消息为准。消息不存在或无权查看时返回 null（按链接中的会话打开）。
+    /// </summary>
+    private static async Task<ConversationKey?> CurrentKeyOfAsync(ZulipSession session, long messageId)
+    {
+        if (session.Messages.Get(messageId) is { } cached)
+            return cached.Key;
+        try
+        {
+            var dto = await session.Client.GetMessageAsync(messageId, ct: session.Token);
+            return ConversationKey.FromMessage(dto, session.SelfId);
+        }
+        catch (Exception ex)
+        {
+            if (!session.IsDisposed)
+                Log.Warn($"查询链接中的消息 {messageId} 失败", ex);
+            return null;
         }
     }
 

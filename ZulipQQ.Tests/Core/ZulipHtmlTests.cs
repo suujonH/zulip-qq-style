@@ -70,7 +70,22 @@ public class ZulipHtmlTests
     public void PlainText_List() => Assert.Equal("• 一\n• 二\n1. 甲\n2. 乙", ZulipHtml.ToPlainText(Sample("list")));
 
     [Fact]
-    public void PlainText_ImageKeepsFileName() => Assert.Equal("截图 截图-开发.png", ZulipHtml.ToPlainText(RealImage));
+    public void PlainText_PreviewedImage_HidesFileName() => Assert.Equal("截图\n[图片]", ZulipHtml.ToPlainText(RealImage));
+
+    [Fact]
+    public void PlainText_FileKeepsFileName() =>
+        Assert.Equal("给你发个压缩包 资料.zip",
+            ZulipHtml.ToPlainText("<p>给你发个压缩包 <a href=\"/user_uploads/2/85/w2m/资料.zip\">资料.zip</a></p>"));
+
+    private const string UploadedVideo =
+        "<p>录屏 <a href=\"/user_uploads/2/ac/x/v.mp4\">v.mp4</a></p>\n" +
+        "<div class=\"message_inline_image message_inline_video\"><a href=\"/user_uploads/2/ac/x/v.mp4\" title=\"v.mp4\"><video src=\"/user_uploads/2/ac/x/v.mp4\"></video></a></div>";
+
+    [Fact]
+    public void Preview_PreviewedVideo_ShowsOnce() => Assert.Equal("录屏 [视频]", ZulipHtml.ToPreview(UploadedVideo));
+
+    [Fact]
+    public void PlainText_PreviewedVideo_HidesFileName() => Assert.Equal("录屏\n[视频]", ZulipHtml.ToPlainText(UploadedVideo));
 
     [Fact]
     public void PlainText_ExternalLinkKeepsUrl() =>

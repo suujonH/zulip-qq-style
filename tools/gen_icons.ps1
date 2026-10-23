@@ -79,6 +79,7 @@ $icons = [ordered]@{
     FileUnknown     = 'file-unknown'
     Upload          = 'upload'
     Refresh         = 'refresh'
+    Backtop         = 'backtop'
 }
 
 # TDesign 没有的图标：注释 + 属性

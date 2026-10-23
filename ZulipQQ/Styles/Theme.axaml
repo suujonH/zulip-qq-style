@@ -36,6 +36,7 @@
             <SolidColorBrush x:Key="MutedBadgeBrush" Color="#C8C8C8" />
             <SolidColorBrush x:Key="PlaceholderLogoBrush" Color="#EBEBEB" />
             <SolidColorBrush x:Key="HelperAvatarBrush" Color="#FA9D3B" />
+            <SolidColorBrush x:Key="ResolvedAvatarBrush" Color="#2BA471" />
             <SolidColorBrush x:Key="CardBrush" Color="White" />
             <!-- 聊天气泡：自己浅蓝、别人白色；点击后的选中色；跳转高亮 -->
             <SolidColorBrush x:Key="OwnBubbleBrush" Color="#CCE4FF" />
@@ -43,6 +44,10 @@
             <SolidColorBrush x:Key="OtherBubbleBrush" Color="White" />
             <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#E5E5E5" />
             <SolidColorBrush x:Key="FlashBrush" Color="#E3E3E3" />
+            <!-- 消息中的引用卡片（半透明，叠在白色和蓝色气泡上都适用）；悬停；左侧竖线 -->
+            <SolidColorBrush x:Key="QuoteCardBrush" Color="#0D000000" />
+            <SolidColorBrush x:Key="QuoteCardHoverBrush" Color="#1A000000" />
+            <SolidColorBrush x:Key="QuoteBarBrush" Color="#D0D0D0" />
             <!-- 群成员徽标：群主橙色、管理员蓝色（浅底深字）；名片中的角色徽标 -->
             <SolidColorBrush x:Key="OwnerBadgeBrush" Color="#F5A623" />
             <SolidColorBrush x:Key="OwnerBadgeFillBrush" Color="#FFF4E0" />
@@ -82,12 +87,16 @@
             <SolidColorBrush x:Key="MutedBadgeBrush" Color="#5C5C5C" />
             <SolidColorBrush x:Key="PlaceholderLogoBrush" Color="#333333" />
             <SolidColorBrush x:Key="HelperAvatarBrush" Color="#FA9D3B" />
+            <SolidColorBrush x:Key="ResolvedAvatarBrush" Color="#2BA471" />
             <SolidColorBrush x:Key="CardBrush" Color="#2B2B2B" />
             <SolidColorBrush x:Key="OwnBubbleBrush" Color="#1D4E7A" />
             <SolidColorBrush x:Key="OwnBubbleSelectedBrush" Color="#24609A" />
             <SolidColorBrush x:Key="OtherBubbleBrush" Color="#2E2E2E" />
             <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#3A3A3A" />
             <SolidColorBrush x:Key="FlashBrush" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="QuoteCardBrush" Color="#14FFFFFF" />
+            <SolidColorBrush x:Key="QuoteCardHoverBrush" Color="#24FFFFFF" />
+            <SolidColorBrush x:Key="QuoteBarBrush" Color="#555555" />
             <SolidColorBrush x:Key="OwnerBadgeBrush" Color="#F5A623" />
             <SolidColorBrush x:Key="OwnerBadgeFillBrush" Color="#4A3A1A" />
             <SolidColorBrush x:Key="AdminBadgeFillBrush" Color="#1A3A55" />
