@@ -70,7 +70,44 @@ public class ZulipHtmlTests
     public void PlainText_List() => Assert.Equal("• 一\n• 二\n1. 甲\n2. 乙", ZulipHtml.ToPlainText(Sample("list")));
 
     [Fact]
-    public void PlainText_ImageKeepsFileName() => Assert.Equal("截图 截图-开发.png", ZulipHtml.ToPlainText(RealImage));
+    public void PlainText_PreviewedImage_HidesFileName() => Assert.Equal("截图\n[图片]", ZulipHtml.ToPlainText(RealImage));
+
+    [Fact]
+    public void PlainText_FileKeepsFileName() =>
+        Assert.Equal("给你发个压缩包 资料.zip",
+            ZulipHtml.ToPlainText("<p>给你发个压缩包 <a href=\"/user_uploads/2/85/w2m/资料.zip\">资料.zip</a></p>"));
+
+    // 用户自己写的描述性链接文字不是文件名，有预览时也要保留
+    private const string DescribedImage =
+        "<p>见 <a href=\"/user_uploads/2/ab/x/design.png\">架构图</a> 说明</p>\n" +
+        "<div class=\"message_inline_image\"><a href=\"/user_uploads/2/ab/x/design.png\"><img src=\"/user_uploads/thumbnail/2/ab/x/design.png/840x560.webp\"></a></div>";
+
+    [Fact]
+    public void PlainText_PreviewedImage_KeepsDescriptiveText() =>
+        Assert.Equal("见 架构图 说明\n[图片]", ZulipHtml.ToPlainText(DescribedImage));
+
+    [Fact]
+    public void Preview_PreviewedImage_KeepsDescriptiveText() =>
+        Assert.Equal("见 架构图 说明 [图片]", ZulipHtml.ToPreview(DescribedImage));
+
+    [Theory]
+    [InlineData("design.png", true)]
+    [InlineData("DESIGN.PNG", true)]
+    [InlineData("", true)]
+    [InlineData("user_uploads/2/ab/x/design.png", true)]
+    [InlineData("架构图", false)]
+    public void IsFileNameLabel(string text, bool expected) =>
+        Assert.Equal(expected, ZulipHtml.IsFileNameLabel(text, "/user_uploads/2/ab/x/design.png"));
+
+    private const string UploadedVideo =
+        "<p>录屏 <a href=\"/user_uploads/2/ac/x/v.mp4\">v.mp4</a></p>\n" +
+        "<div class=\"message_inline_image message_inline_video\"><a href=\"/user_uploads/2/ac/x/v.mp4\" title=\"v.mp4\"><video src=\"/user_uploads/2/ac/x/v.mp4\"></video></a></div>";
+
+    [Fact]
+    public void Preview_PreviewedVideo_ShowsOnce() => Assert.Equal("录屏 [视频]", ZulipHtml.ToPreview(UploadedVideo));
+
+    [Fact]
+    public void PlainText_PreviewedVideo_HidesFileName() => Assert.Equal("录屏\n[视频]", ZulipHtml.ToPlainText(UploadedVideo));
 
     [Fact]
     public void PlainText_ExternalLinkKeepsUrl() =>

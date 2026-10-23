@@ -214,6 +214,16 @@ public partial class ComposerViewModel : ViewModelBase
     [RelayCommand]
     private void ClearQuote() => QuoteTarget = null;
 
+    /// <summary>在输入内容末尾 @ 某人（与 @ 补全插入的格式相同），并把焦点移到输入框。</summary>
+    public void Mention(long userId, string fullName)
+    {
+        if (!CanEdit)
+            return;
+        var separator = Text.Length == 0 || char.IsWhiteSpace(Text[^1]) ? "" : " ";
+        Text += $"{separator}@**{fullName}|{userId}** ";
+        FocusRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     partial void OnTextChanged(string value)
     {
         if (_loadingText || _closed || !_opened)

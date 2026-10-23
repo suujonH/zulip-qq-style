@@ -65,6 +65,7 @@ public partial class ChatView : UserControl
         MessageList.AddHandler(PointerReleasedEvent, OnMessagePointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         // 隧道阶段处理：SelectableTextBlock 自带的“Copy”菜单会在冒泡阶段先处理
         MessageList.AddHandler(ContextRequestedEvent, OnMessageContextRequested, RoutingStrategies.Tunnel);
+        MessageList.AddHandler(DoubleTappedEvent, OnMessageDoubleTapped);
         MessageList.AddHandler(KeyDownEvent, OnEditKeyDown, RoutingStrategies.Tunnel);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
@@ -400,6 +401,59 @@ public partial class ChatView : UserControl
             ShowCard(vm.CreateTitleCard, TitleText, PlacementMode.BottomEdgeAlignedLeft);
     }
 
+    /// <summary>
+    /// 聊天中用户（消息的头像和昵称、群聊成员）的右键菜单：发送消息、@TA、查看资料、屏蔽此人 / 取消屏蔽。
+    /// @TA 只在输入框可编辑且不是自己时显示，屏蔽不能用于自己。已被删除的用户没有菜单。
+    /// </summary>
+    internal static void ShowUserMenu(ChatViewModel vm, long userId, Control anchor, PlacementMode cardPlacement)
+    {
+        if (!vm.HasUser(userId))
+            return;
+        var menu = new ContextMenu();
+        menu.Items.Add(ConversationMenus.Item("发送消息", () => vm.OpenDirectChat(userId)));
+        if (vm.CanMention(userId))
+            menu.Items.Add(ConversationMenus.Item("@TA", () => vm.Mention(userId)));
+        menu.Items.Add(ConversationMenus.Item("查看资料", () => ShowCard(close => vm.CreateUserCard(userId, close), anchor, cardPlacement)));
+        if (vm.CanMuteUser(userId))
+        {
+            var muted = vm.IsUserMuted(userId);
+            menu.Items.Add(new Separator());
+            menu.Items.Add(ConversationMenus.Item(muted ? "取消屏蔽" : "屏蔽此人", () => _ = vm.SetUserMutedAsync(userId, !muted)));
+        }
+        menu.Open(anchor);
+    }
+
+    /// <summary>事件源所在的成员行（数据为 <see cref="ChatMemberItem"/> 的控件）。</summary>
+    internal static Control? FindMember(Visual? source, Visual stop)
+    {
+        for (var v = source; v is not null && v != stop; v = v.GetVisualParent())
+        {
+            if (v is Control { DataContext: ChatMemberItem } c)
+                return c;
+        }
+        return null;
+    }
+
+    /// <summary>事件源所在的消息头像或昵称。</summary>
+    private Control? FindSender(Visual? source)
+    {
+        for (var v = source; v is not null && v != MessageList; v = v.GetVisualParent())
+        {
+            if (v is Control { DataContext: MessageItemViewModel } c && c.Classes.Contains("sender"))
+                return c;
+        }
+        return null;
+    }
+
+    private void OnMessageDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_vm is { IsMultiSelect: false } vm && FindSender(e.Source as Visual) is { DataContext: MessageItemViewModel msg })
+        {
+            e.Handled = true;
+            vm.OpenDirectChat(msg.Message.SenderId);
+        }
+    }
+
     /// <summary>弹出名片；名片中点击“发消息”后关闭。没有名片（例如多人私聊的标题）时不弹出。</summary>
     internal static void ShowCard(Func<Action, ViewModelBase?> create, Control anchor, PlacementMode placement)
     {
@@ -431,6 +485,12 @@ public partial class ChatView : UserControl
     /// </summary>
     private void OnMessageContextRequested(object? sender, ContextRequestedEventArgs e)
     {
+        if (_vm is { IsMultiSelect: false } chat && FindSender(e.Source as Visual) is { DataContext: MessageItemViewModel msg } senderControl)
+        {
+            e.Handled = true;
+            ShowUserMenu(chat, msg.Message.SenderId, senderControl, PlacementMode.RightEdgeAlignedTop);
+            return;
+        }
         if (_vm is null || (e.Source as Visual)?.FindAncestorOfType<TextBox>(includeSelf: true) is not null
             || FindBubble(e.Source as Visual) is not { DataContext: MessageItemViewModel { Id: > 0, IsEditing: false } item } bubble)
             return;
@@ -555,6 +615,7 @@ public partial class ChatView : UserControl
     }
 
     // 点击气泡：显示 / 隐藏精确时间。拖动选择文字、点击链接时不切换。
+    // 左键点击头像和昵称没有反应（双击发消息、右键菜单）。
     // 多选模式下消息内容不响应鼠标（见模板），点击整行切换勾选
     private void OnMessagePointerReleased(object? sender, PointerReleasedEventArgs e)
     {
@@ -572,12 +633,8 @@ public partial class ChatView : UserControl
         {
             if (v is Button or TextBox)
                 return;
-            if (v is Control { DataContext: MessageItemViewModel msg } c && c.Classes.Contains("sender"))
-            {
-                var vm = _vm;
-                ShowCard(close => vm.CreateUserCard(msg.Message.SenderId, close), c, PlacementMode.RightEdgeAlignedTop);
+            if (v is Control { DataContext: MessageItemViewModel } c && c.Classes.Contains("sender"))
                 return;
-            }
             if (v is Border border && border.Classes.Contains("bubble") && border.DataContext is MessageItemViewModel m)
             {
                 if (m.IsMutedHidden)

@@ -16,6 +16,7 @@ namespace ZulipQQ.ViewModels;
 /// <summary>
 /// “消息”页：会话列表。置顶的在前（最后置顶的在最上面），其余按最后消息时间倒序。
 /// 级别为“收进群助手且不提醒”的会话收进群助手子列表，主列表中用一个“群助手”条目代替。
+/// 开启“收起已解决话题”时，已解决的话题（优先于群助手）同样收进“已解决话题”子列表。
 /// </summary>
 public partial class MessagesPageViewModel : ViewModelBase
 {
@@ -56,6 +57,11 @@ public partial class MessagesPageViewModel : ViewModelBase
             if (name is "" or "twenty_four_hour_time")
                 RequestRefresh();
         };
+        session.Settings.Local.Changed += (_, key) =>
+        {
+            if (key is LocalSettings.TopicTitleFormatKey or LocalSettings.CollapseResolvedTopicsKey)
+                RequestRefresh();
+        };
         session.ConnectionChanged += (_, _) => UpdateConnection();
 
         Refresh();
@@ -65,8 +71,16 @@ public partial class MessagesPageViewModel : ViewModelBase
     /// <summary>主列表。</summary>
     public ObservableCollection<ConversationItemViewModel> Conversations { get; } = [];
 
-    /// <summary>群助手子列表。</summary>
+    /// <summary>会话夹子列表：当前打开的会话夹（<see cref="OpenFolder"/>）中的会话。</summary>
     public ObservableCollection<ConversationItemViewModel> HelperConversations { get; } = [];
+
+    /// <summary>子列表显示的会话夹：群助手或已解决话题。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FolderTitle))]
+    public partial ConversationKey OpenFolder { get; private set; } = ConversationKey.Helper;
+
+    /// <summary>子列表标题行右侧的灰色文字。</summary>
+    public string FolderTitle => _session.Conversations.GetTitle(OpenFolder);
 
     [ObservableProperty]
     public partial ConversationItemViewModel? SelectedConversation { get; set; }
@@ -74,7 +88,7 @@ public partial class MessagesPageViewModel : ViewModelBase
     [ObservableProperty]
     public partial ConversationItemViewModel? SelectedHelperConversation { get; set; }
 
-    /// <summary>群助手子列表是否滑入显示。</summary>
+    /// <summary>会话夹子列表是否滑入显示。</summary>
     [ObservableProperty]
     public partial bool IsHelperOpen { get; set; }
 
@@ -123,10 +137,10 @@ public partial class MessagesPageViewModel : ViewModelBase
     /// <summary>话题和多人私聊有四级“群消息设置”；一对一私聊只有“消息免打扰”开关。</summary>
     public static bool HasGroupLevels(ConversationItemViewModel item) => item.Key is TopicKey or DmKey { IsGroupDm: true };
 
-    public bool CanMarkRead(ConversationItemViewModel item) => !item.IsHelper && _session.Unread.Count(item.Key) > 0;
+    public bool CanMarkRead(ConversationItemViewModel item) => !item.IsFolder && _session.Unread.Count(item.Key) > 0;
 
     public bool CanMarkUnread(ConversationItemViewModel item) =>
-        !item.IsHelper && !item.IsBlocked && _session.Unread.Count(item.Key) == 0
+        !item.IsFolder && !item.IsBlocked && _session.Unread.Count(item.Key) == 0
         && _session.Conversations.Get(item.Key) is { LastMessageId: > 0 };
 
     public void TogglePin(ConversationItemViewModel item) => _session.Conversations.SetPinned(item.Key, !item.IsPinned);
@@ -186,11 +200,18 @@ public partial class MessagesPageViewModel : ViewModelBase
     {
         if (_selecting || value is null)
             return;
-        if (value.IsHelper)
+        if (value.IsFolder)
         {
-            IsHelperOpen = true;
-            // 群助手条目只是入口：列表正在提交选择，延后恢复原来的选中项
-            Dispatcher.UIThread.Post(() => Select(_selectedKey));
+            // 会话夹条目只是入口：列表正在提交选择，延后填充子列表、滑入，并恢复原来的选中项
+            OpenFolder = value.Key;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_session.IsDisposed)
+                    return;
+                Refresh();
+                IsHelperOpen = HelperConversations.Count > 0;
+                Select(_selectedKey);
+            });
             return;
         }
         Select(value.Key);
@@ -200,7 +221,7 @@ public partial class MessagesPageViewModel : ViewModelBase
     /// <summary>再次点击已选中的会话：重新打开（已在独立窗口中时激活该窗口）。</summary>
     public void Reopen(ConversationItemViewModel item)
     {
-        if (!item.IsHelper)
+        if (!item.IsFolder)
             _openChat(item.Key);
     }
 
@@ -230,24 +251,30 @@ public partial class MessagesPageViewModel : ViewModelBase
     {
         var now = DateTime.Now;
         var store = _session.Conversations;
+        // 收起的已解决话题优先于群助手，显示级别用 GetEffectiveLevel（屏蔽的保持屏蔽，其余按群助手显示）；
+        // 右键菜单仍按设置的级别（Level）显示和修改
         var rows = store.Entries
-            .Where(e => e.InList && e.Key is not HelperKey)
-            .Select(e => (Entry: e, Level: store.GetLevel(e.Key)))
+            .Where(e => e.InList && e.Key is not FolderKey)
+            .Select(e => (Entry: e, Level: store.GetLevel(e.Key), Display: store.GetEffectiveLevel(e.Key), Resolved: store.IsCollapsedResolved(e.Key)))
             .ToList();
-        var assistant = rows.Where(r => r.Level == DndLevel.Assistant).Select(r => r.Entry).ToList();
+        var resolved = rows.Where(r => r.Resolved).ToList();
+        var assistant = rows.Where(r => !r.Resolved && r.Level == DndLevel.Assistant).ToList();
 
-        var main = rows.Where(r => r.Level != DndLevel.Assistant)
-            .Select(r => (Item: ItemFor(r.Entry.Key, Snapshot(r.Entry, r.Level), now), r.Entry.PinnedAt, r.Entry.LastMessageTime))
+        var main = rows.Where(r => !r.Resolved && r.Level != DndLevel.Assistant)
+            .Select(r => (Item: ItemFor(r.Entry.Key, Snapshot(r.Entry, r.Level, r.Display), now), r.Entry.PinnedAt, r.Entry.LastMessageTime))
             .ToList();
-        if (assistant.Count > 0)
+        foreach (var (folder, members) in new[] { (ConversationKey.Helper, assistant), (ConversationKey.Resolved, resolved) })
         {
-            var helperEntry = store.Entries.FirstOrDefault(e => e.Key is HelperKey);
-            var helper = HelperSnapshot(assistant, helperEntry?.IsPinned ?? false);
-            main.Add((ItemFor(ConversationKey.Helper, helper, now), helperEntry?.PinnedAt, helper.LastMessageTime));
+            if (members.Count == 0)
+                continue;
+            var folderEntry = store.Get(folder);
+            var snapshot = FolderSnapshot(folder, members.Select(r => r.Entry).ToList(), folderEntry?.IsPinned ?? false);
+            main.Add((ItemFor(folder, snapshot, now), folderEntry?.PinnedAt, snapshot.LastMessageTime));
         }
 
-        var helperItems = assistant
-            .Select(e => (Item: ItemFor(e.Key, Snapshot(e, DndLevel.Assistant), now), e.PinnedAt, e.LastMessageTime))
+        var openMembers = OpenFolder is ResolvedKey ? resolved : assistant;
+        var helperItems = openMembers
+            .Select(r => (Item: ItemFor(r.Entry.Key, Snapshot(r.Entry, r.Level, r.Display), now), r.Entry.PinnedAt, r.Entry.LastMessageTime))
             .ToList();
 
         _selecting = true;
@@ -261,7 +288,7 @@ public partial class MessagesPageViewModel : ViewModelBase
         {
             _selecting = false;
         }
-        if (assistant.Count == 0)
+        if (openMembers.Count == 0)
             IsHelperOpen = false;
 
         // 不再出现在任何列表中的条目不再缓存
@@ -269,7 +296,7 @@ public partial class MessagesPageViewModel : ViewModelBase
         foreach (var key in _items.Keys.Where(k => !visible.Contains(k)).ToList())
             _items.Remove(key);
 
-        var total = _session.Unread.TotalForBadge(store.GetLevel);
+        var total = _session.Unread.TotalForBadge(store.GetEffectiveLevel);
         TotalUnreadText = total == 0 ? "" : total > 99 ? "99+" : total.ToString(CultureInfo.InvariantCulture);
     }
 
@@ -291,7 +318,7 @@ public partial class MessagesPageViewModel : ViewModelBase
         return item;
     }
 
-    private ConversationSnapshot Snapshot(ConversationEntry e, DndLevel level)
+    private ConversationSnapshot Snapshot(ConversationEntry e, DndLevel level, DndLevel displayLevel)
     {
         var key = e.Key;
         // 话题和多人私聊的预览带发送者（自己发的不带）
@@ -311,7 +338,7 @@ public partial class MessagesPageViewModel : ViewModelBase
 
         return new ConversationSnapshot(
             key,
-            title,
+            _session.Conversations.GetDisplayTitle(key),
             e.LastMessageTime,
             preview,
             // 正在聊天视图中打开的会话不显示草稿（草稿就在输入框里）
@@ -319,32 +346,35 @@ public partial class MessagesPageViewModel : ViewModelBase
             _session.Unread.Count(key),
             _session.Unread.GetNotice(key),
             level,
+            displayLevel,
             e.IsPinned,
             avatarUrl,
             avatarText,
             avatarColor);
     }
 
-    /// <summary>群助手条目：时间取各会话的最新时间，提示取最高优先级的 @，预览为“N个群聊有新消息”。</summary>
-    private ConversationSnapshot HelperSnapshot(IReadOnlyList<ConversationEntry> assistant, bool isPinned)
+    /// <summary>会话夹条目：时间取各会话的最新时间，提示取最高优先级的 @，预览为“N个群聊有新消息”。</summary>
+    private ConversationSnapshot FolderSnapshot(ConversationKey folder, IReadOnlyList<ConversationEntry> members, bool isPinned)
     {
-        var unreadCount = assistant.Count(e => _session.Unread.Count(e.Key) > 0);
-        var notices = assistant.Select(e => _session.Unread.GetNotice(e.Key)).ToList();
+        var unreadCount = members.Count(e => _session.Unread.Count(e.Key) > 0);
+        var notices = members.Select(e => _session.Unread.GetNotice(e.Key)).ToList();
         var notice = notices.Contains(ConversationNotice.AtMe) ? ConversationNotice.AtMe
             : notices.Contains(ConversationNotice.AtAll) ? ConversationNotice.AtAll
             : ConversationNotice.None;
+        var title = _session.Conversations.GetTitle(folder);
         return new ConversationSnapshot(
-            ConversationKey.Helper,
-            "群助手",
-            assistant.Max(e => e.LastMessageTime),
+            folder,
+            title,
+            members.Max(e => e.LastMessageTime),
             unreadCount > 0 ? $"{unreadCount}个群聊有新消息" : "",
             null,
             0,
             notice,
             DndLevel.Notify,
+            DndLevel.Notify,
             isPinned,
             null,
-            "群助手",
+            title,
             null);
     }
 

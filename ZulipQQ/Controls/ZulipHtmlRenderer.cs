@@ -13,6 +13,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using ZulipQQ.Core;
 using HorizontalAlignment = Avalonia.Layout.HorizontalAlignment;
+using VerticalAlignment = Avalonia.Layout.VerticalAlignment;
 
 namespace ZulipQQ.Controls;
 
@@ -44,7 +45,7 @@ internal static partial class ZulipHtmlRenderer
 
     private sealed class Context(HashSet<string> previews, string? meSender)
     {
-        /// <summary>有内联预览的上传路径：只含这些链接的段落不再显示。</summary>
+        /// <summary>有内联预览的上传路径：段落中指向它们的文件名链接不显示，只含这些链接的段落整段不显示。</summary>
         public HashSet<string> Previews { get; } = previews;
 
         /// <summary>“/me” 消息：第一个段落前加上发送者名字，之后置为 null。</summary>
@@ -86,6 +87,8 @@ internal static partial class ZulipHtmlRenderer
         switch (e.LocalName)
         {
             case "p":
+                if (IsQuoteHeader(e))
+                    return;
                 if (ZulipHtml.IsUploadOnlyParagraph(e))
                     AddFileCards(e, target, ctx);
                 else
@@ -185,15 +188,106 @@ internal static partial class ZulipHtmlRenderer
         return (Math.Max(24, Math.Round(w * scale)), Math.Max(24, Math.Round(h * scale)));
     }
 
+    /// <summary>
+    /// 引用卡片（仿 QQ）：半透明圆角底色，左侧竖线。引用回复（有原消息链接）第一行显示原作者，
+    /// 右上角显示跳转图标，悬停时底色加深，点击整张卡片跳转到原消息（与点击“说”相同）；
+    /// 没有原消息链接的普通引用没有图标，也不响应点击。
+    /// </summary>
     private static Control Quote(IElement e, Context ctx)
     {
-        var inner = NewStack();
+        var source = QuoteSourceOf(e.PreviousElementSibling);
+        var inner = NewStack(4);
+        if (source?.Author is { Length: > 0 } author)
+        {
+            var header = new TextBlock { Text = author, TextTrimming = TextTrimming.CharacterEllipsis };
+            BindResource(header, TextBlock.FontSizeProperty, header, "FontSizeSub");
+            inner.Children.Add(header);
+        }
         BuildBlocks(e.ChildNodes, inner, ctx);
         BindResource(inner, TextElement.ForegroundProperty, inner, "TextSecondaryBrush");
-        var border = new Border { BorderThickness = new Thickness(3, 0, 0, 0), Padding = new Thickness(8, 0, 0, 0), Child = inner };
-        BindResource(border, Border.BorderBrushProperty, border, "PressedBrush");
-        return border;
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { inner } };
+        var bar = new Border { BorderThickness = new Thickness(2, 0, 0, 0), Padding = new Thickness(8, 0, 0, 0), Child = grid };
+        BindResource(bar, Border.BorderBrushProperty, bar, "QuoteBarBrush");
+        var card = new Border { CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 6), Child = bar };
+        var background = card.Bind(Border.BackgroundProperty, card.GetResourceObservable("QuoteCardBrush"));
+        if (source is null)
+            return card;
+
+        var icon = new TdIcon
+        {
+            Icon = Application.Current?.FindResource("Icon.Backtop") as TdIconData,
+            Width = 14,
+            Height = 14,
+            Margin = new Thickness(8, 2, 0, 0),
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        BindResource(icon, TdIcon.ForegroundProperty, icon, "TextTertiaryBrush");
+        ToolTip.SetTip(icon, "跳转到原消息");
+        Grid.SetColumn(icon, 1);
+        grid.Children.Add(icon);
+
+        card.Cursor = new Cursor(StandardCursorType.Hand);
+        void SetBackground(string key)
+        {
+            background.Dispose();
+            background = card.Bind(Border.BackgroundProperty, card.GetResourceObservable(key));
+        }
+        card.PointerEntered += (_, _) => SetBackground("QuoteCardHoverBrush");
+        card.PointerExited += (_, _) => SetBackground("QuoteCardBrush");
+        // 引用中的链接、提及先处理点击；拖动选择了文字时不跳转
+        card.PointerReleased += (_, args) =>
+        {
+            if (args.InitialPressMouseButton != MouseButton.Left
+                || args.Source is SelectableTextBlock { } text && text.SelectionStart != text.SelectionEnd)
+                return;
+            args.Handled = true;
+            card.RaiseEvent(new MessageLinkEventArgs(MessageContent.LinkClickedEvent, new UrlTarget(source.Href)));
+        };
+        return card;
     }
+
+    /// <summary>引用回复的原作者（可能为 null）与原消息链接。</summary>
+    private sealed record QuoteSource(string? Author, string Href);
+
+    /// <summary>
+    /// 识别 Zulip 引用回复的标题段落 <c>@_**某人|id** [说](…/near/id):</c>，即只有一个提及、一个指向消息的链接和冒号。
+    /// 不是这种段落时返回 null。这个段落不再单独显示，内容并入其后的引用卡片。
+    /// </summary>
+    private static QuoteSource? QuoteSourceOf(IElement? p)
+    {
+        if (p is not { LocalName: "p" })
+            return null;
+        string? author = null;
+        string? href = null;
+        var colon = false;
+        foreach (var node in p.ChildNodes)
+        {
+            switch (node)
+            {
+                case IText t when t.Data.Trim() is "":
+                    continue;
+                case IText t when t.Data.Trim() is ":" or "：":
+                    colon = true;
+                    continue;
+                case IElement s when author is null && href is null && s.ClassList.Contains("user-mention"):
+                    author = s.TextContent.Trim().TrimStart('@');
+                    continue;
+                case IElement { LocalName: "a" } a when href is null
+                    && a.GetAttribute("href") is { } h && h.StartsWith("#narrow/", StringComparison.Ordinal) && h.Contains("/near/", StringComparison.Ordinal):
+                    href = h;
+                    continue;
+                default:
+                    return null;
+            }
+        }
+        // 引用回复的头部总是“@作者 [说](链接):”；缺少作者或冒号时只是普通段落，不能当作引用头部隐藏
+        return href is null || author is null || !colon ? null : new QuoteSource(author, href);
+    }
+
+    /// <summary>引用回复的标题段落（后面紧跟引用块）：由引用卡片显示，段落本身跳过。</summary>
+    private static bool IsQuoteHeader(IElement e) =>
+        e.NextElementSibling is { LocalName: "blockquote" } && QuoteSourceOf(e) is not null;
 
     private static Control CodeBlock(string text)
     {
@@ -315,7 +409,7 @@ internal static partial class ZulipHtmlRenderer
         if (bold)
             block.FontWeight = FontWeight.Bold;
 
-        var builder = new InlineBuilder(block);
+        var builder = new InlineBuilder(block, ctx.Previews);
         var style = new InlineStyle { Italic = ctx.Italic };
         if (ctx.MePrefix is { } me)
         {
@@ -335,7 +429,8 @@ internal static partial class ZulipHtmlRenderer
     private readonly record struct InlineStyle(bool Bold, bool Italic, bool Strike, bool Code, bool Accent, bool Highlight, bool Deleted = false);
 
     /// <summary>把行内节点展开为扁平的 Run 列表，同时记录链接的字符区间。</summary>
-    private sealed class InlineBuilder(MessageTextBlock block)
+    /// <param name="previews">有内联预览的上传路径：段落中指向它们的文件名链接不显示。</param>
+    private sealed class InlineBuilder(MessageTextBlock block, HashSet<string> previews)
     {
         private int _length;
         private bool _atLineStart = true;
@@ -373,6 +468,9 @@ internal static partial class ZulipHtmlRenderer
                     var href = e.GetAttribute("href");
                     if (string.IsNullOrEmpty(href))
                         Children(e, style, link);
+                    else if (ZulipHtml.NormalizeUploadPath(href) is { } path && previews.Contains(path)
+                             && ZulipHtml.IsFileNameLabel(e.TextContent, path))
+                        return;
                     else
                         Children(e, style with { Accent = true }, LinkOf(href, e.TextContent));
                     return;

@@ -31,7 +31,27 @@
 
     <StackPanel Spacing="8">
         <TextBlock Classes="pageTitle" Text="群消息设置" />
-        <TextBlock Classes="hint" Text="设置话题（群）与多人私聊的消息提醒方式。“接收消息但不提醒”及以下的级别会同步为 Zulip 的话题静音。" />
+        <TextBlock Classes="section" Text="显示" />
+        <Border Classes="card">
+            <StackPanel Spacing="6" Margin="0,8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="话题标题" VerticalAlignment="Center" />
+                    <TextBox Grid.Column="1" Classes="input" Width="260" MaxLength="100" PlaceholderText="{}{Topic}"
+                             Text="{Binding TitleFormat}" />
+                </Grid>
+                <TextBlock Classes="hint" TextWrapping="Wrap"
+                           Text="用于会话列表、聊天窗口标题和独立聊天窗口标题。可用变量：{Channel} 频道名，{Topic} 话题名（有备注时为备注），可与其它文字自由拼接，例如 {Channel} / {Topic}。" />
+                <TextBlock Classes="hint" Text="{Binding TitlePreview}" IsVisible="{Binding TitlePreview, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                    <TextBlock Text="收起已解决话题" VerticalAlignment="Center" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding CollapseResolvedTopics}" />
+                </Grid>
+                <TextBlock Classes="hint" TextWrapping="Wrap"
+                           Text="开启后，已解决的话题（以 ✔ 开头）收进“已解决话题”，与群助手一样不提醒、不计入未读总数，且不再出现在消息列表和群助手中。" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="hint" Margin="0,8,0,0" Text="设置话题（群）与多人私聊的消息提醒方式。“接收消息但不提醒”及以下的级别会同步为 Zulip 的话题静音。" />
 
         <TextBlock Classes="section" Text="频道" />
         <ItemsControl ItemsSource="{Binding Channels}">

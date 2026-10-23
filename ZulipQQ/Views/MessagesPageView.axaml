@@ -34,12 +34,15 @@
             <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
         </Style>
 
-        <!-- 群助手头像：橙色圆形 + 白色图标 -->
+        <!-- 会话夹头像：群助手为橙色圆形 + 白色图标，已解决话题为绿色 -->
         <Style Selector="Border.helperAvatar">
             <Setter Property="Width" Value="44" />
             <Setter Property="Height" Value="44" />
             <Setter Property="CornerRadius" Value="22" />
             <Setter Property="Background" Value="{DynamicResource HelperAvatarBrush}" />
+        </Style>
+        <Style Selector="Border.helperAvatar.resolved">
+            <Setter Property="Background" Value="{DynamicResource ResolvedAvatarBrush}" />
         </Style>
         <Style Selector="Border.helperAvatar c|TdIcon">
             <Setter Property="Width" Value="22" />
@@ -82,7 +85,7 @@
             <Setter Property="Foreground" Value="White" />
         </Style>
 
-        <!-- 群助手子列表从右侧滑入，主列表向左退出并淡出 -->
+        <!-- 会话夹子列表从右侧滑入，主列表向左退出并淡出 -->
         <Style Selector="Panel.mainLayer, DockPanel.helperLayer">
             <Setter Property="Transitions">
                 <Transitions>
@@ -118,9 +121,12 @@
                 <Grid ColumnDefinitions="Auto,*">
                     <Panel Width="44" Height="44">
                         <c:Avatar Width="44" Height="44" Source="{Binding AvatarUrl}" Text="{Binding AvatarText}"
-                                  Fill="{Binding AvatarFill}" IsVisible="{Binding !IsHelper}" />
+                                  Fill="{Binding AvatarFill}" IsVisible="{Binding !IsFolder}" />
                         <Border Classes="helperAvatar" IsVisible="{Binding IsHelper}">
                             <c:TdIcon Icon="{StaticResource Icon.Usergroup}" />
+                        </Border>
+                        <Border Classes="helperAvatar resolved" IsVisible="{Binding IsResolvedFolder}">
+                            <c:TdIcon Icon="{StaticResource Icon.Check}" />
                         </Border>
                     </Panel>
 
@@ -172,7 +178,7 @@
 
             <DockPanel Classes="helperLayer" Classes.helperOpen="{Binding IsHelperOpen}"
                        Background="{DynamicResource PanelBackgroundBrush}">
-                <!-- 标题行：左侧“< 返回”，右侧灰色“群助手” -->
+                <!-- 标题行：左侧“< 返回”，右侧灰色的会话夹名称 -->
                 <DockPanel DockPanel.Dock="Top" Height="28" Margin="8,0,12,0">
                     <Button DockPanel.Dock="Left" Theme="{StaticResource FlatButton}" Padding="4,2"
                             Foreground="{DynamicResource TextSecondaryBrush}" Command="{Binding CloseHelperCommand}">
@@ -182,7 +188,7 @@
                                        VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <TextBlock Text="群助手" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextSecondaryBrush}"
+                    <TextBlock Text="{Binding FolderTitle}" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextSecondaryBrush}"
                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </DockPanel>
 

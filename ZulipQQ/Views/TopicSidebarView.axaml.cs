@@ -16,7 +16,8 @@ public partial class TopicSidebarView : UserControl
     public TopicSidebarView()
     {
         InitializeComponent();
-        MemberList.PointerReleased += OnMemberPointerReleased;
+        MemberList.DoubleTapped += OnMemberDoubleTapped;
+        MemberList.ContextRequested += OnMemberContextRequested;
     }
 
     // 显示期间（在可视树上）随数据变化刷新
@@ -55,18 +56,18 @@ public partial class TopicSidebarView : UserControl
             Dispatcher.UIThread.Post(() => SearchBox.Focus());
     }
 
-    // 点击成员：弹出名片
-    private void OnMemberPointerReleased(object? sender, PointerReleasedEventArgs e)
+    // 成员：左键单击没有反应，双击发消息，右键菜单
+    private void OnMemberDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (_vm is not { } vm || e.InitialPressMouseButton != MouseButton.Left)
+        if (_vm is { } vm && ChatView.FindMember(e.Source as Visual, MemberList) is { DataContext: ChatMemberItem member })
+            vm.Chat.OpenDirectChat(member.UserId);
+    }
+
+    private void OnMemberContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (_vm is not { } vm || ChatView.FindMember(e.Source as Visual, MemberList) is not { DataContext: ChatMemberItem member } row)
             return;
-        for (var v = e.Source as Visual; v is not null && v != MemberList; v = v.GetVisualParent())
-        {
-            if (v is ListBoxItem { DataContext: ChatMemberItem member } item)
-            {
-                ChatView.ShowCard(close => vm.CreateUserCard(member.UserId, close), item, PlacementMode.LeftEdgeAlignedTop);
-                return;
-            }
-        }
+        e.Handled = true;
+        ChatView.ShowUserMenu(vm.Chat, member.UserId, row, PlacementMode.LeftEdgeAlignedTop);
     }
 }

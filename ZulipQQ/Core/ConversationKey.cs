@@ -8,15 +8,18 @@ using ZulipQQ.Zulip.Dtos;
 namespace ZulipQQ.Core;
 
 /// <summary>
-/// 会话的标识：话题（QQ 的“群”）、私聊（含多人私聊和与自己的私聊），以及只用于置顶状态的群助手条目。
+/// 会话的标识：话题（QQ 的“群”）、私聊（含多人私聊和与自己的私聊），以及只用于置顶状态的会话夹条目（群助手、已解决话题）。
 /// </summary>
 public abstract record ConversationKey
 {
     /// <summary>群助手条目。</summary>
     public static ConversationKey Helper => HelperKey.Instance;
 
+    /// <summary>已解决话题条目。</summary>
+    public static ConversationKey Resolved => ResolvedKey.Instance;
+
     /// <summary>
-    /// SQLite 中保存的形式：话题 <c>t:{频道id}:{小写话题}</c>，私聊 <c>d:{id1,id2}</c>（与自己为 <c>d:</c>），群助手 <c>helper</c>。
+    /// SQLite 中保存的形式：话题 <c>t:{频道id}:{小写话题}</c>，私聊 <c>d:{id1,id2}</c>（与自己为 <c>d:</c>），群助手 <c>helper</c>，已解决话题 <c>resolved</c>。
     /// </summary>
     public abstract string ToStorageString();
 
@@ -28,6 +31,8 @@ public abstract record ConversationKey
     {
         if (s == HelperKey.StorageString)
             return Helper;
+        if (s == ResolvedKey.StorageString)
+            return Resolved;
 
         if (s.StartsWith("t:", StringComparison.Ordinal))
         {
@@ -107,14 +112,31 @@ public sealed record DmKey(ImmutableArray<long> OtherUserIds) : ConversationKey
     private ImmutableArray<long> Ids => OtherUserIds.IsDefault ? [] : OtherUserIds;
 }
 
-/// <summary>群助手条目，只用于保存置顶状态。</summary>
-public sealed record HelperKey : ConversationKey
+/// <summary>会话夹条目：主列表中代表一组会话的入口，只用于保存置顶状态。</summary>
+public abstract record FolderKey : ConversationKey;
+
+/// <summary>群助手条目。</summary>
+public sealed record HelperKey : FolderKey
 {
     internal const string StorageString = "helper";
 
     public static readonly HelperKey Instance = new();
 
     private HelperKey()
+    {
+    }
+
+    public override string ToStorageString() => StorageString;
+}
+
+/// <summary>已解决话题条目（开启“收起已解决话题”时）。</summary>
+public sealed record ResolvedKey : FolderKey
+{
+    internal const string StorageString = "resolved";
+
+    public static readonly ResolvedKey Instance = new();
+
+    private ResolvedKey()
     {
     }
 

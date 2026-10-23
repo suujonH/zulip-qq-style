@@ -197,17 +197,38 @@ public sealed partial class ChannelLevelGroupViewModel : ObservableObject
     }
 }
 
-/// <summary>群消息设置：按频道列出话题的四级免打扰，另列出多人私聊。</summary>
-public sealed class GroupMessagesPageViewModel : SettingsPageViewModel
+/// <summary>群消息设置：话题标题的显示模板、收起已解决话题；按频道列出话题的四级免打扰，另列出多人私聊。</summary>
+public sealed partial class GroupMessagesPageViewModel : SettingsPageViewModel
 {
     public GroupMessagesPageViewModel(SettingsViewModel owner) : base(owner)
     {
+        TitleFormat = Session.Settings.Local.TopicTitleFormat;
+        CollapseResolvedTopics = Session.Settings.Local.CollapseResolvedTopics;
         Build();
         Session.Conversations.EntryChanged += OnEntryChanged;
         Session.Channels.ChannelChanged += OnChannelChanged;
         Session.Channels.TopicsChanged += OnTopicsChanged;
         Session.Channels.Reset += OnReset;
     }
+
+    /// <summary>话题标题模板，输入即保存；清空时按默认（只显示话题名）显示。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TitlePreview))]
+    public partial string TitleFormat { get; set; } = "";
+
+    /// <summary>用最近的一个话题会话预览模板效果；还没有话题会话时为空。</summary>
+    public string TitlePreview =>
+        Session.Conversations.Entries.Where(e => e.Key is TopicKey).MaxBy(e => e.LastMessageTime) is { } latest
+            ? "预览：" + Session.Conversations.GetDisplayTitle(latest.Key)
+            : "";
+
+    partial void OnTitleFormatChanged(string value) => Session.Settings.Local.TopicTitleFormat = value;
+
+    /// <summary>收起已解决话题，切换即保存。</summary>
+    [ObservableProperty]
+    public partial bool CollapseResolvedTopics { get; set; }
+
+    partial void OnCollapseResolvedTopicsChanged(bool value) => Session.Settings.Local.CollapseResolvedTopics = value;
 
     public ObservableCollection<ChannelLevelGroupViewModel> Channels { get; } = [];
 

@@ -14,6 +14,8 @@ namespace ZulipQQ.ViewModels;
 /// <param name="AvatarUrl">头像图片地址；为 null 时显示文字头像。</param>
 /// <param name="AvatarText">文字头像取首字的文字。</param>
 /// <param name="AvatarColor">文字头像的背景色（#RRGGBB）；为 null 时按文字取色板颜色。</param>
+/// <param name="Level">设置的免打扰级别（右键菜单显示和修改的就是它）。</param>
+/// <param name="DisplayLevel">显示用的级别：收起的已解决话题按群助手显示，其余同 <paramref name="Level"/>。</param>
 public sealed record ConversationSnapshot(
     ConversationKey Key,
     string Title,
@@ -23,6 +25,7 @@ public sealed record ConversationSnapshot(
     int UnreadCount,
     ConversationNotice Notice,
     DndLevel Level,
+    DndLevel DisplayLevel,
     bool IsPinned,
     string? AvatarUrl,
     string AvatarText,
@@ -38,8 +41,14 @@ public partial class ConversationItemViewModel(ConversationKey key) : ViewModelB
 
     public ConversationKey Key { get; } = key;
 
-    /// <summary>群助手条目：显示固定的橙色图标头像，不显示未读数。</summary>
+    /// <summary>会话夹条目（群助手、已解决话题）：显示固定的图标头像，不显示未读数，点击滑入子列表。</summary>
+    public bool IsFolder => Key is FolderKey;
+
+    /// <summary>群助手条目：橙色图标头像。</summary>
     public bool IsHelper => Key is HelperKey;
+
+    /// <summary>已解决话题条目：绿色对勾头像。</summary>
+    public bool IsResolvedFolder => Key is ResolvedKey;
 
     [ObservableProperty]
     public partial string Title { get; private set; } = "";
@@ -66,18 +75,23 @@ public partial class ConversationItemViewModel(ConversationKey key) : ViewModelB
     [NotifyPropertyChangedFor(nameof(ShowMutedIcon))]
     public partial bool HasUnread { get; private set; }
 
-    /// <summary>免打扰的会话未读数显示为灰色。</summary>
+    /// <summary>设置的免打扰级别，右键菜单按它显示和修改。</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsMuted), nameof(IsBlocked), nameof(ShowMutedIcon))]
     public partial DndLevel Level { get; private set; }
 
-    public bool IsMuted => Level != DndLevel.Notify;
+    /// <summary>显示用的级别（收起的已解决话题按群助手显示）。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMuted), nameof(IsBlocked), nameof(ShowMutedIcon))]
+    public partial DndLevel DisplayLevel { get; private set; }
+
+    /// <summary>免打扰的会话未读数显示为灰色。</summary>
+    public bool IsMuted => DisplayLevel != DndLevel.Notify;
 
     /// <summary>屏蔽群消息：显示禁止图标，不显示未读。</summary>
-    public bool IsBlocked => Level == DndLevel.Blocked;
+    public bool IsBlocked => DisplayLevel == DndLevel.Blocked;
 
     /// <summary>接收不提醒、收进群助手的会话没有未读时，在未读位置显示免打扰图标。</summary>
-    public bool ShowMutedIcon => Level is DndLevel.Silent or DndLevel.Assistant && !HasUnread;
+    public bool ShowMutedIcon => DisplayLevel is DndLevel.Silent or DndLevel.Assistant && !HasUnread;
 
     [ObservableProperty]
     public partial bool IsPinned { get; private set; }
@@ -102,12 +116,13 @@ public partial class ConversationItemViewModel(ConversationKey key) : ViewModelB
         var blocked = s.Level == DndLevel.Blocked;
         NoticeText = HasDraft || blocked ? null : NoticeOf(s.Notice);
 
-        var unread = blocked || IsHelper ? 0 : s.UnreadCount;
+        var unread = blocked || IsFolder ? 0 : s.UnreadCount;
         UnreadText = unread > MaxUnreadDisplay
             ? $"{MaxUnreadDisplay}+"
             : unread.ToString(CultureInfo.InvariantCulture);
         HasUnread = unread > 0;
         Level = s.Level;
+        DisplayLevel = s.DisplayLevel;
         IsPinned = s.IsPinned;
         AvatarUrl = s.AvatarUrl;
         AvatarText = s.AvatarText;

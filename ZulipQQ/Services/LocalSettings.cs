@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using ZulipQQ.Core;
 using ZulipQQ.Data;
@@ -47,6 +48,10 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     private const string NotificationStyleKey = "notification_style";
     private const string DownloadRootKey = "download_root";
     private const string FileClickActionKey = "file_click_action";
+    public const string TopicTitleFormatKey = "topic_title_format";
+    public const string CollapseResolvedTopicsKey = "collapse_resolved_topics";
+
+    private readonly Dictionary<(SettingRepository, string), string?> _cache = [];
 
     /// <summary>某项设置变化，参数为设置键（如 <c>font_size</c>）。</summary>
     public event EventHandler<string>? Changed;
@@ -82,7 +87,7 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     /// <summary>关闭主面板时的行为（程序级）。托盘图标隐藏时总是退出，见 <see cref="EffectiveCloseAction"/>。</summary>
     public CloseAction CloseAction
     {
-        get => Enum.TryParse<CloseAction>(appRepository.Get(CloseActionKey), out var v) ? v : CloseAction.MinimizeToTray;
+        get => Enum.TryParse<CloseAction>(Read(appRepository, CloseActionKey), out var v) ? v : CloseAction.MinimizeToTray;
         set => Save(appRepository, CloseActionKey, value.ToString());
     }
 
@@ -91,15 +96,15 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
 
     /// <summary>默认模式 / 经典模式下主窗口的位置和大小；没有保存过时为 null。</summary>
     public WindowBounds? GetMainWindowBounds(bool classic) =>
-        WindowBounds.Parse(repository.Get(classic ? BoundsClassicKey : BoundsNormalKey));
+        WindowBounds.Parse(Read(repository, classic ? BoundsClassicKey : BoundsNormalKey));
 
     public void SetMainWindowBounds(bool classic, WindowBounds bounds) =>
-        repository.Set(classic ? BoundsClassicKey : BoundsNormalKey, bounds.ToString());
+        Write(repository, classic ? BoundsClassicKey : BoundsNormalKey, bounds.ToString());
 
     /// <summary>正文字号，12～18。</summary>
     public int FontSize
     {
-        get => int.TryParse(repository.Get(FontSizeKey), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v)
+        get => int.TryParse(Read(repository, FontSizeKey), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v)
             ? Math.Clamp(v, ThemeService.MinFontSize, ThemeService.MaxFontSize)
             : ThemeService.DefaultFontSize;
         set => Save(FontSizeKey, Math.Clamp(value, ThemeService.MinFontSize, ThemeService.MaxFontSize).ToString(CultureInfo.InvariantCulture));
@@ -107,21 +112,35 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
 
     public NotificationStyle NotificationStyle
     {
-        get => Enum.TryParse<NotificationStyle>(repository.Get(NotificationStyleKey), out var v) ? v : NotificationStyle.Banner;
+        get => Enum.TryParse<NotificationStyle>(Read(repository, NotificationStyleKey), out var v) ? v : NotificationStyle.Banner;
         set => Save(NotificationStyleKey, value.ToString());
     }
 
     /// <summary>聊天文件的下载根目录。</summary>
     public string DownloadRoot
     {
-        get => repository.Get(DownloadRootKey) is { Length: > 0 } v ? v : AppPaths.DefaultDownloadRoot;
+        get => Read(repository, DownloadRootKey) is { Length: > 0 } v ? v : AppPaths.DefaultDownloadRoot;
         set => Save(DownloadRootKey, value);
     }
 
     public FileClickAction FileClickAction
     {
-        get => Enum.TryParse<FileClickAction>(repository.Get(FileClickActionKey), out var v) ? v : FileClickAction.OpenAfterDownload;
+        get => Enum.TryParse<FileClickAction>(Read(repository, FileClickActionKey), out var v) ? v : FileClickAction.OpenAfterDownload;
         set => Save(FileClickActionKey, value.ToString());
+    }
+
+    /// <summary>话题会话的标题模板（会话列表、聊天标题、独立窗口标题），见 <see cref="TopicTitleFormat"/>。</summary>
+    public string TopicTitleFormat
+    {
+        get => Read(repository, TopicTitleFormatKey) ?? Core.TopicTitleFormat.Default;
+        set => Save(TopicTitleFormatKey, value);
+    }
+
+    /// <summary>收起已解决话题：已解决的话题收进“已解决话题”，不出现在消息列表和群助手中，也不提醒。</summary>
+    public bool CollapseResolvedTopics
+    {
+        get => GetBool(repository, CollapseResolvedTopicsKey, false);
+        set => Save(repository, CollapseResolvedTopicsKey, value);
     }
 
     private void Save(string key, string value) => Save(repository, key, value);
@@ -130,13 +149,28 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
 
     private void Save(SettingRepository target, string key, string value)
     {
-        if (target.Get(key) == value)
+        if (Read(target, key) == value)
             return;
-        target.Set(key, value);
+        Write(target, key, value);
         Changed?.Invoke(this, key);
     }
 
-    private static bool GetBool(SettingRepository source, string key, bool defaultValue) => source.Get(key) switch
+    // 会话列表刷新时每个会话都会读取设置（标题模板、收起已解决话题），读过的值缓存在内存中；
+    // 所有写入都经过 Write，缓存不会过期
+    private string? Read(SettingRepository source, string key)
+    {
+        if (!_cache.TryGetValue((source, key), out var value))
+            _cache[(source, key)] = value = source.Get(key);
+        return value;
+    }
+
+    private void Write(SettingRepository target, string key, string value)
+    {
+        target.Set(key, value);
+        _cache[(target, key)] = value;
+    }
+
+    private bool GetBool(SettingRepository source, string key, bool defaultValue) => Read(source, key) switch
     {
         "1" => true,
         "0" => false,

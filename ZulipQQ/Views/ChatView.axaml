@@ -30,10 +30,6 @@
         <Style Selector="DockPanel.msg.own > c|Avatar">
             <Setter Property="DockPanel.Dock" Value="Right" />
         </Style>
-        <!-- 头像、昵称可点击弹出名片 -->
-        <Style Selector="c|Avatar.sender, TextBlock.sender">
-            <Setter Property="Cursor" Value="Hand" />
-        </Style>
         <Style Selector="DockPanel.msg > StackPanel.body">
             <Setter Property="Margin" Value="10,0,0,0" />
             <Setter Property="HorizontalAlignment" Value="Left" />

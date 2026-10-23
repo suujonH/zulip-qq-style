@@ -123,7 +123,7 @@ public static partial class ZulipHtml
         return any;
     }
 
-    /// <summary>有内联预览的上传链接路径；段落中指向它们的文字链接不再单独显示。</summary>
+    /// <summary>有内联预览的上传链接路径；段落中指向它们的文件名链接不再显示。</summary>
     public static HashSet<string> InlinePreviewPaths(IElement root) => InlineImageHrefs(root);
 
     /// <summary>解析消息 HTML，返回承载内容的 body 元素。</summary>
@@ -161,6 +161,19 @@ public static partial class ZulipHtml
             || !string.Equals(Path.GetExtension(text), Path.GetExtension(pathName), StringComparison.OrdinalIgnoreCase))
             text = pathName;
         return new UploadLink(path, text, IsImagePath(path));
+    }
+
+    /// <summary>
+    /// 上传链接的文字是否只是文件名（为空、是链接本身，或以与文件相同的扩展名结尾）。
+    /// 有内联预览时只隐藏这种文字，用户自己写的描述性文字（如 <c>[架构图](/user_uploads/…/a.png)</c>）保留。
+    /// </summary>
+    public static bool IsFileNameLabel(string text, string path)
+    {
+        text = text.Trim();
+        if (text.Length == 0 || text.Contains(UploadsPrefix[1..], StringComparison.Ordinal))
+            return true;
+        var ext = Path.GetExtension(path);
+        return ext.Length > 0 && text.EndsWith(ext, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -266,10 +279,11 @@ public static partial class ZulipHtml
         var tag = e.LocalName;
         var cls = e.ClassList;
 
-        if (cls.Contains("message_inline_image"))
-            return "[图片]";
+        // 视频预览同时带有 message_inline_image，先判断视频
         if (cls.Contains("message_inline_video"))
             return "[视频]";
+        if (cls.Contains("message_inline_image"))
+            return "[图片]";
         if (cls.Contains("codehilite") || tag == "pre")
             return "[代码]";
         if (cls.Contains("katex-display") || cls.Contains("katex"))
@@ -292,8 +306,10 @@ public static partial class ZulipHtml
 
         if (tag == "a" && NormalizeUploadPath(e.GetAttribute("href")) is { } path)
         {
+            if (inlineImages.Contains(path))
+                return IsFileNameLabel(e.TextContent, path) ? "" : e.TextContent;
             if (IsImagePath(path))
-                return inlineImages.Contains(path) ? "" : "[图片]";
+                return "[图片]";
             if (IsVideoPath(path))
                 return "[视频]";
             return "[文件]" + e.TextContent.Trim();
@@ -398,7 +414,15 @@ public static partial class ZulipHtml
                 continue;
             }
             if (e.ClassList.Contains("message_inline_image"))
-                continue; // 段落中的文字链接已经给出文件名
+            {
+                // 上传文件的预览替代段落中的文件名链接；外链图片的预览由段落中的链接给出地址
+                if (IsUploadPreview(e))
+                {
+                    FlushInline();
+                    lines.Add(SpecialText(e, inlineImages)!);
+                }
+                continue;
+            }
 
             if (e.ClassList.Contains("katex") || e.ClassList.Contains("katex-display"))
             {
@@ -422,10 +446,11 @@ public static partial class ZulipHtml
 
     private static void AppendPlainInline(IElement e, StringBuilder sb, HashSet<string> inlineImages)
     {
-        // 纯文本中文件和图片保留文件名，便于复制
-        if (e.LocalName == "a" && NormalizeUploadPath(e.GetAttribute("href")) is not null)
+        // 纯文本中文件保留文件名，便于复制；有预览的图片 / 视频不显示文件名，由预览处的 [图片] / [视频] 代替
+        if (e.LocalName == "a" && NormalizeUploadPath(e.GetAttribute("href")) is { } path)
         {
-            sb.Append(e.TextContent);
+            if (!inlineImages.Contains(path) || !IsFileNameLabel(e.TextContent, path))
+                sb.Append(e.TextContent);
             return;
         }
         if (e.LocalName == "a" && e.GetAttribute("href") is { } href && !href.StartsWith('#') && e.TextContent != href)

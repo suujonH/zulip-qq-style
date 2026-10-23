@@ -558,17 +558,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
     {
         try
         {
-            if (muted && !await Host.ConfirmAsync("屏蔽后将不再显示对方的消息", "屏蔽"))
-                return;
-            if (muted)
-                await Session.Client.MuteUserAsync(userId, Session.Token);
-            else
-                await Session.Client.UnmuteUserAsync(userId, Session.Token);
-        }
-        catch (Exception ex) when (!Session.IsDisposed)
-        {
-            Log.Warn($"设置屏蔽失败：{userId}", ex);
-            Host.ShowToast("设置失败");
+            await _chat.SetUserMutedAsync(userId, muted);
         }
         finally
         {
@@ -611,7 +601,8 @@ public partial class ChatMorePanelViewModel : ViewModelBase
     public string Link => Key is TopicKey t ? Topics.Link(t) : "";
 
     /// <summary>点击成员弹出的名片。</summary>
-    public UserCardViewModel? CreateUserCard(long userId, Action onOpened) => _chat.CreateUserCard(userId, onOpened);
+    /// <summary>所属的聊天（成员的双击、右键菜单）。</summary>
+    public ChatViewModel Chat => _chat;
 }
 
 /// <summary>更多面板中的一条定时消息：发送时间、内容预览、是否发送失败。</summary>
