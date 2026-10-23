@@ -35,7 +35,10 @@ jobs:
         run: dotnet test --solution ZulipQQ.slnx -c Release
 
       - name: Publish
-        run: dotnet publish ZulipQQ/ZulipQQ.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -p:DebugType=none -o publish/ZulipQQ
+        run: |
+          dotnet publish ZulipQQ/ZulipQQ.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -p:DebugType=none -o publish/ZulipQQ
+          # DebugType=none 只影响本项目；SkiaSharp 等 NuGet 包自带的原生 pdb 仍会复制过来，这里一并删除
+          Get-ChildItem publish/ZulipQQ -Filter *.pdb -File | ForEach-Object { Remove-Item -LiteralPath $_.FullName }
 
       - name: Build plugins
         run: |
