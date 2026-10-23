@@ -29,6 +29,9 @@ public sealed class NotificationService(ZulipSession session)
     private const uint SndNoDefault = 0x0002;
     private const uint SndAlias = 0x00010000;
 
+    // 免打扰会话中提醒过的消息（@我、@全体、提醒词）；它们不计入未读总数，托盘闪烁按它们是否已读决定何时停止
+    private readonly HashSet<long> _mutedAlerts = [];
+
     /// <summary>需要提醒（任务栏闪烁；<see cref="NotificationRequest.Popup"/> 为 true 时同时弹窗）。</summary>
     public event EventHandler<NotificationRequest>? Requested;
 
@@ -53,12 +56,21 @@ public sealed class NotificationService(ZulipSession session)
         var muted = level != DndLevel.Notify;
         if ((muted ? DecideMention(m.Key, flags) : Decide(m.Key, flags)) is not (var popup, var sound))
             return;
+        if (muted)
+            _mutedAlerts.Add(m.Id);
         // 提示音选择“无”时不播放任何提示音（与 Zulip 一致）
         if (sound && session.Settings.Zulip.NotificationSound != "none")
             PlaySound("Notification.IM", IntPtr.Zero, SndAlias | SndAsync | SndNoDefault);
         // 通知类型为“仅闪烁”时不弹窗
         popup &= session.Settings.Local.NotificationStyle == NotificationStyle.Banner;
         Requested?.Invoke(this, Build(m, popup, muted ? ConversationKey.Helper : m.Key));
+    }
+
+    /// <summary>免打扰会话中是否还有提醒过、尚未读的消息。</summary>
+    public bool HasUnreadMutedAlerts()
+    {
+        _mutedAlerts.RemoveWhere(id => !session.Unread.IsUnread(id));
+        return _mutedAlerts.Count > 0;
     }
 
     // 私聊看总开关；话题的 @我 / 提醒词、@全体、关注的话题、频道设置（未设置时用全局设置）

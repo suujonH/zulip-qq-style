@@ -186,6 +186,8 @@ public sealed class UnreadStore(ZulipSession session)
 
     public IEnumerable<ConversationKey> Keys => _ids.Keys;
 
+    public bool IsUnread(long id) => _keyOf.ContainsKey(id);
+
     /// <summary>某会话中最大的未读 id；没有未读时为 0。</summary>
     public long MaxId(ConversationKey key) => _ids.TryGetValue(key, out var set) ? set.Max : 0;
 
