@@ -260,11 +260,15 @@ internal static partial class ZulipHtmlRenderer
             return null;
         string? author = null;
         string? href = null;
+        var colon = false;
         foreach (var node in p.ChildNodes)
         {
             switch (node)
             {
-                case IText t when t.Data.Trim() is "" or ":" or "：":
+                case IText t when t.Data.Trim() is "":
+                    continue;
+                case IText t when t.Data.Trim() is ":" or "：":
+                    colon = true;
                     continue;
                 case IElement s when author is null && href is null && s.ClassList.Contains("user-mention"):
                     author = s.TextContent.Trim().TrimStart('@');
@@ -277,7 +281,8 @@ internal static partial class ZulipHtmlRenderer
                     return null;
             }
         }
-        return href is null ? null : new QuoteSource(author, href);
+        // 引用回复的头部总是“@作者 [说](链接):”；缺少作者或冒号时只是普通段落，不能当作引用头部隐藏
+        return href is null || author is null || !colon ? null : new QuoteSource(author, href);
     }
 
     /// <summary>引用回复的标题段落（后面紧跟引用块）：由引用卡片显示，段落本身跳过。</summary>
@@ -463,7 +468,8 @@ internal static partial class ZulipHtmlRenderer
                     var href = e.GetAttribute("href");
                     if (string.IsNullOrEmpty(href))
                         Children(e, style, link);
-                    else if (ZulipHtml.NormalizeUploadPath(href) is { } path && previews.Contains(path))
+                    else if (ZulipHtml.NormalizeUploadPath(href) is { } path && previews.Contains(path)
+                             && ZulipHtml.IsFileNameLabel(e.TextContent, path))
                         return;
                     else
                         Children(e, style with { Accent = true }, LinkOf(href, e.TextContent));

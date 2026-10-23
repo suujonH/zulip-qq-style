@@ -164,6 +164,19 @@ public static partial class ZulipHtml
     }
 
     /// <summary>
+    /// 上传链接的文字是否只是文件名（为空、是链接本身，或以与文件相同的扩展名结尾）。
+    /// 有内联预览时只隐藏这种文字，用户自己写的描述性文字（如 <c>[架构图](/user_uploads/…/a.png)</c>）保留。
+    /// </summary>
+    public static bool IsFileNameLabel(string text, string path)
+    {
+        text = text.Trim();
+        if (text.Length == 0 || text.Contains(UploadsPrefix[1..], StringComparison.Ordinal))
+            return true;
+        var ext = Path.GetExtension(path);
+        return ext.Length > 0 && text.EndsWith(ext, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// 把链接规范为 <c>/user_uploads/…</c> 形式的相对路径（去掉查询串）；不是本组织的上传文件时返回 null。
     /// 服务器渲染时会把指向本组织的绝对链接改写为相对链接（形如 <c>user_uploads/…</c>，没有开头的斜杠；
     /// 已在 Zulip 12.3 上验证），所以带域名的链接都属于其它服务器，不当作上传文件。
@@ -294,7 +307,7 @@ public static partial class ZulipHtml
         if (tag == "a" && NormalizeUploadPath(e.GetAttribute("href")) is { } path)
         {
             if (inlineImages.Contains(path))
-                return "";
+                return IsFileNameLabel(e.TextContent, path) ? "" : e.TextContent;
             if (IsImagePath(path))
                 return "[图片]";
             if (IsVideoPath(path))
@@ -436,7 +449,7 @@ public static partial class ZulipHtml
         // 纯文本中文件保留文件名，便于复制；有预览的图片 / 视频不显示文件名，由预览处的 [图片] / [视频] 代替
         if (e.LocalName == "a" && NormalizeUploadPath(e.GetAttribute("href")) is { } path)
         {
-            if (!inlineImages.Contains(path))
+            if (!inlineImages.Contains(path) || !IsFileNameLabel(e.TextContent, path))
                 sb.Append(e.TextContent);
             return;
         }

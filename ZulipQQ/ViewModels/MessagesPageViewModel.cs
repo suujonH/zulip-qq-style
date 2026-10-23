@@ -251,16 +251,17 @@ public partial class MessagesPageViewModel : ViewModelBase
     {
         var now = DateTime.Now;
         var store = _session.Conversations;
-        // 收起的已解决话题优先于群助手：用 GetEffectiveLevel（屏蔽的保持屏蔽，其余按群助手显示）
+        // 收起的已解决话题优先于群助手，显示级别用 GetEffectiveLevel（屏蔽的保持屏蔽，其余按群助手显示）；
+        // 右键菜单仍按设置的级别（Level）显示和修改
         var rows = store.Entries
             .Where(e => e.InList && e.Key is not FolderKey)
-            .Select(e => (Entry: e, Level: store.GetEffectiveLevel(e.Key), Resolved: store.IsCollapsedResolved(e.Key)))
+            .Select(e => (Entry: e, Level: store.GetLevel(e.Key), Display: store.GetEffectiveLevel(e.Key), Resolved: store.IsCollapsedResolved(e.Key)))
             .ToList();
         var resolved = rows.Where(r => r.Resolved).ToList();
         var assistant = rows.Where(r => !r.Resolved && r.Level == DndLevel.Assistant).ToList();
 
         var main = rows.Where(r => !r.Resolved && r.Level != DndLevel.Assistant)
-            .Select(r => (Item: ItemFor(r.Entry.Key, Snapshot(r.Entry, r.Level), now), r.Entry.PinnedAt, r.Entry.LastMessageTime))
+            .Select(r => (Item: ItemFor(r.Entry.Key, Snapshot(r.Entry, r.Level, r.Display), now), r.Entry.PinnedAt, r.Entry.LastMessageTime))
             .ToList();
         foreach (var (folder, members) in new[] { (ConversationKey.Helper, assistant), (ConversationKey.Resolved, resolved) })
         {
@@ -273,7 +274,7 @@ public partial class MessagesPageViewModel : ViewModelBase
 
         var openMembers = OpenFolder is ResolvedKey ? resolved : assistant;
         var helperItems = openMembers
-            .Select(r => (Item: ItemFor(r.Entry.Key, Snapshot(r.Entry, r.Level), now), r.Entry.PinnedAt, r.Entry.LastMessageTime))
+            .Select(r => (Item: ItemFor(r.Entry.Key, Snapshot(r.Entry, r.Level, r.Display), now), r.Entry.PinnedAt, r.Entry.LastMessageTime))
             .ToList();
 
         _selecting = true;
@@ -317,7 +318,7 @@ public partial class MessagesPageViewModel : ViewModelBase
         return item;
     }
 
-    private ConversationSnapshot Snapshot(ConversationEntry e, DndLevel level)
+    private ConversationSnapshot Snapshot(ConversationEntry e, DndLevel level, DndLevel displayLevel)
     {
         var key = e.Key;
         // 话题和多人私聊的预览带发送者（自己发的不带）
@@ -345,6 +346,7 @@ public partial class MessagesPageViewModel : ViewModelBase
             _session.Unread.Count(key),
             _session.Unread.GetNotice(key),
             level,
+            displayLevel,
             e.IsPinned,
             avatarUrl,
             avatarText,
@@ -368,6 +370,7 @@ public partial class MessagesPageViewModel : ViewModelBase
             null,
             0,
             notice,
+            DndLevel.Notify,
             DndLevel.Notify,
             isPinned,
             null,
