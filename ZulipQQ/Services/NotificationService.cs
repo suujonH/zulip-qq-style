@@ -8,6 +8,7 @@ namespace ZulipQQ.Services;
 
 /// <summary>一次新消息提醒：是否弹出通知、是否播放提示音，以及通知显示的内容。</summary>
 /// <param name="AvatarColor">文字头像的背景色（#RRGGBB）；为 null 时按文字取色板颜色。</param>
+/// <param name="Slot">通知槽位：同一槽位的新通知替换旧通知。普通会话各占一个槽位，免打扰的会话共用一个。</param>
 public sealed record NotificationRequest(
     ConversationKey Key,
     string Title,
@@ -15,7 +16,8 @@ public sealed record NotificationRequest(
     string? AvatarUrl,
     string AvatarText,
     string? AvatarColor,
-    bool Popup);
+    bool Popup,
+    ConversationKey Slot);
 
 /// <summary>
 /// 新消息提醒：按免打扰级别和 Zulip 的通知设置决定是否弹窗、是否播放提示音。
@@ -32,7 +34,9 @@ public sealed class NotificationService(ZulipSession session)
 
     /// <summary>
     /// 新消息：自己发的、已读的（如服务器代为标记已读的系统消息）、发送者被屏蔽、
-    /// 会话不是“允许消息提醒”、正在前台查看该会话时不提醒。
+    /// 会话为“屏蔽群消息”、正在前台查看该会话时不提醒。
+    /// 免打扰（接收不提醒、群助手、收起的已解决话题）只是本地降级：只有 @我、@全体、提醒词才提醒，
+    /// 且这些会话共用一个通知（与 QQ 一致）。
     /// 其余情况总是请求闪烁任务栏；是否弹窗、是否有声音按 Zulip 的设置决定。
     /// </summary>
     public void OnNewMessage(ChatMessage m, IReadOnlyList<string> flags)
@@ -40,17 +44,21 @@ public sealed class NotificationService(ZulipSession session)
         if (m.SenderId == session.SelfId
             || Contains(flags, "read")
             || session.Users.IsMuted(m.SenderId)
-            || session.Conversations.GetEffectiveLevel(m.Key) != DndLevel.Notify
             || session.Registry.IsActivelyViewing(m.Key))
             return;
 
-        var (popup, sound) = Decide(m.Key, flags);
+        var level = session.Conversations.GetEffectiveLevel(m.Key);
+        if (level == DndLevel.Blocked)
+            return;
+        var muted = level != DndLevel.Notify;
+        if ((muted ? DecideMention(m.Key, flags) : Decide(m.Key, flags)) is not (var popup, var sound))
+            return;
         // 提示音选择“无”时不播放任何提示音（与 Zulip 一致）
         if (sound && session.Settings.Zulip.NotificationSound != "none")
             PlaySound("Notification.IM", IntPtr.Zero, SndAlias | SndAsync | SndNoDefault);
         // 通知类型为“仅闪烁”时不弹窗
         popup &= session.Settings.Local.NotificationStyle == NotificationStyle.Banner;
-        Requested?.Invoke(this, Build(m, popup));
+        Requested?.Invoke(this, Build(m, popup, muted ? ConversationKey.Helper : m.Key));
     }
 
     // 私聊看总开关；话题的 @我 / 提醒词、@全体、关注的话题、频道设置（未设置时用全局设置）
@@ -64,17 +72,10 @@ public sealed class NotificationService(ZulipSession session)
         var channel = session.Channels.Get(t.StreamId);
         var popup = channel?.DesktopNotifications ?? z.EnableStreamDesktopNotifications;
         var sound = channel?.AudibleNotifications ?? z.EnableStreamAudibleNotifications;
-        if (Contains(flags, "mentioned") || Contains(flags, "has_alert_word"))
+        if (DecideMention(key, flags) is var (mentionPopup, mentionSound))
         {
-            popup |= z.EnableDesktopNotifications;
-            sound |= z.EnableSounds;
-        }
-        if ((Contains(flags, "stream_wildcard_mentioned") || Contains(flags, "topic_wildcard_mentioned")
-             || Contains(flags, "wildcard_mentioned"))
-            && (channel?.WildcardMentionsNotify ?? z.WildcardMentionsNotify))
-        {
-            popup |= z.EnableDesktopNotifications;
-            sound |= z.EnableSounds;
+            popup |= mentionPopup;
+            sound |= mentionSound;
         }
         if (session.Channels.TopicPolicy(t.StreamId, t.Topic) == 3)
         {
@@ -84,7 +85,21 @@ public sealed class NotificationService(ZulipSession session)
         return (popup, sound);
     }
 
-    private NotificationRequest Build(ChatMessage m, bool popup)
+    // @我 / 提醒词，或 @全体（频道的设置，未设置时用全局设置）时按总开关提醒；都不是时返回 null
+    private (bool Popup, bool Sound)? DecideMention(ConversationKey key, IReadOnlyList<string> flags)
+    {
+        var z = session.Settings.Zulip;
+        if (Contains(flags, "mentioned") || Contains(flags, "has_alert_word"))
+            return (z.EnableDesktopNotifications, z.EnableSounds);
+        var channel = key is TopicKey t ? session.Channels.Get(t.StreamId) : null;
+        if ((Contains(flags, "stream_wildcard_mentioned") || Contains(flags, "topic_wildcard_mentioned")
+             || Contains(flags, "wildcard_mentioned"))
+            && (channel?.WildcardMentionsNotify ?? z.WildcardMentionsNotify))
+            return (z.EnableDesktopNotifications, z.EnableSounds);
+        return null;
+    }
+
+    private NotificationRequest Build(ChatMessage m, bool popup, ConversationKey slot)
     {
         var title = session.Conversations.GetTitle(m.Key);
         string body;
@@ -101,9 +116,9 @@ public sealed class NotificationService(ZulipSession session)
 
         return m.Key switch
         {
-            TopicKey t => new NotificationRequest(m.Key, title, body, null, title, session.Channels.Get(t.StreamId)?.Color, popup),
-            DmKey { IsGroupDm: true } => new NotificationRequest(m.Key, title, body, null, "群", "#0052D9", popup),
-            _ => new NotificationRequest(m.Key, title, body, session.Users.Get(m.SenderId)?.AvatarUrl ?? m.AvatarUrl, title, null, popup),
+            TopicKey t => new NotificationRequest(m.Key, title, body, null, title, session.Channels.Get(t.StreamId)?.Color, popup, slot),
+            DmKey { IsGroupDm: true } => new NotificationRequest(m.Key, title, body, null, "群", "#0052D9", popup, slot),
+            _ => new NotificationRequest(m.Key, title, body, session.Users.Get(m.SenderId)?.AvatarUrl ?? m.AvatarUrl, title, null, popup, slot),
         };
     }
 

@@ -7,7 +7,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using ZulipQQ.Core;
 using ZulipQQ.Data;
+using ZulipQQ.Models;
 using ZulipQQ.Plugins;
 using ZulipQQ.Services;
 using ZulipQQ.ViewModels;
@@ -268,9 +270,12 @@ public partial class App : Application
                 ShowMain(main);
         };
         main.Activated += (_, _) => tray.StopFlashing();
+        // 没有需要处理的未读时停止闪烁：允许提醒的会话的未读，以及免打扰会话中未读的 @我 / @全体（它们也会提醒）
         session.Unread.ConversationChanged += (_, _) =>
         {
-            if (tray.IsFlashing && session.Unread.TotalForBadge(session.Conversations.GetEffectiveLevel) == 0)
+            if (tray.IsFlashing && session.Unread.TotalForBadge(session.Conversations.GetEffectiveLevel) == 0
+                && !session.Unread.Keys.Any(k => session.Conversations.GetEffectiveLevel(k) is not (DndLevel.Notify or DndLevel.Blocked)
+                    && session.Unread.GetNotice(k) is ConversationNotice.AtMe or ConversationNotice.AtAll))
                 tray.StopFlashing();
         };
     }

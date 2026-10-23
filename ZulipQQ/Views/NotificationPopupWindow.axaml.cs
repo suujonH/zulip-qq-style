@@ -40,10 +40,10 @@ public partial class NotificationPopupWindow : Window, ISessionWindow
         };
     }
 
-    /// <summary>显示一条通知。同一会话已有通知时替换它；超过 3 个时关闭最旧的。</summary>
+    /// <summary>显示一条通知。同一槽位（同一会话，或都是免打扰的会话）已有通知时替换它；超过 3 个时关闭最旧的。</summary>
     public static void Show(NotificationRequest request, Action activate)
     {
-        foreach (var same in OpenPopups.Where(w => w.DataContext is NotificationRequest r && r.Key.Equals(request.Key)).ToList())
+        foreach (var same in OpenPopups.Where(w => w.DataContext is NotificationRequest r && r.Slot.Equals(request.Slot)).ToList())
             same.Close();
         while (OpenPopups.Count >= MaxOpen)
             OpenPopups[0].Close();
