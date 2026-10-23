@@ -111,7 +111,7 @@ public partial class ForwardDialogViewModel : ViewModelBase
     {
         var q = Query.Trim();
         var entries = _session.Conversations.Entries
-            .Where(e => e.Key is not HelperKey && CanSendTo(e.Key))
+            .Where(e => e.Key is not FolderKey && CanSendTo(e.Key))
             .OrderByDescending(e => e.IsPinned)
             .ThenByDescending(e => e.PinnedAt ?? 0)
             .ThenByDescending(e => e.LastMessageTime);

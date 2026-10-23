@@ -40,7 +40,7 @@ public sealed class NotificationService(ZulipSession session)
         if (m.SenderId == session.SelfId
             || Contains(flags, "read")
             || session.Users.IsMuted(m.SenderId)
-            || session.Conversations.GetLevel(m.Key) != DndLevel.Notify
+            || session.Conversations.GetEffectiveLevel(m.Key) != DndLevel.Notify
             || session.Registry.IsActivelyViewing(m.Key))
             return;
 

@@ -41,7 +41,7 @@ public partial class MessagesPageView : UserControl
     }
 
     /// <summary>
-    /// 会话右键菜单：置顶、标为已读 / 未读、免打扰级别、话题操作、从消息列表中移除。群助手条目只有置顶。
+    /// 会话右键菜单：置顶、标为已读 / 未读、免打扰级别、话题操作、从消息列表中移除。会话夹条目只有置顶。
     /// </summary>
     private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
     {
@@ -52,7 +52,7 @@ public partial class MessagesPageView : UserControl
         var vm = _vm;
         var menu = new ContextMenu();
         menu.Items.Add(ConversationMenus.Item(item.IsPinned ? "取消置顶" : "置顶", () => vm.TogglePin(item)));
-        if (!item.IsHelper)
+        if (!item.IsFolder)
         {
             if (vm.CanMarkRead(item))
                 menu.Items.Add(ConversationMenus.Item("标为已读", () => _ = vm.MarkReadAsync(item)));
@@ -97,7 +97,7 @@ public partial class MessagesPageView : UserControl
             _vm.PropertyChanged += OnViewModelPropertyChanged;
     }
 
-    // 切换主列表 / 群助手子列表时，键盘焦点移到显示中的列表（隐藏的一层已被禁用）
+    // 切换主列表 / 会话夹子列表时，键盘焦点移到显示中的列表（隐藏的一层已被禁用）
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(MessagesPageViewModel.IsHelperOpen) || _vm is null)
@@ -107,10 +107,10 @@ public partial class MessagesPageView : UserControl
         Dispatcher.UIThread.Post(() =>
         {
             // ListBox 本身不接收焦点，焦点放在选中项的容器上；没有选中项时，
-            // 子列表取第一项，主列表取群助手条目（刚才点击的位置，避免列表滚动）
+            // 子列表取第一项，主列表取刚才打开的会话夹条目（刚才点击的位置，避免列表滚动）
             var index = target.SelectedIndex;
             if (index < 0)
-                index = target == MainList ? _vm.Conversations.ToList().FindIndex(c => c.IsHelper) : 0;
+                index = target == MainList ? _vm.Conversations.ToList().FindIndex(c => c.Key.Equals(_vm.OpenFolder)) : 0;
             if (index >= 0 && target.ContainerFromIndex(index) is { } container)
                 container.Focus(NavigationMethod.Directional);
         }, DispatcherPriority.Input);

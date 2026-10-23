@@ -38,8 +38,14 @@ public partial class ConversationItemViewModel(ConversationKey key) : ViewModelB
 
     public ConversationKey Key { get; } = key;
 
-    /// <summary>群助手条目：显示固定的橙色图标头像，不显示未读数。</summary>
+    /// <summary>会话夹条目（群助手、已解决话题）：显示固定的图标头像，不显示未读数，点击滑入子列表。</summary>
+    public bool IsFolder => Key is FolderKey;
+
+    /// <summary>群助手条目：橙色图标头像。</summary>
     public bool IsHelper => Key is HelperKey;
+
+    /// <summary>已解决话题条目：绿色对勾头像。</summary>
+    public bool IsResolvedFolder => Key is ResolvedKey;
 
     [ObservableProperty]
     public partial string Title { get; private set; } = "";
@@ -102,7 +108,7 @@ public partial class ConversationItemViewModel(ConversationKey key) : ViewModelB
         var blocked = s.Level == DndLevel.Blocked;
         NoticeText = HasDraft || blocked ? null : NoticeOf(s.Notice);
 
-        var unread = blocked || IsHelper ? 0 : s.UnreadCount;
+        var unread = blocked || IsFolder ? 0 : s.UnreadCount;
         UnreadText = unread > MaxUnreadDisplay
             ? $"{MaxUnreadDisplay}+"
             : unread.ToString(CultureInfo.InvariantCulture);

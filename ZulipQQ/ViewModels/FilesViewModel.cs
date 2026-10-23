@@ -548,7 +548,7 @@ public partial class FilesViewModel : ViewModelBase
             case FilesView.Conversation:
             case FilesView.Group:
                 var keys = _session.Conversations.Entries
-                    .Where(e => e.InList && e.Key is not HelperKey && (View == FilesView.Conversation || e.Key is TopicKey))
+                    .Where(e => e.InList && e.Key is not FolderKey && (View == FilesView.Conversation || e.Key is TopicKey))
                     .OrderByDescending(e => e.IsPinned)
                     .ThenByDescending(e => e.PinnedAt ?? 0)
                     .ThenByDescending(e => e.LastMessageTime)

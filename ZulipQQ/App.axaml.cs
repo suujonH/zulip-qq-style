@@ -270,7 +270,7 @@ public partial class App : Application
         main.Activated += (_, _) => tray.StopFlashing();
         session.Unread.ConversationChanged += (_, _) =>
         {
-            if (tray.IsFlashing && session.Unread.TotalForBadge(session.Conversations.GetLevel) == 0)
+            if (tray.IsFlashing && session.Unread.TotalForBadge(session.Conversations.GetEffectiveLevel) == 0)
                 tray.StopFlashing();
         };
     }

@@ -73,6 +73,14 @@ public class ConversationKeyTests
         Assert.Same(ConversationKey.Helper, ConversationKey.Parse("helper"));
     }
 
+    [Fact]
+    public void Resolved_RoundTrip()
+    {
+        Assert.Equal("resolved", ConversationKey.Resolved.ToStorageString());
+        Assert.Same(ConversationKey.Resolved, ConversationKey.Parse("resolved"));
+        Assert.NotEqual(ConversationKey.Helper, ConversationKey.Resolved);
+    }
+
     [Theory]
     [InlineData("x:1")]
     [InlineData("t:abc:topic")]

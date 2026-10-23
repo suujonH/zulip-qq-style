@@ -243,6 +243,19 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
         }
     }
 
+    /// <summary>开启“收起已解决话题”时，已解决的话题收进“已解决话题”（优先于群助手）。</summary>
+    public bool IsCollapsedResolved(ConversationKey key) =>
+        key is TopicKey t && session.Settings.Local.CollapseResolvedTopics && ViewModels.TopicActions.IsResolvedName(t.Topic);
+
+    /// <summary>
+    /// 用于提醒和未读总数的级别：收起的已解决话题与群助手一致，不提醒（屏蔽的保持屏蔽）；其余同 <see cref="GetLevel"/>。
+    /// </summary>
+    public DndLevel GetEffectiveLevel(ConversationKey key)
+    {
+        var level = GetLevel(key);
+        return level != DndLevel.Blocked && IsCollapsedResolved(key) ? DndLevel.Assistant : level;
+    }
+
     /// <summary>设置免打扰级别。话题先同步 Zulip 的静音状态，失败时抛出异常且不修改本地。</summary>
     public async Task SetLevelAsync(ConversationKey key, DndLevel level)
     {
@@ -347,10 +360,20 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
                     return e.Remark;
                 var names = string.Join("、", d.OtherUserIds.Take(3).Select(session.Contacts.DisplayName));
                 return d.OtherUserIds.Length > 3 ? $"{names}等{d.OtherUserIds.Length}人" : names;
+            case ResolvedKey:
+                return "已解决话题";
             default:
                 return "群助手";
         }
     }
+
+    /// <summary>
+    /// 会话列表、聊天标题和独立窗口标题使用的标题：话题按设置中的模板拼接频道名与 <see cref="GetTitle"/>，其它会话同 <see cref="GetTitle"/>。
+    /// </summary>
+    public string GetDisplayTitle(ConversationKey key) =>
+        key is TopicKey t
+            ? TopicTitleFormat.Format(session.Settings.Local.TopicTitleFormat, session.Channels.Get(t.StreamId)?.Name ?? "", GetTitle(key))
+            : GetTitle(key);
 
     /// <summary>原始大小写的话题名，用于 narrow 和发送。</summary>
     public string GetTopicName(TopicKey key)

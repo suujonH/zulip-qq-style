@@ -47,6 +47,8 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     private const string NotificationStyleKey = "notification_style";
     private const string DownloadRootKey = "download_root";
     private const string FileClickActionKey = "file_click_action";
+    public const string TopicTitleFormatKey = "topic_title_format";
+    public const string CollapseResolvedTopicsKey = "collapse_resolved_topics";
 
     /// <summary>某项设置变化，参数为设置键（如 <c>font_size</c>）。</summary>
     public event EventHandler<string>? Changed;
@@ -122,6 +124,20 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     {
         get => Enum.TryParse<FileClickAction>(repository.Get(FileClickActionKey), out var v) ? v : FileClickAction.OpenAfterDownload;
         set => Save(FileClickActionKey, value.ToString());
+    }
+
+    /// <summary>话题会话的标题模板（会话列表、聊天标题、独立窗口标题），见 <see cref="TopicTitleFormat"/>。</summary>
+    public string TopicTitleFormat
+    {
+        get => repository.Get(TopicTitleFormatKey) ?? Core.TopicTitleFormat.Default;
+        set => Save(TopicTitleFormatKey, value);
+    }
+
+    /// <summary>收起已解决话题：已解决的话题收进“已解决话题”，不出现在消息列表和群助手中，也不提醒。</summary>
+    public bool CollapseResolvedTopics
+    {
+        get => GetBool(repository, CollapseResolvedTopicsKey, false);
+        set => Save(repository, CollapseResolvedTopicsKey, value);
     }
 
     private void Save(string key, string value) => Save(repository, key, value);

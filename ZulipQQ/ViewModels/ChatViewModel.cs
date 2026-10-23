@@ -1048,7 +1048,7 @@ public partial class ChatViewModel : ViewModelBase
 
     private void RefreshTitle()
     {
-        var title = _session.Conversations.GetTitle(Key);
+        var title = _session.Conversations.GetDisplayTitle(Key);
         Title = Key switch
         {
             TopicKey t when _session.Channels.Get(t.StreamId) is { } channel => $"{title} ({channel.SubscriberCount})",
@@ -1074,6 +1074,7 @@ public partial class ChatViewModel : ViewModelBase
         _session.Users.MutedChanged += OnMutedChanged;
         _session.Channels.ChannelChanged += OnChannelChanged;
         _session.Settings.Changed += OnSettingChanged;
+        _session.Settings.Local.Changed += OnLocalSettingChanged;
     }
 
     private void Unsubscribe()
@@ -1087,9 +1088,16 @@ public partial class ChatViewModel : ViewModelBase
         _session.Users.MutedChanged -= OnMutedChanged;
         _session.Channels.ChannelChanged -= OnChannelChanged;
         _session.Settings.Changed -= OnSettingChanged;
+        _session.Settings.Local.Changed -= OnLocalSettingChanged;
     }
 
     private void OnMutedChanged(object? sender, EventArgs e) => RefreshMessages();
+
+    private void OnLocalSettingChanged(object? sender, string key)
+    {
+        if (key == LocalSettings.TopicTitleFormatKey)
+            RefreshTitle();
+    }
 
     // 12 / 24 小时制变化：时间条和精确时间重新格式化
     private void OnSettingChanged(object? sender, string name)
