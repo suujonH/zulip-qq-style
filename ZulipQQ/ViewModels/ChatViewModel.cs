@@ -478,6 +478,51 @@ public partial class ChatViewModel : ViewModelBase
     public UserCardViewModel? CreateUserCard(long userId, Action onOpened) =>
         _session.Users.Get(userId) is null ? null : new UserCardViewModel(_session, userId, k => _ = _openChat(k, null), onOpened);
 
+    // ---- 聊天中的用户（消息的头像和昵称、群聊成员）：双击发消息，右键菜单 ----
+
+    /// <summary>用户是否存在（已被删除的用户没有菜单，双击也不打开私聊）。</summary>
+    public bool HasUser(long userId) => _session.Users.Get(userId) is not null;
+
+    /// <summary>打开与该用户的私聊；是自己时打开与自己的私聊。</summary>
+    public void OpenDirectChat(long userId)
+    {
+        if (HasUser(userId))
+            _ = _openChat(DmKey.Create([userId], _session.SelfId), null);
+    }
+
+    /// <summary>可以 @TA：不是自己，并且输入框可以编辑。</summary>
+    public bool CanMention(long userId) => userId != _session.SelfId && HasUser(userId) && Composer.CanEdit;
+
+    public void Mention(long userId)
+    {
+        if (CanMention(userId))
+            Composer.Mention(userId, _session.Users.Get(userId)!.FullName);
+    }
+
+    /// <summary>可以屏蔽（Zulip 的静音用户）：不能屏蔽自己。</summary>
+    public bool CanMuteUser(long userId) => userId != _session.SelfId && HasUser(userId);
+
+    public bool IsUserMuted(long userId) => _session.Users.IsMuted(userId);
+
+    /// <summary>屏蔽此人（先确认）/ 取消屏蔽。取消确认时返回；失败时提示。结果由 muted_users 事件更新。</summary>
+    public async Task SetUserMutedAsync(long userId, bool muted)
+    {
+        try
+        {
+            if (muted && !await Host.ConfirmAsync("屏蔽后将不再显示对方的消息", "屏蔽"))
+                return;
+            if (muted)
+                await _session.Client.MuteUserAsync(userId, _session.Token);
+            else
+                await _session.Client.UnmuteUserAsync(userId, _session.Token);
+        }
+        catch (Exception ex) when (!_session.IsDisposed)
+        {
+            Log.Warn($"设置屏蔽失败：{userId}", ex);
+            _showToast("设置失败");
+        }
+    }
+
     /// <summary>点击标题弹出的名片：话题为话题名片，一对一私聊为对方的名片，与自己的私聊为自己的名片，多人私聊没有名片。</summary>
     public ViewModelBase? CreateTitleCard(Action onOpened) => Key switch
     {

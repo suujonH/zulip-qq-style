@@ -30,8 +30,11 @@ public partial class ChatMorePanelView : UserControl
             if (_vm is { } vm)
                 FilesWindow.ShowSingle(TopLevel.GetTopLevel(this) as Window, vm.Main, FilesView.Conversation, vm.Key);
         };
-        PreviewMemberList.PointerReleased += OnMemberPointerReleased;
-        FullMemberList.PointerReleased += OnMemberPointerReleased;
+        foreach (var list in new Control[] { PreviewMemberList, FullMemberList })
+        {
+            list.DoubleTapped += OnMemberDoubleTapped;
+            list.ContextRequested += OnMemberContextRequested;
+        }
     }
 
     // 显示期间（在可视树上）随数据变化刷新
@@ -68,18 +71,18 @@ public partial class ChatMorePanelView : UserControl
             menu.Open(MoveButton);
     }
 
-    // 点击成员：弹出名片
-    private void OnMemberPointerReleased(object? sender, PointerReleasedEventArgs e)
+    // 成员：左键单击没有反应，双击发消息，右键菜单
+    private void OnMemberDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (_vm is not { } vm || e.InitialPressMouseButton != MouseButton.Left)
+        if (_vm is { } vm && ChatView.FindMember(e.Source as Visual, (Visual)sender!) is { DataContext: ChatMemberItem member })
+            vm.Chat.OpenDirectChat(member.UserId);
+    }
+
+    private void OnMemberContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (_vm is not { } vm || ChatView.FindMember(e.Source as Visual, (Visual)sender!) is not { DataContext: ChatMemberItem member } row)
             return;
-        for (var v = e.Source as Visual; v is not null && v != sender; v = v.GetVisualParent())
-        {
-            if (v is Control { DataContext: ChatMemberItem member } c)
-            {
-                ChatView.ShowCard(close => vm.CreateUserCard(member.UserId, close), c, PlacementMode.LeftEdgeAlignedTop);
-                return;
-            }
-        }
+        e.Handled = true;
+        ChatView.ShowUserMenu(vm.Chat, member.UserId, row, PlacementMode.LeftEdgeAlignedTop);
     }
 }

@@ -172,5 +172,6 @@ public partial class TopicSidebarViewModel : ViewModelBase
     }
 
     /// <summary>点击成员弹出的名片。</summary>
-    public UserCardViewModel? CreateUserCard(long userId, Action onOpened) => _chat.CreateUserCard(userId, onOpened);
+    /// <summary>所属的聊天（成员的双击、右键菜单）。</summary>
+    public ChatViewModel Chat => _chat;
 }
