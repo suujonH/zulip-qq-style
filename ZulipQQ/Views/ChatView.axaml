@@ -1,0 +1,624 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:v="using:ZulipQQ.Views"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="600"
+             x:Class="ZulipQQ.Views.ChatView"
+             x:DataType="vm:ChatViewModel"
+             Background="{DynamicResource PanelBackgroundBrush}">
+
+    <UserControl.Styles>
+        <!-- 一条消息：别人的头像在左，自己的镜像到右侧 -->
+        <Style Selector="Border.row">
+            <Setter Property="Padding" Value="20,6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.4" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.row.flash">
+            <Setter Property="Background" Value="{DynamicResource FlashBrush}" />
+        </Style>
+        <Style Selector="DockPanel.msg > c|Avatar">
+            <Setter Property="DockPanel.Dock" Value="Left" />
+        </Style>
+        <Style Selector="DockPanel.msg.own > c|Avatar">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+        </Style>
+        <Style Selector="DockPanel.msg > StackPanel.body">
+            <Setter Property="Margin" Value="10,0,0,0" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="DockPanel.msg.own > StackPanel.body">
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="DockPanel.msg.own StackPanel.nameRow, DockPanel.msg.own ItemsControl.reactions">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="TextBlock.timeAbove">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+        <Style Selector="TextBlock.timeAbove.shown">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="DockPanel.msg.own TextBlock.timeAbove">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="StackPanel.nameRow > TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style Selector="StackPanel.nameRow > TextBlock.nameTime">
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+        <Style Selector="StackPanel.nameRow > TextBlock.nameTime.shown">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+
+        <!-- 气泡：后定义的样式优先 -->
+        <Style Selector="Border.bubble">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Background" Value="{DynamicResource OtherBubbleBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="DockPanel.msg.own Border.bubble">
+            <Setter Property="Background" Value="{DynamicResource OwnBubbleBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <!-- 已读灰色、未读蓝色 -->
+        <Style Selector="TextBlock.readState">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+        </Style>
+        <Style Selector="TextBlock.readState.unread">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+
+        <!-- 投票 / 待办卡片：自己投过的选项为品牌色，完成的任务划线 -->
+        <Style Selector="TextBlock.widgetRow.highlighted">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.widgetRow.completed">
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="TextDecorations" Value="Strikethrough" />
+        </Style>
+
+        <Style Selector="Border.bubble.selected">
+            <Setter Property="Background" Value="{DynamicResource OtherBubbleSelectedBrush}" />
+        </Style>
+        <Style Selector="DockPanel.msg.own Border.bubble.selected">
+            <Setter Property="Background" Value="{DynamicResource OwnBubbleSelectedBrush}" />
+        </Style>
+        <Style Selector="Border.bubble.bare">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <!-- 跨气泡选择：整条消息选中（只有图片的消息也显示底色） -->
+        <Style Selector="Border.bubble.rangeSelected">
+            <Setter Property="Background" Value="{DynamicResource OtherBubbleSelectedBrush}" />
+        </Style>
+        <Style Selector="DockPanel.msg.own Border.bubble.rangeSelected">
+            <Setter Property="Background" Value="{DynamicResource OwnBubbleSelectedBrush}" />
+        </Style>
+        <Style Selector="Border.bubble c|MessageContent">
+            <Setter Property="TextElement.FontSize" Value="{DynamicResource FontSizeBody}" />
+        </Style>
+
+        <Style Selector="c|TdIcon.sendState">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 编辑过的消息的版本切换：小字，箭头在两端时变淡 -->
+        <Style Selector="StackPanel.versions > TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="2,0" />
+        </Style>
+        <Style Selector="StackPanel.versions > Button">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="StackPanel.versions > Button:disabled">
+            <Setter Property="Opacity" Value="0.35" />
+        </Style>
+        <Style Selector="StackPanel.versions c|TdIcon">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+        </Style>
+
+        <!-- 表情回应：白色胶囊，自己回应过的为蓝色边框 -->
+        <Style Selector="Button.reaction">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+        </Style>
+        <Style Selector="Button.reaction.mine">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="StackPanel.render TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+        </Style>
+        <Style Selector="StackPanel.render Button">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+            <!-- 切换按钮只在鼠标移到这条消息上时出现（透明时仍占位，避免布局跳动） -->
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+        <Style Selector="DockPanel.msg:pointerover StackPanel.render Button">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- 插件附加的内容：左侧品牌色竖线的浅色卡片 -->
+        <Style Selector="Border.annotation">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="BorderThickness" Value="2,0,0,0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="8,4,8,6" />
+        </Style>
+        <Style Selector="Button.annotationHeader">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style Selector="Button.annotationAction">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.reaction TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 右上角 / 右下角按钮：白色胶囊、蓝色文字 -->
+        <Style Selector="Button.banner">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="Button.banner:pointerover">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        </Style>
+        <Style Selector="Button.banner c|TdIcon">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Button.banner TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+
+        <!-- 多选操作栏：圆形图标 + 文字，不可用时变浅 -->
+        <Style Selector="Button.multiAction">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="4" />
+        </Style>
+        <Style Selector="Button.multiAction:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+        <Style Selector="Button.multiAction Border">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="CornerRadius" Value="22" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        </Style>
+        <Style Selector="Button.multiAction:pointerover Border">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Button.multiAction c|TdIcon">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.multiAction TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 更多面板：从右侧滑入 -->
+        <Style Selector="v|ChatMorePanelView.slide">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransform" Value="translateX(320px)" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <!-- 关闭后不能再用键盘聚焦或操作其中的控件 -->
+            <Setter Property="IsEnabled" Value="False" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="v|ChatMorePanelView.slide.open">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+            <Setter Property="IsEnabled" Value="True" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:TimeSeparatorItem">
+            <Border HorizontalAlignment="Center" Margin="0,12" Padding="8,2" CornerRadius="4"
+                    Background="{DynamicResource FillBrush}">
+                <TextBlock Text="{Binding Text}" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </Border>
+        </DataTemplate>
+
+        <!-- Notification Bot 的事件提示：居中灰色小字，没有头像和气泡 -->
+        <DataTemplate DataType="vm:SystemNoticeItem">
+            <c:MessageContent Html="{Binding Html}" HorizontalAlignment="Center" Margin="40,6" TextBlock.TextAlignment="Center"
+                              TextElement.FontSize="{DynamicResource FontSizeSub}" TextElement.Foreground="{DynamicResource TextSecondaryBrush}" />
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:DeletedMessageItem">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="40,6" Spacing="6">
+                <TextBlock Text="{Binding Text}" FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                <Button Classes="link" Theme="{StaticResource FlatButton}" Content="{Binding LinkText}" Padding="0"
+                        FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource BrandBrush}"
+                        Background="Transparent" VerticalAlignment="Center" Command="{Binding ToggleCommand}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:NewMessagesDividerItem">
+            <Grid ColumnDefinitions="*,Auto,*" Margin="16,8,16,0">
+                <Border Height="1" Background="{DynamicResource PressedBrush}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="新消息" FontSize="{DynamicResource FontSizeSub}" Margin="12,0"
+                           Foreground="{DynamicResource BrandBrush}" />
+                <Border Grid.Column="2" Height="1" Background="{DynamicResource PressedBrush}" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:LoadingItem">
+            <TextBlock Text="加载中…" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Center" Margin="0,8"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:MessageItemViewModel">
+            <Border Classes="row" Classes.flash="{Binding IsFlashing}">
+                <DockPanel>
+                <!-- 多选模式：左侧复选框只显示状态，点击整行切换；消息内容不响应鼠标 -->
+                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsChecked, Mode=OneWay}" Focusable="False"
+                          IsHitTestVisible="False" VerticalAlignment="Top" Margin="0,4,8,0" MinWidth="0" Padding="0"
+                          IsVisible="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}" />
+                <DockPanel Classes="msg" Classes.own="{Binding IsOwn}"
+                           IsHitTestVisible="{Binding !$parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
+                    <c:Avatar Classes="sender" Width="32" Height="32" VerticalAlignment="Top"
+                              Source="{Binding AvatarUrl}" Text="{Binding SenderName}" />
+                    <StackPanel Classes="body">
+                        <!-- 显示昵称时，时间显示在昵称外侧：别人的消息在昵称后，自己的消息（靠右）在昵称前。
+                             时间始终占位，悬停时才显示，昵称和气泡都不移动 -->
+                        <StackPanel Classes="nameRow" Orientation="Horizontal" Spacing="6" IsVisible="{Binding ShowSenderName}">
+                            <TextBlock Classes="nameTime" Classes.shown="{Binding IsTimeShown}" Text="{Binding PreciseTimeText}"
+                                       IsHitTestVisible="False" IsVisible="{Binding IsOwn}" />
+                            <TextBlock Classes="sender" Text="{Binding SenderName}" />
+                            <TextBlock Classes="nameTime" Classes.shown="{Binding IsTimeShown}" Text="{Binding PreciseTimeText}"
+                                       IsHitTestVisible="False" IsVisible="{Binding !IsOwn}" />
+                        </StackPanel>
+                        <!-- 不显示昵称时，气泡上方始终留出时间的一行（加大消息间隔），悬停时才显示，气泡不移动 -->
+                        <TextBlock Classes="timeAbove" Classes.shown="{Binding IsTimeShown}" Text="{Binding PreciseTimeText}"
+                                   IsHitTestVisible="False" IsVisible="{Binding !ShowSenderName}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                    HorizontalAlignment="{Binding $parent[StackPanel].HorizontalAlignment}">
+                            <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.Loading}"
+                                      Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsPending}" />
+                            <Button Theme="{StaticResource FlatButton}" Width="20" Height="20" CornerRadius="10"
+                                    VerticalAlignment="Center" IsVisible="{Binding IsFailed}"
+                                    Command="{Binding RetryCommand}" ToolTip.Tip="发送失败，点击重发">
+                                <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.ErrorCircle}"
+                                          Foreground="{DynamicResource DangerBrush}" />
+                            </Button>
+                            <Border Classes="bubble" Classes.bare="{Binding ShowsBare}"
+                                    Classes.rangeSelected="{Binding IsRangeSelected}"
+                                    Classes.selected="{Binding IsHighlighted}"
+                                    MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}">
+                                <Panel>
+                                    <StackPanel IsVisible="{Binding ShowsContent}">
+                                        <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
+                                        <!-- 插件临时替换了显示内容（例如翻译）：只显示切换原文 / 插件内容的链接 -->
+                                        <StackPanel Classes="render" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0"
+                                                    IsVisible="{Binding HasRender}">
+                                            <Button Classes="link" Theme="{StaticResource FlatButton}" Content="{Binding RenderToggleText}"
+                                                    Foreground="{DynamicResource BrandBrush}" Command="{Binding ToggleRenderCommand}" />
+                                        </StackPanel>
+                                        <!-- 编辑过的消息：当前版本 / 版本总数，左右箭头切换 -->
+                                        <StackPanel Classes="versions" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,0,0"
+                                                    IsVisible="{Binding HasVersions}">
+                                            <Button Command="{Binding ShowPreviousVersionCommand}" IsEnabled="{Binding CanShowPreviousVersion}"
+                                                    ToolTip.Tip="上一个版本">
+                                                <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" />
+                                            </Button>
+                                            <TextBlock Text="{Binding VersionText}" />
+                                            <Button Command="{Binding ShowNextVersionCommand}" IsEnabled="{Binding CanShowNextVersion}"
+                                                    ToolTip.Tip="下一个版本">
+                                                <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" />
+                                            </Button>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <!-- 投票 / 待办：只读，操作交给网页端 -->
+                                    <StackPanel Spacing="6" MinWidth="220" IsVisible="{Binding ShowsWidget}">
+                                        <TextBlock Text="{Binding Widget.Kind}" FontSize="{DynamicResource FontSizeCaption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <SelectableTextBlock Text="{Binding Widget.Title}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                             IsVisible="{Binding Widget.HasTitle}" />
+                                        <ItemsControl ItemsSource="{Binding Widget.Rows}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:WidgetRowViewModel">
+                                                    <DockPanel Margin="0,2" Background="Transparent" ToolTip.Tip="{Binding ToolTipText}">
+                                                        <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsCompleted, Mode=OneWay}"
+                                                                  IsVisible="{Binding IsTask}" IsHitTestVisible="False" Focusable="False"
+                                                                  MinWidth="0" MinHeight="0" Padding="0" Margin="0,0,6,0" VerticalAlignment="Top" />
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" Margin="12,0,0,0"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   IsVisible="{Binding !IsTask}" />
+                                                        <StackPanel>
+                                                            <TextBlock Classes="widgetRow" Classes.highlighted="{Binding IsHighlighted}"
+                                                                       Classes.completed="{Binding IsCompleted}" Text="{Binding Text}"
+                                                                       TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding Detail}" FontSize="{DynamicResource FontSizeSub}"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap">
+                                                                <TextBlock.IsVisible>
+                                                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                                        <Binding Path="IsTask" />
+                                                                        <Binding Path="HasDetail" />
+                                                                    </MultiBinding>
+                                                                </TextBlock.IsVisible>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="暂无内容" FontSize="{DynamicResource FontSizeSub}"
+                                                   Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding Widget.IsEmpty}" />
+                                        <Button Classes="link" Theme="{StaticResource FlatButton}" Content="在网页中打开"
+                                                HorizontalAlignment="Left" Padding="0" Foreground="{DynamicResource BrandBrush}"
+                                                Background="Transparent" Command="{Binding OpenInBrowserCommand}" />
+                                    </StackPanel>
+                                    <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="{DynamicResource FontSizeBody}" Cursor="Hand"
+                                               Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsMutedHidden}" />
+                                </Panel>
+                            </Border>
+                        </StackPanel>
+                        <ItemsControl Classes="reactions" ItemsSource="{Binding Reactions}" IsVisible="{Binding HasReactions}"
+                                      Margin="0,4,0,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:ReactionViewModel">
+                                    <Button Classes="reaction" Classes.mine="{Binding IsMine}" Command="{Binding ToggleCommand}"
+                                            ToolTip.Tip="{Binding ToolTipText}" Margin="0,0,6,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <c:RemoteImage Width="18" Height="18" CornerRadius="0" Source="{Binding ImageUrl}"
+                                                           IsVisible="{Binding HasImage}" />
+                                            <TextBlock Text="{Binding EmojiText}" IsVisible="{Binding !HasImage}" />
+                                            <TextBlock Text="{Binding Count}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <!-- 插件附加的内容：与消息原文分开保存，点击插件名折叠 / 展开 -->
+                        <ItemsControl ItemsSource="{Binding Annotations}" IsVisible="{Binding HasAnnotations}" Margin="0,4,0,0"
+                                      MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}"
+                                      HorizontalAlignment="{Binding $parent[StackPanel].HorizontalAlignment}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:PluginAnnotationViewModel">
+                                    <Border Classes="annotation" Margin="0,0,0,4">
+                                        <StackPanel Spacing="4">
+                                            <Button Classes="annotationHeader" Theme="{StaticResource FlatButton}"
+                                                    Command="{Binding ToggleCollapsedCommand}" ToolTip.Tip="{Binding ToggleToolTip}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" Width="12" Height="12"
+                                                              IsVisible="{Binding IsCollapsed}" />
+                                                    <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" Width="12" Height="12"
+                                                              IsVisible="{Binding IsExpanded}" />
+                                                    <TextBlock Text="{Binding PluginName}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSub}">
+                                                <SelectableTextBlock.IsVisible>
+                                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                        <Binding Path="IsExpanded" />
+                                                        <Binding Path="HasText" />
+                                                    </MultiBinding>
+                                                </SelectableTextBlock.IsVisible>
+                                            </SelectableTextBlock>
+                                            <ItemsControl ItemsSource="{Binding Actions}">
+                                                <ItemsControl.IsVisible>
+                                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                        <Binding Path="IsExpanded" />
+                                                        <Binding Path="HasActions" />
+                                                    </MultiBinding>
+                                                </ItemsControl.IsVisible>
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="vm:PluginActionViewModel">
+                                                        <Button Classes="annotationAction" Command="{Binding RunCommand}"
+                                                                IsEnabled="{Binding CanRun}" ToolTip.Tip="{Binding ToolTipText}" Margin="0,0,6,4">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding Label}" />
+                                                                <TextBlock Text="{Binding Detail}" FontSize="{DynamicResource FontSizeCaption}"
+                                                                           Foreground="{DynamicResource TextTertiaryBrush}"
+                                                                           TextWrapping="Wrap" MaxWidth="320" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <!-- 一对一私聊：自己最后一条消息的已读状态 -->
+                        <TextBlock Classes="readState" Classes.unread="{Binding IsReadStateUnread}" Text="{Binding ReadStateText}"
+                                   IsVisible="{Binding ReadStateText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
+                </DockPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <Grid x:Name="RootGrid" RowDefinitions="56,*,Auto,190" ColumnDefinitions="*,Auto">
+        <!-- 标题栏 -->
+        <Border Grid.ColumnSpan="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <StackPanel Margin="20,0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold"
+                               HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Cursor="Hand" Background="Transparent" />
+                    <!-- 正在输入 -->
+                    <TextBlock Text="{Binding TypingText}" FontSize="{DynamicResource FontSizeCaption}" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               IsVisible="{Binding TypingText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+                <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,4,0"
+                        ToolTip.Tip="群文件" IsVisible="{Binding IsTopic}" Click="OnGroupFilesClick">
+                    <c:TdIcon Icon="{StaticResource Icon.Folder}" Width="20" Height="20" />
+                </Button>
+                <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,12,0"
+                        ToolTip.Tip="更多" Command="{Binding ToggleMorePanelCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.More}" Width="20" Height="20" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- 消息区：不虚拟化，向上加载时需要精确保持滚动位置 -->
+        <Panel Grid.Row="1">
+            <ScrollViewer x:Name="MessageScroller" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="MessageList" ItemsSource="{Binding Items}" Padding="0,8">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" IsVisible="{Binding HasError}">
+                <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" />
+                <Button Theme="{StaticResource FlatButton}" Padding="12,4" HorizontalAlignment="Center"
+                        Foreground="{DynamicResource BrandBrush}" Command="{Binding ReloadCommand}" Content="重新加载" />
+            </StackPanel>
+
+            <Button Classes="banner" VerticalAlignment="Top" Margin="0,12,20,0"
+                    IsVisible="{Binding IsTopBannerVisible}" Command="{Binding TopBannerClickCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <c:TdIcon Icon="{StaticResource Icon.ChevronUpDouble}" />
+                    <TextBlock Text="{Binding TopBannerText}" />
+                </StackPanel>
+            </Button>
+            <Button Classes="banner" VerticalAlignment="Bottom" Margin="0,0,20,12"
+                    IsVisible="{Binding IsBottomBannerVisible}" Command="{Binding BottomBannerClickCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" />
+                    <TextBlock Text="{Binding BottomBannerText}" />
+                </StackPanel>
+            </Button>
+        </Panel>
+
+        <!-- 输入区：高度可拖动调整（最小 120，最大为窗口的 60%） -->
+        <Border Grid.Row="3" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
+            <Panel>
+                <ContentControl x:Name="ComposerHost" Content="{Binding Composer}" IsVisible="{Binding !IsMultiSelect}" />
+
+                <!-- 多选模式的操作栏，替代输入区 -->
+                <Grid IsVisible="{Binding IsMultiSelect}">
+                    <TextBlock Classes="sub" Text="{Binding CheckedCount, StringFormat='已选择{0}条消息'}" FontSize="{DynamicResource FontSizeSub}"
+                               Margin="20,14,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                    <Button Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,8,12,0"
+                            HorizontalAlignment="Right" VerticalAlignment="Top" ToolTip.Tip="退出多选"
+                            Command="{Binding ExitMultiSelectCommand}">
+                        <c:TdIcon Icon="{StaticResource Icon.Close}" Width="16" Height="16" />
+                    </Button>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="36">
+                        <Button Classes="multiAction" Command="{Binding ForwardEachCommand}">
+                            <StackPanel Spacing="6">
+                                <Border><c:TdIcon Icon="{StaticResource Icon.Share}" /></Border>
+                                <TextBlock Text="逐条转发" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="multiAction" Command="{Binding ForwardMergedCommand}">
+                            <StackPanel Spacing="6">
+                                <Border><c:TdIcon Icon="{StaticResource Icon.ChatBubble}" /></Border>
+                                <TextBlock Text="合并转发" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="multiAction" Command="{Binding StarCheckedCommand}">
+                            <StackPanel Spacing="6">
+                                <Border><c:TdIcon Icon="{StaticResource Icon.Star}" /></Border>
+                                <TextBlock Text="收藏" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Panel>
+        </Border>
+        <GridSplitter Grid.Row="2" Height="4" Margin="0,0,0,-4" Background="Transparent" ResizeDirection="Rows" />
+
+        <!-- 话题的右侧栏：消息区足够宽时才显示（由代码设置） -->
+        <v:TopicSidebarView x:Name="SidebarView" Grid.Row="1" Grid.RowSpan="3" Grid.Column="1" Width="200"
+                            DataContext="{Binding Sidebar}" IsVisible="False"
+                            BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1,0,0,0" />
+
+        <!-- 更多面板：覆盖消息区、输入区和右侧栏，点击面板外部关闭 -->
+        <Panel Grid.Row="1" Grid.RowSpan="3" Grid.ColumnSpan="2" ClipToBounds="True">
+            <Border x:Name="MorePanelDismiss" Background="Transparent" IsVisible="{Binding IsMorePanelOpen}" />
+            <v:ChatMorePanelView Classes="slide" Width="320"
+                                 Classes.open="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMorePanelOpen}"
+                                 HorizontalAlignment="Right" DataContext="{Binding MorePanel}"
+                                 BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1,0,0,0" />
+        </Panel>
+    </Grid>
+</UserControl>

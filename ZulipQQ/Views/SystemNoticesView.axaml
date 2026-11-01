@@ -1,0 +1,101 @@
+<!-- 系统通知：标题栏（筛选、清空）+ 卡片列表，与 QQ 的“好友通知”相同的布局 -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.SystemNoticesView"
+             x:DataType="vm:SystemNoticesViewModel">
+    <UserControl.Styles>
+        <Style Selector="Border.noticeCard">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16,12" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+        <!-- 收起时只显示前几行 -->
+        <Style Selector="Border.noticeBody">
+            <Setter Property="MaxHeight" Value="84" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector="Border.noticeBody.expanded">
+            <Setter Property="MaxHeight" Value="100000" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="56,*">
+        <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Text="系统通知" Margin="20,0" VerticalAlignment="Center"
+                           FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold" />
+                <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Height="32" Padding="8,0" Margin="0,0,4,0"
+                        ToolTip.Tip="筛选" Click="OnFilterClick">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <c:TdIcon Icon="{StaticResource Icon.Filter}" Width="18" Height="18" />
+                        <TextBlock Text="{Binding FilterText}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,12,0"
+                        ToolTip.Tip="清空" IsEnabled="{Binding HasItems}" Command="{Binding ClearCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Delete}" Width="18" Height="18" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <Panel Grid.Row="1" Background="{DynamicResource WindowBackgroundBrush}">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Items}" Margin="20,16" MaxWidth="760">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SystemNoticeItemViewModel">
+                            <Border Classes="noticeCard">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <c:Avatar Width="40" Height="40" VerticalAlignment="Top" Margin="0,0,12,0"
+                                              Source="{Binding AvatarUrl}" Text="{Binding Title}" />
+                                    <StackPanel Grid.Column="1" Spacing="6">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                     Fill="{DynamicResource DangerBrush}" IsVisible="{Binding IsUnread}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Title}" Foreground="{DynamicResource BrandBrush}"
+                                                       FontSize="{DynamicResource FontSizeBody}" TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding TimeText}" Margin="12,0,0,0"
+                                                       FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextTertiaryBrush}"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Border Classes.noticeBody="{Binding IsLong}" Classes.expanded="{Binding IsExpanded}">
+                                            <c:MessageContent Html="{Binding Html}" TextElement.FontSize="{DynamicResource FontSizeSmall}"
+                                                              TextElement.Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </Border>
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Button Theme="{StaticResource FlatButton}" Padding="0" Foreground="{DynamicResource BrandBrush}"
+                                                    FontSize="{DynamicResource FontSizeSub}" Command="{Binding ToggleExpandCommand}"
+                                                    IsVisible="{Binding IsLong}">
+                                                <Panel>
+                                                    <TextBlock Text="展开" IsVisible="{Binding !IsExpanded}" />
+                                                    <TextBlock Text="收起" IsVisible="{Binding IsExpanded}" />
+                                                </Panel>
+                                            </Button>
+                                            <TextBlock Grid.Column="2" Text="{Binding CategoryText}"
+                                                       FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextTertiaryBrush}" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <TextBlock Text="{Binding StatusText}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="{DynamicResource FontSizeSmall}"
+                       IsVisible="{Binding StatusText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <Border Background="#CC000000" CornerRadius="6" Padding="16,8" HorizontalAlignment="Center"
+                    VerticalAlignment="Top" Margin="0,16,0,0"
+                    IsVisible="{Binding ToastText, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="{DynamicResource FontSizeSmall}" />
+            </Border>
+        </Panel>
+
+        <c:DialogLayer Grid.Row="0" Grid.RowSpan="2" Dialogs="{Binding Dialogs}" />
+    </Grid>
+</UserControl>

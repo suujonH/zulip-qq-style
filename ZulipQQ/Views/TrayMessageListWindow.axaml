@@ -1,0 +1,81 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ZulipQQ.ViewModels"
+        xmlns:c="using:ZulipQQ.Controls"
+        x:Class="ZulipQQ.Views.TrayMessageListWindow"
+        Title="ZulipQQ"
+        Width="300" SizeToContent="Height" MaxHeight="420" CanResize="False"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        ShowActivated="False" ShowInTaskbar="False" Topmost="True"
+        WindowStartupLocation="Manual"
+        Background="{DynamicResource CardBrush}">
+
+    <Window.Styles>
+        <Style Selector="Border.item">
+            <Setter Property="Height" Value="56" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Border.item:pointerover">
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        </Style>
+        <Style Selector="TextBlock.notice">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="Border.badge">
+            <Setter Property="Height" Value="16" />
+            <Setter Property="MinWidth" Value="16" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="Border.badge > TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </Window.Styles>
+
+    <!-- 托盘提醒列表：消息提醒在前，会话按最新消息排列；点击打开会话或消息提醒窗口 -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <ItemsControl x:Name="ItemsView" Margin="0,4">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TrayMessageItemViewModel">
+                    <Border Classes="item" PointerReleased="OnItemReleased">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <c:Avatar Width="36" Height="36" Source="{Binding AvatarUrl}" Text="{Binding AvatarText}"
+                                      Fill="{Binding AvatarFill}" />
+                            <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                                  ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="3">
+                                <TextBlock Classes="title" Text="{Binding Title}" />
+                                <!-- 多个账号在线时显示账号 -->
+                                <TextBlock Grid.Column="1" Classes="caption" Text="{Binding AccountName}" Margin="8,0,0,0"
+                                           MaxWidth="90" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           IsVisible="{Binding HasAccountName}" />
+
+                                <DockPanel Grid.Row="1">
+                                    <TextBlock DockPanel.Dock="Left" Classes="notice" Text="{Binding NoticeText}"
+                                               IsVisible="{Binding HasNotice}" />
+                                    <TextBlock Classes="sub" Text="{Binding Preview}" />
+                                </DockPanel>
+
+                                <Panel Grid.Row="1" Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right">
+                                    <Border Classes="badge" IsVisible="{Binding HasUnread}">
+                                        <TextBlock Text="{Binding UnreadText}" />
+                                    </Border>
+                                    <TextBlock Classes="caption" Text="{Binding CountdownText}" VerticalAlignment="Center"
+                                               IsVisible="{Binding HasCountdown}" />
+                                </Panel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</Window>

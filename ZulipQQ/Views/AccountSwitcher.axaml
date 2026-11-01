@@ -1,0 +1,22 @@
+<!-- 收藏、文件窗口左栏顶部的账号切换：有多个在线账号时显示，选择后由窗口切换到该账号 -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.AccountSwitcher"
+             IsVisible="{Binding HasMultipleOnline, Source={x:Static vm:AccountHubViewModel.Instance}}">
+    <ComboBox x:Name="Picker" HorizontalAlignment="Stretch"
+              ItemsSource="{Binding OnlineEntries, Source={x:Static vm:AccountHubViewModel.Instance}}">
+        <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:AccountEntryViewModel">
+                <StackPanel Orientation="Horizontal" Spacing="8" ToolTip.Tip="{Binding ToolTip}">
+                    <!-- 头像属于该账号的组织：用该账号的客户端下载 -->
+                    <c:Avatar Width="20" Height="20" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}"
+                              c:RealmImage.Client="{Binding Session.Client, FallbackValue={x:Null}}" />
+                    <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               FontSize="{DynamicResource FontSizeSmall}" />
+                </StackPanel>
+            </DataTemplate>
+        </ComboBox.ItemTemplate>
+    </ComboBox>
+</UserControl>

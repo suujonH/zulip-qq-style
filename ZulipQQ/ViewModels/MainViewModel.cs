@@ -1,0 +1,476 @@
+using System;
+using System.Collections.ObjectModel;
+using System.Threading.Tasks;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using ZulipQQ.Core;
+using ZulipQQ.Services;
+
+namespace ZulipQQ.ViewModels;
+
+/// <summary>在独立窗口中打开会话的请求；<see cref="Existing"/> 为从主窗口右侧移过去的聊天。</summary>
+public sealed record ChatWindowRequest(ConversationKey Key, ChatViewModel? Existing, long? FocusMessageId);
+
+public partial class MainViewModel : ViewModelBase, IDialogHost
+{
+    private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private int _openVersion;
+    private ConversationKey? _openingKey;   // 正在等待旧聊天关闭的打开请求
+
+    public MainViewModel(ZulipSession session)
+    {
+        Session = session;
+        Messages = new MessagesPageViewModel(session, key => _ = OpenChatAsync(key), CloseChatAsync, ShowToast);
+        Contacts = new ContactsPageViewModel(session, this);
+        Topics = new TopicActions(this, this);
+        Search = new SearchViewModel(session, this);
+        CurrentPage = Messages;
+
+        session.Users.UserChanged += (_, id) =>
+        {
+            if (id == session.SelfId)
+                OnSelfChanged();
+        };
+        session.Users.Reset += (_, _) => OnSelfChanged();
+        session.Settings.Local.Changed += (_, key) =>
+        {
+            if (key == LocalSettings.ClassicModeKey)
+                OnClassicModeChanged();
+        };
+        _toastTimer.Tick += (_, _) =>
+        {
+            _toastTimer.Stop();
+            ToastText = null;
+        };
+        session.SystemNotices.Changed += (_, _) => OnPropertyChanged(nameof(HasContactsDot));
+    }
+
+    public ZulipSession Session { get; }
+
+    /// <summary>需要在独立窗口中打开会话（由主窗口创建聊天窗口）。</summary>
+    public event EventHandler<ChatWindowRequest>? ChatWindowRequested;
+
+    /// <summary>经典模式下需要在独立窗口中显示系统通知。</summary>
+    public event EventHandler? SystemNoticesWindowRequested;
+
+    /// <summary>需要把主面板显示到前台（从其它窗口跳转到主面板的内容时）。</summary>
+    public event EventHandler? MainWindowRequested;
+
+    /// <summary>
+    /// 要在主窗口中显示该账号的内容（打开聊天、系统通知、频道等）：多个账号时主窗口可能正在显示其他账号，由 App 切换过来。
+    /// </summary>
+    public event EventHandler? ShowRequested;
+
+    /// <summary>联系人导航上的红点：系统通知或已到时间的提醒未读。</summary>
+    public bool HasContactsDot => Session.SystemNotices.UnreadNoticeCount + Session.SystemNotices.UnreadReminderCount > 0;
+
+    /// <summary>经典模式：主窗口只有导航栏和列表，聊天都在独立窗口中打开。</summary>
+    public bool IsClassicMode => Session.Settings.Local.ClassicMode;
+
+    public string LayoutTip => IsClassicMode ? "切换为默认模式" : "切换为经典模式";
+
+    /// <summary>聊天在独立窗口中打开（经典模式，或设置为在独立窗口中打开）。</summary>
+    public bool UsesChatWindows => IsClassicMode || Session.Settings.Local.OpenChatInNewWindow;
+
+    public string SelfName => Session.Users.Get(Session.SelfId)?.FullName ?? Session.Account.FullName;
+
+    public string? SelfAvatarUrl => Session.Users.Get(Session.SelfId)?.AvatarUrl ?? Session.Account.AvatarUrl;
+
+    /// <summary>签名为空时显示引导文字（与 QQ 一致）。</summary>
+    public string SignatureText => Session.Users.GetStatusText(Session.SelfId) is { Length: > 0 } text ? text : "编辑个性签名";
+
+    /// <summary>签名的最大长度（与 QQ 一致；Zulip 上限为 60）。</summary>
+    public const int SignatureMaxLength = 60;
+
+    /// <summary>标题栏签名正在就地编辑。</summary>
+    [ObservableProperty]
+    public partial bool IsEditingSignature { get; private set; }
+
+    [ObservableProperty]
+    public partial string SignatureDraft { get; set; } = "";
+
+    public MessagesPageViewModel Messages { get; }
+
+    public ContactsPageViewModel Contacts { get; }
+
+    /// <summary>话题操作（各处右键菜单共用）。</summary>
+    public TopicActions Topics { get; }
+
+    /// <summary>搜索框的全局搜索。</summary>
+    public SearchViewModel Search { get; }
+
+    /// <summary>打开中的对话框，后打开的显示在上层。</summary>
+    public ObservableCollection<ViewModelBase> Dialogs { get; } = [];
+
+    /// <summary>左侧导航当前选中的页面，显示在中间栏。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMessagesActive), nameof(IsContactsActive))]
+    public partial ViewModelBase CurrentPage { get; set; }
+
+    public bool IsMessagesActive => CurrentPage == Messages;
+
+    public bool IsContactsActive => CurrentPage == Contacts;
+
+    /// <summary>右侧内容区：聊天、资料面板等；为 null 时显示企鹅占位图标。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRightPane))]
+    public partial ViewModelBase? RightPane { get; set; }
+
+    public bool HasRightPane => RightPane is not null;
+
+    // 系统通知面板订阅了事件，离开右侧时取消
+    partial void OnRightPaneChanged(ViewModelBase? oldValue, ViewModelBase? newValue)
+    {
+        if (oldValue is SystemNoticesViewModel notices)
+            notices.Close();
+        if (newValue is not SystemNoticesViewModel)
+            Contacts.IsNoticesSelected = false;
+    }
+
+    /// <summary>窗口顶部居中的提示文字，3 秒后消失。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasToast))]
+    public partial string? ToastText { get; private set; }
+
+    public bool HasToast => ToastText is not null;
+
+    public void ShowToast(string text)
+    {
+        ToastText = text;
+        _toastTimer.Stop();
+        _toastTimer.Start();
+    }
+
+    /// <summary>
+    /// 打开会话：在右侧显示聊天（已在独立窗口中打开时激活该窗口），切换到消息页并选中该会话。
+    /// 会话已有消息时确保它在消息列表中；没有任何消息的新会话等第一条消息发出后再由新消息加入列表。
+    /// 期间又打开了别的会话时，旧的请求在 await 返回后放弃。
+    /// </summary>
+    public async Task OpenChatAsync(ConversationKey key, long? focusMessageId = null)
+    {
+        // 与 Notification Bot 的私聊在系统通知中显示
+        if (Session.SystemNotices.IsBotDm(key))
+        {
+            ShowSystemNotices();
+            return;
+        }
+        var version = ++_openVersion;
+        if (Session.Registry.Activate(key, focusMessageId))
+            return;
+        if (UsesChatWindows)
+        {
+            OpenInWindow(key, focusMessageId);
+            return;
+        }
+
+        ShowRequested?.Invoke(this, EventArgs.Empty);
+        CurrentPage = Messages;
+        Contacts.ClearSelection();
+        if (Session.Conversations.Get(key) is { LastMessageId: > 0 })
+            Session.Conversations.EnsureInList(key);
+        Messages.Select(key);
+
+        if (RightPane is ChatViewModel same && same.Key.Equals(key))
+        {
+            if (focusMessageId is { } focus)
+                await same.JumpToMessageAsync(focus);
+            return;
+        }
+
+        if (RightPane is ChatViewModel old)
+        {
+            _openingKey = key;
+            await old.CloseAsync();
+            if (version != _openVersion || Session.IsDisposed)
+            {
+                // 被取消（另开了会话或该会话被移除）时，不要把已关闭的旧聊天留在右侧
+                if (RightPane == old)
+                    RightPane = null;
+                return;
+            }
+        }
+        _openingKey = null;
+
+        var chat = new ChatViewModel(Session, this, key);
+        RightPane = chat;
+        await chat.OpenAsync(focusMessageId);
+    }
+
+    /// <summary>
+    /// 在独立窗口中打开会话（已打开时激活）。会话正显示在主窗口右侧时，把这个聊天移到新窗口（不重新加载，输入内容保留）。
+    /// </summary>
+    public void OpenInWindow(ConversationKey key, long? focusMessageId = null)
+    {
+        if (Session.SystemNotices.IsBotDm(key))
+        {
+            ShowSystemNotices();
+            return;
+        }
+        if (Session.Registry.Activate(key, focusMessageId))
+            return;
+        if (Session.Conversations.Get(key) is { LastMessageId: > 0 })
+            Session.Conversations.EnsureInList(key);
+        ChatViewModel? existing = null;
+        // 正在切换会话、已经关闭的聊天不交接（它已退订事件，由切换流程替换）
+        if (RightPane is ChatViewModel { IsClosed: false } chat && chat.Key.Equals(key))
+        {
+            ++_openVersion;
+            existing = chat;
+            RightPane = null;
+            Messages.Select(null);
+        }
+        ChatWindowRequested?.Invoke(this, new ChatWindowRequest(key, existing, focusMessageId));
+    }
+
+    /// <summary>会话显示在主窗口右侧。</summary>
+    public bool ShowsInRightPane(ConversationKey key) => RightPane is ChatViewModel chat && chat.Key.Equals(key);
+
+    /// <summary>独立聊天窗口关闭：列表中仍选中该会话时取消选中，否则再次点击不会重新打开。</summary>
+    public void OnChatWindowClosed(ConversationKey key)
+    {
+        if (Messages.SelectedKey is { } selected && selected.Equals(key))
+            Messages.Select(null);
+    }
+
+    [RelayCommand]
+    private void ToggleClassicMode() => Session.Settings.Local.ClassicMode = !IsClassicMode;
+
+    // 进入经典模式：右侧的聊天移到独立窗口，资料面板关闭；主窗口布局由窗口根据 IsClassicMode 调整
+    private void OnClassicModeChanged()
+    {
+        if (IsClassicMode && RightPane is not null)
+        {
+            if (RightPane is ChatViewModel { IsClosed: false } chat)
+                OpenInWindow(chat.Key);
+            ++_openVersion;
+            _openingKey = null;
+            RightPane = null;
+            Messages.Select(null);
+            Contacts.ClearSelection();
+        }
+        OnPropertyChanged(nameof(IsClassicMode));
+        OnPropertyChanged(nameof(LayoutTip));
+        OnPropertyChanged(nameof(UsesChatWindows));
+    }
+
+    /// <summary>右侧正在显示（或正在打开）该会话时关闭聊天，恢复企鹅占位图标。</summary>
+    public async Task CloseChatAsync(ConversationKey key)
+    {
+        if (_openingKey is { } opening && opening.Equals(key))
+        {
+            // 取消还在等待旧聊天关闭的打开请求
+            ++_openVersion;
+            _openingKey = null;
+            Messages.Select(null);
+            return;
+        }
+        if (RightPane is not ChatViewModel chat || !chat.Key.Equals(key))
+            return;
+        ++_openVersion;
+        RightPane = null;
+        Messages.Select(null);
+        await chat.CloseAsync();
+    }
+
+    /// <summary>在右侧显示资料面板等非聊天内容；正在显示的聊天先关闭（保存草稿），进行中的打开请求取消。</summary>
+    public async Task ShowPaneAsync(ViewModelBase pane)
+    {
+        ShowRequested?.Invoke(this, EventArgs.Empty);
+        ++_openVersion;
+        _openingKey = null;
+        var old = RightPane as ChatViewModel;
+        RightPane = pane;
+        Messages.Select(null);
+        if (old is not null)
+            await old.CloseAsync();
+    }
+
+    /// <summary>显示确认对话框，返回用户是否点击了确定。</summary>
+    public Task<bool> ConfirmAsync(string message, string confirmText = "确定", bool isDanger = false)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        ConfirmDialogViewModel dialog = null!;
+        dialog = new ConfirmDialogViewModel(message, confirmText, isDanger, confirmed =>
+        {
+            Dialogs.Remove(dialog);
+            tcs.TrySetResult(confirmed);
+        });
+        Dialogs.Add(dialog);
+        return tcs.Task;
+    }
+
+    // ---- 搜索框右侧的“+”菜单 ----
+
+    public bool CanCreateChannel =>
+        Session.Shows(Session.Permissions.CanCreatePublicChannel || Session.Permissions.CanCreatePrivateChannel);
+
+    /// <summary>发起群聊：至少选择 2 人，打开多人私聊。</summary>
+    public void ShowGroupChatPicker()
+    {
+        UserPickerDialogViewModel picker = null!;
+        picker = new UserPickerDialogViewModel(Session, "发起群聊", 2, null, ids =>
+        {
+            Dialogs.Remove(picker);
+            if (ids is not null)
+                _ = OpenChatAsync(DmKey.Create(ids, Session.SelfId));
+        });
+        Dialogs.Add(picker);
+    }
+
+    /// <summary>新建话题：记录话题名后打开聊天，第一条消息发出后会话加入消息列表。</summary>
+    public void ShowNewTopicDialog() => ShowNewTopicDialog(null, "");
+
+    /// <summary>
+    /// 打开的话题链接已不存在（例如话题被移动、删除）：预先填好频道和话题名打开“新建话题”，并显示主面板；
+    /// 不能在该频道新建话题时只提示。
+    /// </summary>
+    public void ShowMissingTopic(long streamId, string topic)
+    {
+        ShowRequested?.Invoke(this, EventArgs.Empty);
+        MainWindowRequested?.Invoke(this, EventArgs.Empty);
+        if (!NewTopicDialogViewModel.CanCreateIn(Session, streamId))
+        {
+            ShowToast("话题已不存在");
+            return;
+        }
+        ShowNewTopicDialog(streamId, topic);
+    }
+
+    private void ShowNewTopicDialog(long? streamId, string topic)
+    {
+        NewTopicDialogViewModel dialog = null!;
+        dialog = new NewTopicDialogViewModel(Session, ShowToast, result =>
+        {
+            Dialogs.Remove(dialog);
+            if (result is not { } r)
+                return;
+            Session.Conversations.EnsureEntry(r.Key, r.Name);
+            _ = OpenChatAsync(r.Key);
+        }, streamId, topic);
+        Dialogs.Add(dialog);
+    }
+
+    public void ShowBrowseChannels()
+    {
+        BrowseChannelsDialogViewModel dialog = null!;
+        dialog = new BrowseChannelsDialogViewModel(Session, this, () => Dialogs.Remove(dialog));
+        Dialogs.Add(dialog);
+    }
+
+    public void ShowCreateChannelDialog()
+    {
+        CreateChannelDialogViewModel dialog = null!;
+        dialog = new CreateChannelDialogViewModel(Session, this, () => Dialogs.Remove(dialog));
+        Dialogs.Add(dialog);
+    }
+
+    /// <summary>邀请新成员加入组织（有邀请权限时“+”菜单中才有这一项）。</summary>
+    public void ShowInviteDialog()
+    {
+        InviteDialogViewModel dialog = null!;
+        dialog = new InviteDialogViewModel(Session, this, () => Dialogs.Remove(dialog));
+        Dialogs.Add(dialog);
+    }
+
+    // ---- 个性签名 ----
+
+    [RelayCommand]
+    private void BeginEditSignature()
+    {
+        SignatureDraft = Session.Users.GetStatusText(Session.SelfId) ?? "";
+        IsEditingSignature = true;
+    }
+
+    /// <summary>提交签名：空文字表示清除。结果由 user_status 事件更新。</summary>
+    [RelayCommand]
+    private async Task CommitSignatureAsync()
+    {
+        // 回车和失去焦点都会提交，只处理第一次
+        if (!IsEditingSignature)
+            return;
+        IsEditingSignature = false;
+        var text = SignatureDraft.Trim();
+        if (text == (Session.Users.GetStatusText(Session.SelfId) ?? ""))
+            return;
+        try
+        {
+            await Session.Client.SetStatusAsync(text, Session.Token);
+        }
+        catch (Exception ex) when (!Session.IsDisposed)
+        {
+            Log.Warn("修改个性签名失败", ex);
+            ShowToast("修改失败");
+        }
+    }
+
+    [RelayCommand]
+    private void CancelEditSignature() => IsEditingSignature = false;
+
+    [RelayCommand]
+    private void ShowMessages() => CurrentPage = Messages;
+
+    [RelayCommand]
+    private void ShowContacts() => CurrentPage = Contacts;
+
+    /// <summary>在联系人页展开频道并显示主面板（点击频道链接）。</summary>
+    public void OpenChannel(long streamId)
+    {
+        ShowContactsChannel(streamId);
+        MainWindowRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>显示系统通知：默认模式在右侧，经典模式在独立窗口中。</summary>
+    public void ShowSystemNotices()
+    {
+        if (!IsClassicMode)
+            ShowRequested?.Invoke(this, EventArgs.Empty);
+        CurrentPage = Contacts;
+        if (IsClassicMode)
+        {
+            SystemNoticesWindowRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+        Contacts.MarkSystemNoticesSelected();
+        if (RightPane is SystemNoticesViewModel)
+            return;
+        var notices = new SystemNoticesViewModel(Session, this);
+        _ = ShowPaneAsync(notices);
+        notices.Start();
+    }
+
+    /// <summary>切换到联系人页的群聊标签并展开频道（全局搜索中点击频道）。</summary>
+    public void ShowContactsChannel(long streamId)
+    {
+        ShowRequested?.Invoke(this, EventArgs.Empty);
+        CurrentPage = Contacts;
+        Contacts.ShowChannel(streamId);
+    }
+
+    /// <summary>
+    /// 主窗口切换到其他账号：关闭搜索结果和右侧内容（聊天先保存草稿），取消列表中的选中。
+    /// 隐藏的聊天如果留在右侧，会把新消息当作正在查看而标记为已读。
+    /// </summary>
+    public async Task DeactivateAsync()
+    {
+        Search.Close();
+        ++_openVersion;
+        _openingKey = null;
+        var old = RightPane as ChatViewModel;
+        RightPane = null;
+        Messages.Select(null);
+        Contacts.ClearSelection();
+        if (old is not null)
+            await old.CloseAsync();
+    }
+
+    [RelayCommand]
+    private Task LogoutAsync() => App.Current.LogoutAsync(Session, confirm: true);
+
+    private void OnSelfChanged()
+    {
+        OnPropertyChanged(nameof(SelfName));
+        OnPropertyChanged(nameof(SelfAvatarUrl));
+        OnPropertyChanged(nameof(SignatureText));
+    }
+}

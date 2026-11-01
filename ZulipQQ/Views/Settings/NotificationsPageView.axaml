@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             x:Class="ZulipQQ.Views.Settings.NotificationsPageView"
+             x:DataType="vm:NotificationsPageViewModel">
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="消息通知" />
+
+        <TextBlock Classes="section" Text="通知" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="新消息通知" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableDesktopNotifications}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_desktop_notifications" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="频道消息通知" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableStreamDesktopNotifications}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_stream_desktop_notifications" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="@全体成员时通知" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding WildcardMentionsNotify}" />
+                </Grid>
+                <c:SettingSource Local="Account" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="通知显示消息摘要" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding PmContentInDesktopNotifications}" />
+                </Grid>
+                <c:SettingSource Zulip="pm_content_in_desktop_notifications" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="提示音" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="提示音" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableSounds}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_sounds" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="频道消息提示音" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableStreamAudibleNotifications}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_stream_audible_notifications" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

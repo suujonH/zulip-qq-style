@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.PluginApprovalDialogView"
+             x:DataType="vm:PluginApprovalDialogViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+        <Style Selector="TextBlock.item">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="10,2,0,0" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="dialog" Width="440">
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" Height="30">
+                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="36,0" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CancelCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"
+                        Margin="20,12,20,16">
+                <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="开启" Command="{Binding ConfirmCommand}" />
+                <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消" Command="{Binding CancelCommand}" />
+            </StackPanel>
+
+            <ScrollViewer MaxHeight="460" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="20,14,20,0">
+                    <TextBlock Classes="sub" Text="{Binding Meta}" FontSize="{DynamicResource FontSizeSub}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Notice}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource DangerBrush}" Margin="0,6,0,0" IsVisible="{Binding HasNotice}" />
+
+                    <TextBlock Classes="section" Text="可以读取" IsVisible="{Binding HasReads}" />
+                    <ItemsControl ItemsSource="{Binding Reads}" IsVisible="{Binding HasReads}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Classes="item" Text="{Binding StringFormat='• {0}'}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Classes="section" Text="可以做" IsVisible="{Binding HasActs}" />
+                    <ItemsControl ItemsSource="{Binding Acts}" IsVisible="{Binding HasActs}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Classes="item" Text="{Binding StringFormat='• {0}'}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Classes="section" Text="依赖的插件" IsVisible="{Binding HasDependencies}" />
+                    <ItemsControl ItemsSource="{Binding Dependencies}" IsVisible="{Binding HasDependencies}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Classes="item" Text="{Binding StringFormat='• {0}'}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Classes="section" Text="会自动打开（白名单）" IsVisible="{Binding HasLaunchRules}" />
+                    <ItemsControl ItemsSource="{Binding LaunchRules}" IsVisible="{Binding HasLaunchRules}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Classes="item" Text="{Binding StringFormat='• {0}'}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Classes="section" Text="接收的事件" IsVisible="{Binding HasEvents}" />
+                    <ItemsControl ItemsSource="{Binding Events}" IsVisible="{Binding HasEvents}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Classes="item" Text="{Binding StringFormat='• {0}'}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Classes="section" Text="插件声明的其它行为" IsVisible="{Binding HasDeclared}" />
+                    <ItemsControl ItemsSource="{Binding Declared}" IsVisible="{Binding HasDeclared}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Classes="item" Text="{Binding StringFormat='• {0}'}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Classes="section" Text="不需要任何权限" IsVisible="{Binding HasNoPermissions}" />
+                    <Border Height="8" />
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</UserControl>

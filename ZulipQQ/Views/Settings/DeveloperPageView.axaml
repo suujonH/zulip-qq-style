@@ -1,0 +1,141 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:s="using:ZulipQQ.Services"
+             x:Class="ZulipQQ.Views.Settings.DeveloperPageView"
+             x:DataType="vm:DeveloperPageViewModel">
+    <UserControl.Styles>
+        <!-- 请求列表：时间、方法、状态、路径、耗时 -->
+        <Style Selector="ListBox.requests ListBoxItem">
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+        <Style Selector="ListBox.requests TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ListBox.requests TextBlock.mono">
+            <Setter Property="FontFamily" Value="Cascadia Mono, Consolas" />
+        </Style>
+        <Style Selector="ListBox.requests TextBlock.secondary">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style Selector="ListBox.requests TextBlock.pending">
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+        </Style>
+        <Style Selector="ListBox.requests TextBlock.failed">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="Button.sort">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="TextBlock.column">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="开发者模式" />
+
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="显示设置来源" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowSettingSource}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="显示不可用的功能" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowUnavailable}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="显示请求" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding LogRequests}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="保存的条数" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding RequestLogLimitOptions}" SelectedItem="{Binding RequestLogLimit}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+            </StackPanel>
+        </Border>
+
+        <!-- 模拟提醒：模拟消息只交给提醒服务，按会话的免打扰级别和通知设置决定是否闪烁、弹窗、响铃 -->
+        <TextBlock Classes="section" Text="模拟提醒" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="会话" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding MockTargets}" SelectedItem="{Binding MockTargetItem}"
+                              MaxWidth="320" />
+                </Grid>
+                <Border Classes="divider" />
+                <WrapPanel Margin="0,8" ItemSpacing="8" LineSpacing="8">
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="收到消息"
+                            Command="{Binding MockCommand}" CommandParameter="" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="收到 @我"
+                            Command="{Binding MockCommand}" CommandParameter="mentioned" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="收到 @全体成员"
+                            Command="{Binding MockCommand}" CommandParameter="stream_wildcard_mentioned" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="收到 @话题参与者"
+                            Command="{Binding MockCommand}" CommandParameter="topic_wildcard_mentioned" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="收到提醒词"
+                            Command="{Binding MockCommand}" CommandParameter="has_alert_word" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="消息提醒到时间"
+                            Command="{Binding MockReminderCommand}" />
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+            <TextBlock Classes="section" Text="请求" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="secondary" Theme="{StaticResource FlatButton}" Content="清除"
+                    Command="{Binding ClearCommand}" />
+        </Grid>
+        <TextBox Classes="input" PlaceholderText="搜索网址、请求头、请求或响应内容" Text="{Binding Query}" />
+        <Border Classes="card" Padding="0">
+            <Grid RowDefinitions="Auto,Auto,*">
+                <Grid ColumnDefinitions="108,52,56,*,72" Margin="8,6">
+                    <Button Classes="sort" Command="{Binding ToggleSortCommand}" ToolTip.Tip="按时间排序">
+                        <TextBlock Classes="column" Text="{Binding TimeHeader}" />
+                    </Button>
+                    <TextBlock Classes="column" Grid.Column="1" Text="方法" />
+                    <TextBlock Classes="column" Grid.Column="2" Text="状态" />
+                    <TextBlock Classes="column" Grid.Column="3" Text="名称" />
+                    <TextBlock Classes="column" Grid.Column="4" Text="耗时" TextAlignment="Right" />
+                </Grid>
+                <Border Grid.Row="1" Classes="divider" />
+                <Panel Grid.Row="2" Height="360">
+                    <TextBlock Classes="hint" Text="没有请求记录" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               IsVisible="{Binding IsEmpty}" />
+                    <ListBox x:Name="RequestList" Classes="requests" ItemsSource="{Binding Requests}" Background="Transparent"
+                             SelectionMode="Single">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="s:RequestLogEntry">
+                                <Grid ColumnDefinitions="108,52,56,*,72">
+                                    <TextBlock Classes="mono secondary" Text="{Binding TimeText}" />
+                                    <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Request.Method}" />
+                                    <TextBlock Grid.Column="2" Classes="mono" Text="{Binding StatusText}"
+                                               Classes.pending="{Binding IsPending}" Classes.failed="{Binding IsFailed}" />
+                                    <TextBlock Grid.Column="3" Classes="mono" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding Request.Url}" Classes.failed="{Binding IsFailed}" />
+                                    <TextBlock Grid.Column="4" Classes="mono secondary" Text="{Binding DurationText}" TextAlignment="Right" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Panel>
+            </Grid>
+        </Border>
+    </StackPanel>
+</UserControl>

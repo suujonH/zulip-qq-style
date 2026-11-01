@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             x:Class="ZulipQQ.Views.Settings.PreferencesPageView"
+             x:DataType="vm:PreferencesPageViewModel">
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="偏好设置" />
+
+        <TextBlock Classes="section" Text="外观" />
+        <Border Classes="card">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" MinHeight="44">
+                    <RadioButton GroupName="scheme" Content="跟随系统" IsChecked="{Binding IsSchemeAuto}" />
+                    <RadioButton GroupName="scheme" Content="白天" IsChecked="{Binding IsSchemeLight}" />
+                    <RadioButton GroupName="scheme" Content="夜间" IsChecked="{Binding IsSchemeDark}" />
+                </StackPanel>
+                <c:SettingSource Zulip="color_scheme" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="聊天" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="发送消息" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <RadioButton GroupName="send" Content="Enter" IsChecked="{Binding IsEnterSends}" />
+                        <RadioButton GroupName="send" Content="Ctrl+Enter" IsChecked="{Binding IsCtrlEnterSends}" Margin="0" />
+                    </StackPanel>
+                </Grid>
+                <c:SettingSource Zulip="enter_sends" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="24 小时制显示时间" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding TwentyFourHourTime}" />
+                </Grid>
+                <c:SettingSource Zulip="twenty_four_hour_time" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

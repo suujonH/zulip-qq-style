@@ -1,0 +1,20 @@
+<!-- 经典模式下的系统通知窗口：内容与默认模式右侧的系统通知相同 -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ZulipQQ.ViewModels"
+        xmlns:v="using:ZulipQQ.Views"
+        xmlns:c="using:ZulipQQ.Controls"
+        x:Class="ZulipQQ.Views.SystemNoticesWindow"
+        x:DataType="vm:SystemNoticesViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="系统通知"
+        Width="720" Height="600" MinWidth="480" MinHeight="400"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <Grid RowDefinitions="30,*">
+        <c:CaptionBar Grid.Row="0" Height="30" VerticalAlignment="Top" ShowMaximize="False" />
+        <v:SystemNoticesView Grid.Row="1" />
+    </Grid>
+</Window>

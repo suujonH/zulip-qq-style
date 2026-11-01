@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.ReadReceiptsDialogView"
+             x:DataType="vm:ReadReceiptsDialogViewModel">
+
+    <Border Classes="dialog" Width="320">
+        <StackPanel>
+            <Grid Height="30">
+                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Button x:Name="CloseButton" Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CloseCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <Panel Margin="16,10,16,16" MinHeight="60">
+                <TextBlock Classes="sub" Text="{Binding StatusText}" FontSize="{DynamicResource FontSizeSmall}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding HasStatus}" />
+                <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Members}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChatMemberItem">
+                                <Grid ColumnDefinitions="Auto,*" Height="40">
+                                    <c:Avatar Width="28" Height="28" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding DisplayName}" Margin="10,0" FontSize="{DynamicResource FontSizeSmall}"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Panel>
+        </StackPanel>
+    </Border>
+</UserControl>

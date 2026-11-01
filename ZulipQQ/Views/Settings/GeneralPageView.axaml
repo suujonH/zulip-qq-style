@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             x:Class="ZulipQQ.Views.Settings.GeneralPageView"
+             x:DataType="vm:GeneralPageViewModel">
+    <UserControl.Styles>
+        <Style Selector="Button.token">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="通用" />
+
+        <TextBlock Classes="section" Text="聊天" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="打开新聊天" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding CanChooseOpenChat}">
+                        <RadioButton GroupName="openChat" Content="在主窗口中" IsChecked="{Binding IsOpenChatInMain}" />
+                        <RadioButton GroupName="openChat" Content="在独立窗口中" IsChecked="{Binding IsOpenChatInWindow}" Margin="0" />
+                    </StackPanel>
+                </Grid>
+                <c:SettingSource Local="App" />
+                <Border Classes="divider" />
+                <StackPanel Spacing="6" Margin="0,8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="话题标题" VerticalAlignment="Center" />
+                        <TextBox x:Name="TitleBox" Grid.Column="1" Classes="input" Width="260" MaxLength="100" PlaceholderText="{}{Topic}"
+                                 Text="{Binding TitleDraft}" />
+                    </Grid>
+                    <!-- 变量：点击后插入到输入框的光标位置（按钮不取得焦点，输入框保留光标与选中） -->
+                    <StackPanel x:Name="TitleTokens" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                        <Button Classes="token" Tag="{}{Channel}" Content="频道名" />
+                        <Button Classes="token" Tag="{}{Topic}" Content="话题名" />
+                    </StackPanel>
+                    <TextBlock Classes="hint" Text="{Binding TitlePreview}" IsVisible="{Binding TitlePreview, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <c:SettingSource Local="App" />
+                </StackPanel>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="收起已解决话题" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding CollapseResolvedTopics}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="通知" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="通知类型" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <RadioButton GroupName="style" Content="横幅弹窗" IsChecked="{Binding IsBanner}" />
+                        <RadioButton GroupName="style" Content="仅闪烁任务栏" IsChecked="{Binding IsTrayOnly}" Margin="0" />
+                    </StackPanel>
+                </Grid>
+                <c:SettingSource Local="App" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="主界面" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="经典模式" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding ClassicMode}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="停靠在屏幕边缘时自动隐藏" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EdgeAutoHide}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="显示托盘图标" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowTrayIcon}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="关闭主面板时" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding ShowTrayIcon}">
+                        <RadioButton GroupName="close" Content="最小化到托盘" IsChecked="{Binding IsCloseToTray}" />
+                        <RadioButton GroupName="close" Content="退出程序" IsChecked="{Binding IsCloseExit}" Margin="0" />
+                    </StackPanel>
+                </Grid>
+                <c:SettingSource Local="App" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="字体大小" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="Auto,*,Auto,40">
+                    <TextBlock Text="A" FontSize="12" />
+                    <Slider Grid.Column="1" Margin="12,0" VerticalAlignment="Center"
+                            Minimum="{Binding MinFontSize}" Maximum="{Binding MaxFontSize}"
+                            TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding FontSize}" />
+                    <TextBlock Grid.Column="2" Text="A" FontSize="18" />
+                    <TextBlock Grid.Column="3" Classes="hint" HorizontalAlignment="Right" Text="{Binding FontSize}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

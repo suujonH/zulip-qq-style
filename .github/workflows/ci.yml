@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore ZulipQQ.slnx
+      - name: Build
+        run: dotnet build ZulipQQ.slnx -c Release --no-restore
+      - name: Test
+        run: dotnet test --solution ZulipQQ.slnx -c Release --no-build
+      - name: Publish
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: |
+          dotnet publish ZulipQQ/ZulipQQ.csproj -c Release -r win-x64 --self-contained true -p:DebugType=none -o publish/ZulipQQ
+          Get-ChildItem publish/ZulipQQ -Filter *.pdb -File | ForEach-Object { Remove-Item -LiteralPath $_.FullName }
+          ./tools/build-plugins.ps1 -OutDir publish/ZulipQQ/plugins
+      - name: Upload artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ZulipQQ-win-x64
+          path: publish/ZulipQQ

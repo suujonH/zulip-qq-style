@@ -1,0 +1,234 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:ae="using:AvaloniaEdit"
+             x:Class="ZulipQQ.Views.ComposerView"
+             x:DataType="vm:ComposerViewModel">
+
+    <UserControl.Styles>
+        <!-- 工具栏图标按钮 -->
+        <Style Selector="Button.tool, ToggleButton.tool">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+        </Style>
+        <Style Selector="Button.tool c|TdIcon, ToggleButton.tool c|TdIcon">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+
+        <!-- 格式按钮不获取焦点：点击时输入框不失去焦点，光标处的符号不会先收起再显示 -->
+        <Style Selector="StackPanel#FormatBar Button">
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+
+        <Style Selector="ToggleButton.tool:checked, Button.tool.active">
+            <Setter Property="Background" Value="{DynamicResource PressedBrush}" />
+        </Style>
+
+        <!-- 输入框：没有边框和背景，与聊天区融为一体（MarkdownEditor 的样式键是 TextEditor，按类型选择要写 TextEditor） -->
+        <Style Selector="ae|TextEditor.composer">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI, PingFang SC, Noto Sans CJK SC" />
+            <Setter Property="Padding" Value="20,4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <!-- 发送分体按钮：左边发送，右边下拉；不能发送时底色不变，只有“发送”两个字变浅 -->
+        <Style Selector="Button.send">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.send:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrandHoverBrush}" />
+        </Style>
+        <Style Selector="Button.send:disabled">
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="Foreground" Value="#99FFFFFF" />
+        </Style>
+
+        <!-- 待发送的附件 -->
+        <Style Selector="Border.attachment">
+            <Setter Property="Width" Value="64" />
+            <Setter Property="Height" Value="64" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <!-- @ 补全的候选不获取焦点：点击时输入框不失去焦点，补全不会被关闭 -->
+        <Style Selector="ListBox#MentionList, ListBox#MentionList ListBoxItem, ListBox#LanguageList, ListBox#LanguageList ListBoxItem">
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+
+        <Style Selector="Border.attachment.failed">
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel>
+        <!-- 工具栏：左侧表情、文件、图片；右侧格式、源码 / 渲染切换、聊天记录（没有发言权限时也可用） -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="14,6,14,0">
+            <StackPanel Orientation="Horizontal" Spacing="4" IsEnabled="{Binding CanEdit}">
+                <Button x:Name="EmojiButton" Classes="tool" ToolTip.Tip="表情">
+                    <c:TdIcon Icon="{StaticResource Icon.Smile}" />
+                    <Button.Flyout>
+                        <Flyout Placement="TopEdgeAlignedLeft" />
+                    </Button.Flyout>
+                </Button>
+                <Button x:Name="FileButton" Classes="tool" ToolTip.Tip="发送文件">
+                    <c:TdIcon Icon="{StaticResource Icon.Folder}" />
+                </Button>
+                <Button x:Name="ImageButton" Classes="tool" ToolTip.Tip="发送图片">
+                    <c:TdIcon Icon="{StaticResource Icon.Image}" />
+                </Button>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <!-- 格式：有选中文字时作用于选中部分，没有时作用于光标处（光标在该格式中时取消）；光标处已有的格式显示为按下 -->
+                <StackPanel x:Name="FormatBar" Orientation="Horizontal" Spacing="4" IsEnabled="{Binding CanEdit}">
+                    <Button Classes="tool" Tag="Bold" ToolTip.Tip="加粗 (Ctrl+B)"><c:TdIcon Icon="{StaticResource Icon.Bold}" /></Button>
+                    <Button Classes="tool" Tag="Italic" ToolTip.Tip="斜体 (Ctrl+I)"><c:TdIcon Icon="{StaticResource Icon.Italic}" /></Button>
+                    <Button Classes="tool" Tag="Code" ToolTip.Tip="代码 (Ctrl+Shift+C)"><c:TdIcon Icon="{StaticResource Icon.Code}" /></Button>
+                    <Button Classes="tool" Tag="Link" ToolTip.Tip="链接 (Ctrl+Shift+L)"><c:TdIcon Icon="{StaticResource Icon.Link}" /></Button>
+                    <Button Classes="tool" Tag="Quote" ToolTip.Tip="引用"><c:TdIcon Icon="{StaticResource Icon.Quote}" /></Button>
+                    <Button Classes="tool" Tag="BulletedList" ToolTip.Tip="无序列表"><c:TdIcon Icon="{StaticResource Icon.ViewList}" /></Button>
+                </StackPanel>
+                <ToggleButton Classes="tool" IsChecked="{Binding IsSourceMode, Mode=OneWay}" Command="{Binding ToggleSourceModeCommand}"
+                              ToolTip.Tip="{Binding SourceModeToolTip}">
+                    <c:TdIcon Icon="{StaticResource Icon.SourceCode}" />
+                </ToggleButton>
+                <Button x:Name="HistoryButton" Classes="tool" ToolTip.Tip="聊天记录">
+                    <c:TdIcon Icon="{StaticResource Icon.Time}" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 发送按钮 -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,20,12">
+            <Button Classes="send" Content="{Binding SendButtonText}" Width="64" CornerRadius="4,0,0,4" Command="{Binding SendCommand}" />
+            <Border Width="1" Background="White" Opacity="0.4" />
+            <Button Classes="send" Width="28" CornerRadius="0,4,4,0" ToolTip.Tip="发送设置">
+                <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" Width="14" Height="14" Foreground="White" />
+                <Button.Flyout>
+                    <MenuFlyout Placement="TopEdgeAlignedRight">
+                        <MenuItem Header="按Enter键发送消息" ToggleType="Radio" IsChecked="{Binding EnterSends, Mode=OneWay}"
+                                  Command="{Binding SetEnterSendsCommand}">
+                            <MenuItem.CommandParameter>
+                                <x:Boolean>True</x:Boolean>
+                            </MenuItem.CommandParameter>
+                        </MenuItem>
+                        <MenuItem Header="按Ctrl+Enter键发送消息" ToggleType="Radio" IsChecked="{Binding !EnterSends, Mode=OneWay}"
+                                  Command="{Binding SetEnterSendsCommand}">
+                            <MenuItem.CommandParameter>
+                                <x:Boolean>False</x:Boolean>
+                            </MenuItem.CommandParameter>
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Header="定时发送…" Command="{Binding ScheduleCommand}" />
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
+        </StackPanel>
+
+        <!-- 正在编辑的消息：Esc 或 ✕ 取消，原来的输入内容恢复 -->
+        <Border DockPanel.Dock="Top" IsVisible="{Binding IsEditingMessage}" Margin="20,4,20,0" Padding="10,4,4,4" CornerRadius="4"
+                Background="{DynamicResource FillBrush}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Theme="{StaticResource FlatButton}" Width="22" Height="22"
+                        Command="{Binding CancelEditCommand}" ToolTip.Tip="取消编辑 (Esc)">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="12" Height="12"
+                              Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Button>
+                <TextBlock Text="{Binding EditPreviewText, StringFormat='编辑消息：{0}'}" FontSize="{DynamicResource FontSizeSub}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </DockPanel>
+        </Border>
+
+        <!-- 上传中的文件（图片插入在正文中） -->
+        <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Attachments}" IsVisible="{Binding HasAttachments}"
+                      Margin="20,6,20,0">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:PendingAttachment">
+                    <Panel Margin="0,6,8,6" ToolTip.Tip="{Binding FileName}">
+                        <Border Classes="attachment" Classes.failed="{Binding IsFailed}">
+                            <Panel>
+                                <StackPanel VerticalAlignment="Center" Spacing="2" Margin="4">
+                                    <c:TdIcon Icon="{StaticResource Icon.File}" Width="22" Height="22"
+                                              Foreground="{DynamicResource BrandBrush}" />
+                                    <TextBlock Text="{Binding FileName}" FontSize="10" TextTrimming="CharacterEllipsis"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                                <ProgressBar VerticalAlignment="Bottom" Height="3" MinHeight="3" Minimum="0" Maximum="1"
+                                             Value="{Binding Progress}" IsVisible="{Binding IsUploading}" />
+                            </Panel>
+                        </Border>
+                        <Button Theme="{StaticResource FlatButton}" Width="18" Height="18" CornerRadius="9"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,-6,0"
+                                Background="#99000000" ToolTip.Tip="移除"
+                                Command="{Binding $parent[UserControl].((vm:ComposerViewModel)DataContext).RemoveAttachmentCommand}"
+                                CommandParameter="{Binding}">
+                            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="10" Height="10" Foreground="White" />
+                        </Button>
+                    </Panel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Panel>
+            <c:MarkdownEditor x:Name="InputBox" Classes="composer" Markdown="{Binding Text}" IsSourceMode="{Binding IsSourceMode}"
+                              IsEnabled="{Binding CanEdit}" />
+            <TextBlock x:Name="PlaceholderText" Text="{Binding Placeholder}" IsHitTestVisible="False" Margin="20,4"
+                       FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextTertiaryBrush}" />
+
+            <!-- @ 补全 -->
+            <Popup x:Name="MentionPopup" PlacementTarget="{Binding #InputBox}" Placement="TopEdgeAlignedLeft"
+                   HorizontalOffset="16" IsOpen="{Binding Mentions.IsOpen, Mode=OneWay}">
+                <Border Classes="dialog" Width="280" Padding="4">
+                    <ListBox x:Name="MentionList" ItemsSource="{Binding Mentions.Items}"
+                             SelectedIndex="{Binding Mentions.SelectedIndex}" MaxHeight="300" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="vm:MentionCandidate">
+                                <DockPanel>
+                                    <c:Avatar Width="24" Height="24" Margin="0,0,8,0" Source="{Binding AvatarUrl}"
+                                              Text="{Binding AvatarText}" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding SubText}" FontSize="{DynamicResource FontSizeCaption}" Margin="8,0,0,0"
+                                               MaxWidth="140" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBlock Text="{Binding Display}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </Popup>
+
+            <!-- 代码块语言补全（``` 之后） -->
+            <Popup x:Name="LanguagePopup" PlacementTarget="{Binding #InputBox}" Placement="TopEdgeAlignedLeft"
+                   HorizontalOffset="16" IsOpen="{Binding Languages.IsOpen, Mode=OneWay}">
+                <Border Classes="dialog" Width="200" Padding="4">
+                    <ListBox x:Name="LanguageList" ItemsSource="{Binding Languages.Items}"
+                             SelectedIndex="{Binding Languages.SelectedIndex}" MaxHeight="300" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Text="{Binding}" FontSize="{DynamicResource FontSizeSmall}" FontFamily="Cascadia Mono, Consolas, Microsoft YaHei UI" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </Popup>
+        </Panel>
+    </DockPanel>
+</UserControl>

@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             x:Class="ZulipQQ.Views.Settings.PluginsPageView"
+             x:DataType="vm:PluginsPageViewModel">
+    <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="pageTitle" Text="插件" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="secondary" Theme="{StaticResource FlatButton}" Content="打开插件目录"
+                    Command="{Binding OpenFolderCommand}" />
+        </Grid>
+        <c:SettingSource Local="App" />
+
+        <Border Classes="card" IsVisible="{Binding !HasItems}">
+            <TextBlock Classes="hint" Text="还没有安装插件" Margin="0,12" />
+        </Border>
+
+        <ItemsControl ItemsSource="{Binding Items}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="8" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:PluginItemViewModel">
+                    <Border Classes="card" Padding="16,12">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding Name}" FontSize="{DynamicResource FontSizeBody}" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Classes="hint" Text="{Binding Meta}" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsEnabled}" IsEnabled="{Binding CanToggle}" />
+
+                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="hint" Margin="0,4,0,0"
+                                       Text="{Binding StatusText}" Classes.error="{Binding IsError}" IsVisible="{Binding HasStatus}" />
+
+                            <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                                <ItemsControl ItemsSource="{Binding Menus}" IsVisible="{Binding ShowMenus}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PluginMenuItemViewModel">
+                                            <Button Classes="secondary" Theme="{StaticResource FlatButton}"
+                                                    Content="{Binding Name}" Command="{Binding InvokeCommand}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="设置"
+                                        Command="{Binding ShowSettingsCommand}" IsVisible="{Binding HasSettings}" />
+                                <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="日志"
+                                        Command="{Binding ShowLogCommand}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- 快捷操作：点击左侧的框后录制，Backspace 清除；一个手势只绑定一项 -->
+        <TextBlock Classes="section" Text="消息快捷操作" IsVisible="{Binding HasMessageShortcuts}" />
+        <Border Classes="card" IsVisible="{Binding HasMessageShortcuts}">
+            <ItemsControl ItemsSource="{Binding MessageShortcuts}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PluginShortcutViewModel">
+                        <Grid Classes="item" ColumnDefinitions="180,*">
+                            <c:ShortcutRecorder Classes="input" Gesture="{Binding Gesture}" IsMouse="{Binding IsMouse}"
+                                                VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+        <TextBlock Classes="section" Text="快捷键" IsVisible="{Binding HasKeyShortcuts}" />
+        <Border Classes="card" IsVisible="{Binding HasKeyShortcuts}">
+            <ItemsControl ItemsSource="{Binding KeyShortcuts}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PluginShortcutViewModel">
+                        <Grid Classes="item" ColumnDefinitions="180,*">
+                            <c:ShortcutRecorder Classes="input" Gesture="{Binding Gesture}" IsMouse="{Binding IsMouse}"
+                                                VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+    </StackPanel>
+
+    <UserControl.Styles>
+        <Style Selector="Button.secondary">
+            <Setter Property="Padding" Value="12,0" />
+        </Style>
+        <Style Selector="TextBlock.hint.error">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+    </UserControl.Styles>
+</UserControl>

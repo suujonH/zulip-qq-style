@@ -1,0 +1,85 @@
+<!-- 请求详情（开发者模式的“显示请求”）：仿 Chrome 开发者工具，常规信息 + 标头 / 载荷 / 响应 -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:s="using:ZulipQQ.Services"
+        xmlns:c="using:ZulipQQ.Controls"
+        x:Class="ZulipQQ.Views.RequestDetailWindow"
+        x:DataType="s:RequestLogEntry"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="请求详情"
+        Width="640" Height="600" MinWidth="420" MinHeight="320"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <Window.Styles>
+        <Style Selector="SelectableTextBlock.mono">
+            <Setter Property="FontFamily" Value="Cascadia Mono, Consolas" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Margin" Value="0,1,12,1" />
+        </Style>
+        <Style Selector="TextBlock.heading">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,10,0,4" />
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="12,0" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="30,*">
+        <c:CaptionBar Grid.Row="0" Title="请求详情" ShowMaximize="True" />
+
+        <Border Grid.Row="1" Margin="2,0,2,2" CornerRadius="8,8,0,0" ClipToBounds="True"
+                Background="{DynamicResource PanelBackgroundBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1,1,1,0">
+            <Grid RowDefinitions="Auto,*">
+                <!-- 常规 -->
+                <Grid Margin="16,12,16,4" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Classes="label" Text="请求网址" />
+                    <SelectableTextBlock Grid.Column="1" Classes="mono" Text="{Binding Request.Url}" />
+                    <TextBlock Grid.Row="1" Classes="label" Text="请求方法" />
+                    <SelectableTextBlock Grid.Row="1" Grid.Column="1" Classes="mono" Text="{Binding Request.Method}" />
+                    <TextBlock Grid.Row="2" Classes="label" Text="状态" />
+                    <SelectableTextBlock Grid.Row="2" Grid.Column="1" Classes="mono" Text="{Binding StatusLine}" />
+                    <TextBlock Grid.Row="3" Classes="label" Text="时间" />
+                    <SelectableTextBlock Grid.Row="3" Grid.Column="1" Classes="mono" Text="{Binding TimeText}" />
+                    <TextBlock Grid.Row="4" Classes="label" Text="耗时" />
+                    <SelectableTextBlock Grid.Row="4" Grid.Column="1" Classes="mono" Text="{Binding DurationText}" />
+                </Grid>
+
+                <TabControl Grid.Row="1" Margin="8,0,8,0" Padding="0">
+                    <TabItem Header="标头">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="8,0,8,12">
+                                <TextBlock Classes="heading" Text="响应标头" />
+                                <SelectableTextBlock Classes="mono" Text="{Binding Response.Headers, FallbackValue=''}" />
+                                <TextBlock Classes="heading" Text="请求标头" />
+                                <SelectableTextBlock Classes="mono" Text="{Binding Request.Headers}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                    <TabItem Header="载荷">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                            <SelectableTextBlock Classes="mono" Margin="8,8,8,12" Text="{Binding PayloadText}" />
+                        </ScrollViewer>
+                    </TabItem>
+                    <TabItem Header="响应">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                            <SelectableTextBlock Classes="mono" Margin="8,8,8,12" Text="{Binding ResponseText}" />
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

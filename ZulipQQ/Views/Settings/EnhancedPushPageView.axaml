@@ -1,0 +1,273 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.EnhancedPushPageView"
+             x:DataType="vm:EnhancedPushPageViewModel">
+    <UserControl.Styles>
+        <StyleInclude Source="avares://ZulipQQ/Styles/PushStyles.axaml" />
+        <Style Selector="ToggleButton.expander">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="ToggleButton.expander c|TdIcon.arrow">
+            <Setter Property="RenderTransform" Value="none" />
+        </Style>
+        <Style Selector="ToggleButton.expander:checked c|TdIcon.arrow">
+            <Setter Property="RenderTransform" Value="rotate(90deg)" />
+        </Style>
+        <!-- 列表第一行上方不画分隔线 -->
+        <Style Selector="ContentPresenter:nth-child(1) Border.rowDivider">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <!-- 推送和邮件两列：列标题与开关居中对齐 -->
+        <Style Selector="TextBlock.column">
+            <Setter Property="Width" Value="64" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style Selector="Panel.cell">
+            <Setter Property="Width" Value="64" />
+        </Style>
+        <Style Selector="Panel.cell > ToggleSwitch">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:PushTopicRowViewModel">
+            <StackPanel>
+                <Grid Classes="item">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="PushFlags" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeBody}" TextTrimming="CharacterEllipsis" />
+                    <ItemsControl Grid.Column="1" Classes="effects" ItemsSource="{Binding Effects}" />
+                    <!-- 与频道行共用右侧列的宽度（SharedSizeGroup），中间的推送效果上下对齐 -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                IsEnabled="{Binding CanEdit}">
+                        <Button Classes="flag" Classes.on="{Binding IsInherit}" Command="{Binding FollowChannelCommand}"
+                                ToolTip.Tip="跟随频道">
+                            <c:TdIcon Icon="{StaticResource Icon.Link}" />
+                        </Button>
+                        <Button Classes="flag" Classes.on="{Binding IsMuteSet}" Command="{Binding ToggleMuteCommand}"
+                                ToolTip.Tip="{Binding MuteTip}">
+                            <c:TdIcon IconKey="{Binding MuteIconKey}" />
+                        </Button>
+                        <Button Classes="flag" Classes.on="{Binding IsFollowed}" Command="{Binding ToggleFollowCommand}"
+                                ToolTip.Tip="关注">
+                            <c:TdIcon Icon="{StaticResource Icon.Star}" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+                <c:SettingSource Zulip="visibility_policy" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate DataType="vm:PushChannelGroupViewModel">
+            <StackPanel>
+                <Border Classes="divider rowDivider" />
+                <Grid Classes="item">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="PushFlags" />
+                    </Grid.ColumnDefinitions>
+                    <ToggleButton Classes="expander" IsChecked="{Binding IsExpanded}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <c:TdIcon Classes="arrow" Icon="{StaticResource Icon.ChevronRight}" Width="14" Height="14"
+                                      Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                            <c:Avatar Width="24" Height="24" Text="{Binding Name}" Fill="{Binding Fill}" />
+                            <TextBlock Text="{Binding Name}" FontSize="{DynamicResource FontSizeBody}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <!-- 没有单独设置的话题（包括新话题）的推送效果 -->
+                    <ItemsControl Grid.Column="1" Classes="effects" ItemsSource="{Binding Effects}" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center"
+                                HorizontalAlignment="Right" IsEnabled="{Binding CanEdit}">
+                        <ToggleButton Classes="flag" IsChecked="{Binding IsMuted}" ToolTip.Tip="频道静音">
+                            <c:TdIcon Icon="{StaticResource Icon.NotificationOff}" />
+                        </ToggleButton>
+                        <ToggleButton Classes="flag" IsChecked="{Binding PushAll}" IsVisible="{Binding PushAvailable}"
+                                      ToolTip.Tip="手机推送所有消息">
+                            <c:TdIcon Icon="{StaticResource Icon.Mobile}" />
+                        </ToggleButton>
+                        <ToggleButton Classes="flag" IsChecked="{Binding EmailAll}" ToolTip.Tip="邮件发送所有消息">
+                            <c:TdIcon Icon="{StaticResource Icon.Mail}" />
+                        </ToggleButton>
+                        <ToggleButton Classes="flag" IsChecked="{Binding Wildcard}" ToolTip.Tip="@全体成员时推送和发邮件">
+                            <c:TdIcon Icon="{StaticResource Icon.Mention}" />
+                        </ToggleButton>
+                    </StackPanel>
+                </Grid>
+                <c:SettingSource Zulip="is_muted push_notifications email_notifications wildcard_mentions_notify" />
+                <StackPanel IsVisible="{Binding IsExpanded}" Margin="22,0,0,4">
+                    <TextBlock Classes="hint" Text="正在加载…" Margin="0,4" IsVisible="{Binding IsLoading}" />
+                    <TextBlock Classes="hint" Text="暂无话题" Margin="0,4" IsVisible="{Binding HasNoTopics}" />
+                    <ItemsControl ItemsSource="{Binding Topics}" />
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="强化推送" />
+
+        <!-- 推送和邮件的内容：每行右侧为手机推送、邮件两列开关；服务器未开启手机推送时只有邮件一列，
+             不显示列标题，由分组标题说明。@全体的两项在服务器上只有一个开关，同时决定手机推送和邮件 -->
+        <TextBlock Classes="section" Text="推送和邮件的内容" IsVisible="{Binding PushAvailable}" />
+        <TextBlock Classes="section" Text="邮件的内容" IsVisible="{Binding !PushAvailable}" />
+        <Border Classes="card">
+            <StackPanel>
+                <StackPanel IsVisible="{Binding PushAvailable}">
+                    <Grid Classes="item" ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Classes="column" Grid.Column="1" Text="手机" />
+                        <TextBlock Classes="column" Grid.Column="2" Text="邮件" />
+                    </Grid>
+                    <Border Classes="divider" />
+                </StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Text="私信和 @我" />
+                    <Panel Classes="cell" Grid.Column="1" IsVisible="{Binding PushAvailable}">
+                        <ToggleSwitch IsChecked="{Binding EnableOfflinePushNotifications}" />
+                    </Panel>
+                    <Panel Classes="cell" Grid.Column="2">
+                        <ToggleSwitch IsChecked="{Binding EnableOfflineEmailNotifications}" />
+                    </Panel>
+                </Grid>
+                <c:SettingSource Zulip="enable_offline_push_notifications enable_offline_email_notifications" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Text="关注的话题中的所有消息" />
+                    <Panel Classes="cell" Grid.Column="1" IsVisible="{Binding PushAvailable}">
+                        <ToggleSwitch IsChecked="{Binding EnableFollowedTopicPushNotifications}" />
+                    </Panel>
+                    <Panel Classes="cell" Grid.Column="2">
+                        <ToggleSwitch IsChecked="{Binding EnableFollowedTopicEmailNotifications}" />
+                    </Panel>
+                </Grid>
+                <c:SettingSource Zulip="enable_followed_topic_push_notifications enable_followed_topic_email_notifications" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Text="频道中的所有消息" />
+                    <Panel Classes="cell" Grid.Column="1" IsVisible="{Binding PushAvailable}">
+                        <ToggleSwitch IsChecked="{Binding EnableStreamPushNotifications}" />
+                    </Panel>
+                    <Panel Classes="cell" Grid.Column="2">
+                        <ToggleSwitch IsChecked="{Binding EnableStreamEmailNotifications}" />
+                    </Panel>
+                </Grid>
+                <c:SettingSource Zulip="enable_stream_push_notifications enable_stream_email_notifications" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Text="@全体成员" />
+                    <Panel Classes="cell" Grid.Column="1" IsVisible="{Binding PushAvailable}" />
+                    <Panel Classes="cell" Grid.Column="2" />
+                    <ToggleSwitch Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Center" IsChecked="{Binding WildcardMentionsNotify}" />
+                </Grid>
+                <c:SettingSource Zulip="wildcard_mentions_notify" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Text="关注的话题中 @全体成员" />
+                    <Panel Classes="cell" Grid.Column="1" IsVisible="{Binding PushAvailable}" />
+                    <Panel Classes="cell" Grid.Column="2" />
+                    <ToggleSwitch Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Center" IsChecked="{Binding EnableFollowedTopicWildcardMentionsNotify}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_followed_topic_wildcard_mentions_notify" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="推送选项" IsVisible="{Binding PushAvailable}" />
+        <Border Classes="card" IsVisible="{Binding PushAvailable}">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="在线时也推送" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableOnlinePushNotifications}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_online_push_notifications" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="邮件选项" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="邮件合并等待时间" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding BatchingOptions}" SelectedItem="{Binding Batching}" />
+                </Grid>
+                <c:SettingSource Zulip="email_notifications_batching_period_seconds" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="邮件中包含消息内容" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding MessageContentInEmailNotifications}" />
+                </Grid>
+                <c:SettingSource Zulip="message_content_in_email_notifications" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="邮件标题中包含组织名称" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding RealmNameOptions}" SelectedItem="{Binding RealmName}" />
+                </Grid>
+                <c:SettingSource Zulip="realm_name_in_email_notifications_policy" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="长时间未登录时发送摘要邮件" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableDigestEmails}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_digest_emails" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="话题自动关注" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="自动关注话题" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding AutoPolicyOptions}" SelectedItem="{Binding AutoFollowPolicy}" />
+                </Grid>
+                <c:SettingSource Zulip="automatically_follow_topics_policy" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="被 @ 时自动关注话题" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutomaticallyFollowTopicsWhereMentioned}" />
+                </Grid>
+                <c:SettingSource Zulip="automatically_follow_topics_where_mentioned" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="在静音频道中自动取消话题静音" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding AutoPolicyOptions}" SelectedItem="{Binding AutoUnmutePolicy}" />
+                </Grid>
+                <c:SettingSource Zulip="automatically_unmute_topics_in_muted_streams_policy" />
+            </StackPanel>
+        </Border>
+
+        <!-- 频道列表：每行右侧的图标是频道的推送设置，点击切换（高亮为开启）；展开后列出话题 -->
+        <TextBlock Classes="section" Text="频道与话题" />
+        <Border Classes="card">
+            <StackPanel Grid.IsSharedSizeScope="True">
+                <ItemsControl ItemsSource="{Binding Channels}" />
+                <!-- 已归档的频道：默认收起；不再有新消息，服务器也不允许修改，图标不可点击 -->
+                <StackPanel IsVisible="{Binding HasArchivedChannels}">
+                    <Border Classes="divider" />
+                    <ToggleButton Classes="expander" IsChecked="{Binding ArchivedExpanded}" MinHeight="40">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <c:TdIcon Classes="arrow" Icon="{StaticResource Icon.ChevronRight}" Width="14" Height="14"
+                                      Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ArchivedTitle}" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <StackPanel IsVisible="{Binding ArchivedExpanded}">
+                        <ItemsControl ItemsSource="{Binding ArchivedChannels}" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

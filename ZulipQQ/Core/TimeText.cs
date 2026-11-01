@@ -1,0 +1,95 @@
+using System;
+using System.Globalization;
+
+namespace ZulipQQ.Core;
+
+/// <summary>
+/// 界面上各处的时间文字。全部使用 InvariantCulture，避免“/”被替换为系统区域的日期分隔符。
+/// </summary>
+public static class TimeText
+{
+    /// <summary>聊天中两条消息间隔达到该秒数（30 分钟）时插入时间分隔条。</summary>
+    public const long SeparatorGapSeconds = 1800;
+
+    private static readonly string[] WeekdayNames = ["日", "一", "二", "三", "四", "五", "六"];
+
+    /// <summary>
+    /// 时刻。24 小时制：HH:mm；12 小时制：上午/下午h:mm。<paramref name="seconds"/> 为 true 时带秒。
+    /// </summary>
+    public static string ClockTime(DateTime time, bool use24h = true, bool seconds = false)
+    {
+        if (use24h)
+            return time.ToString(seconds ? "HH:mm:ss" : "HH:mm", CultureInfo.InvariantCulture);
+        return (time.Hour < 12 ? "上午" : "下午") + time.ToString(seconds ? "h:mm:ss" : "h:mm", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// 会话列表的时间。今天：时刻；昨天：昨天+时刻；今年：MM/dd；往年：yyyy/MM/dd。
+    /// </summary>
+    public static string ListTime(DateTime time, DateTime now, bool use24h = true)
+    {
+        if (time.Date == now.Date)
+            return ClockTime(time, use24h);
+        if (time.Date == now.Date.AddDays(-1))
+            return "昨天" + ClockTime(time, use24h);
+        if (time.Year == now.Year)
+            return time.ToString("MM/dd", CultureInfo.InvariantCulture);
+        return time.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// 聊天中的时间分隔条。今天：时刻；昨天：昨天 时刻；7 天以内：星期X 时刻；其它：yyyy/MM/dd 时刻。
+    /// </summary>
+    public static string SeparatorTime(DateTime time, DateTime now, bool use24h = true)
+    {
+        var hm = ClockTime(time, use24h);
+        var days = (now.Date - time.Date).TotalDays;
+        if (days <= 0)
+            return hm;
+        if (days == 1)
+            return "昨天 " + hm;
+        if (days < 7)
+            return $"星期{WeekdayNames[(int)time.DayOfWeek]} {hm}";
+        return time.ToString("yyyy/MM/dd ", CultureInfo.InvariantCulture) + hm;
+    }
+
+    /// <summary>点击消息后显示的精确时间。同一年：MM-dd 时刻（带秒）；否则：yyyy-MM-dd 时刻（带秒）。</summary>
+    public static string PreciseTime(DateTime time, DateTime now, bool use24h = true)
+    {
+        var date = time.ToString(time.Year == now.Year ? "MM-dd " : "yyyy-MM-dd ", CultureInfo.InvariantCulture);
+        return date + ClockTime(time, use24h, seconds: true);
+    }
+
+    /// <summary>文件列表的分组标题。今天：今天；今年：M月；往年：yyyy年M月。</summary>
+    public static string MonthGroup(DateTime time, DateTime now)
+    {
+        if (time.Date == now.Date)
+            return "今天";
+        return time.Year == now.Year
+            ? time.Month.ToString(CultureInfo.InvariantCulture) + "月"
+            : time.ToString("yyyy年M月", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// 距离提醒时间的倒计时：还有X天X小时X分钟 / 已过X天X小时X分钟（只精确到分钟，省略为 0 的单位）；
+    /// 相差不到 1 分钟时为“还有不到 1 分钟”/“刚刚到时间”。
+    /// </summary>
+    public static string Countdown(DateTime target, DateTime now)
+    {
+        var future = target > now;
+        var minutes = (long)Math.Floor(Math.Abs((target - now).TotalMinutes));
+        if (minutes == 0)
+            return future ? "还有不到 1 分钟" : "刚刚到时间";
+        var days = minutes / (24 * 60);
+        var hours = minutes / 60 % 24;
+        var text = (days > 0 ? $"{days}天" : "") + (hours > 0 ? $"{hours}小时" : "") + (minutes % 60 > 0 ? $"{minutes % 60}分钟" : "");
+        return (future ? "还有" : "已过") + text;
+    }
+
+    /// <summary>两条相邻消息（Unix 秒）之间是否需要时间分隔条。</summary>
+    public static bool NeedsSeparator(long previousTimestamp, long currentTimestamp) =>
+        currentTimestamp - previousTimestamp >= SeparatorGapSeconds;
+
+    /// <summary>Unix 秒转为本地时间。</summary>
+    public static DateTime FromUnix(long seconds) => DateTimeOffset.FromUnixTimeSeconds(seconds).LocalDateTime;
+}

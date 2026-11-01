@@ -1,0 +1,204 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="318" d:DesignHeight="600"
+             x:Class="ZulipQQ.Views.MessagesPageView"
+             x:DataType="vm:MessagesPageViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Border.conv">
+            <Setter Property="Height" Value="64" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.conv.pinned">
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.notice">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="c|TdIcon.draft">
+            <Setter Property="Width" Value="13" />
+            <Setter Property="Height" Value="13" />
+            <Setter Property="Margin" Value="0,0,3,0" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="c|TdIcon.muted">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+        </Style>
+
+        <!-- 会话夹头像：群助手为橙色圆形 + 白色图标，已解决话题为绿色 -->
+        <Style Selector="Border.helperAvatar">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="CornerRadius" Value="22" />
+            <Setter Property="Background" Value="{DynamicResource HelperAvatarBrush}" />
+        </Style>
+        <Style Selector="Border.helperAvatar.resolved">
+            <Setter Property="Background" Value="{DynamicResource ResolvedAvatarBrush}" />
+        </Style>
+        <Style Selector="Border.helperAvatar c|TdIcon">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 未读数：普通为红色，免打扰为灰色 -->
+        <Style Selector="Border.badge">
+            <Setter Property="Height" Value="16" />
+            <Setter Property="MinWidth" Value="16" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="Border.badge.muted">
+            <Setter Property="Background" Value="{DynamicResource MutedBadgeBrush}" />
+        </Style>
+        <Style Selector="Border.badge > TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 悬停 / 选中放在最后，覆盖上面的颜色 -->
+        <Style Selector="ListBoxItem:pointerover Border.conv">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected Border.conv">
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected TextBlock">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="ListBoxItem:selected c|TdIcon">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
+        <!-- 会话夹子列表从右侧滑入，主列表向左退出并淡出 -->
+        <Style Selector="Panel.mainLayer, DockPanel.helperLayer">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Panel.mainLayer">
+            <Setter Property="RenderTransform" Value="translateX(0px)" />
+        </Style>
+        <Style Selector="Panel.mainLayer.helperOpen">
+            <Setter Property="RenderTransform" Value="translateX(-96px)" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="DockPanel.helperLayer">
+            <Setter Property="RenderTransform" Value="translateX(320px)" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="DockPanel.helperLayer.helperOpen">
+            <Setter Property="RenderTransform" Value="translateX(0px)" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+            <Setter Property="IsEnabled" Value="True" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.Resources>
+        <DataTemplate x:Key="ConversationTemplate" x:DataType="vm:ConversationItemViewModel">
+            <Border Classes="conv" Classes.pinned="{Binding IsPinned}">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Panel Width="44" Height="44">
+                        <c:Avatar Width="44" Height="44" Source="{Binding AvatarUrl}" Text="{Binding AvatarText}"
+                                  Fill="{Binding AvatarFill}" IsVisible="{Binding !IsFolder}" />
+                        <Border Classes="helperAvatar" IsVisible="{Binding IsHelper}">
+                            <c:TdIcon Icon="{StaticResource Icon.Usergroup}" />
+                        </Border>
+                        <Border Classes="helperAvatar resolved" IsVisible="{Binding IsResolvedFolder}">
+                            <c:TdIcon Icon="{StaticResource Icon.Check}" />
+                        </Border>
+                    </Panel>
+
+                    <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                          ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
+                        <TextBlock Classes="title" Text="{Binding Title}" />
+                        <TextBlock Grid.Column="1" Classes="caption" Text="{Binding TimeText}"
+                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+
+                        <!-- 预览行：[红色提示] / 草稿图标 + 预览文字（过长省略） -->
+                        <DockPanel Grid.Row="1">
+                            <TextBlock DockPanel.Dock="Left" Classes="notice" Text="{Binding NoticeText}"
+                                       IsVisible="{Binding HasNotice}" />
+                            <c:TdIcon DockPanel.Dock="Left" Classes="draft" Icon="{StaticResource Icon.Edit}"
+                                      IsVisible="{Binding HasDraft}" />
+                            <TextBlock Classes="sub" Text="{Binding PreviewText}" />
+                        </DockPanel>
+
+                        <Panel Grid.Row="1" Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right">
+                            <Border Classes="badge" Classes.muted="{Binding IsMuted}" IsVisible="{Binding HasUnread}">
+                                <TextBlock Text="{Binding UnreadText}" />
+                            </Border>
+                            <c:TdIcon Classes="muted" Icon="{StaticResource Icon.NotificationOff}"
+                                      IsVisible="{Binding ShowMutedIcon}" />
+                            <c:TdIcon Classes="muted" Icon="{StaticResource Icon.Forbid}"
+                                      IsVisible="{Binding IsBlocked}" />
+                        </Panel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <!-- 连接状态提示条：连接正常时隐藏 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource WarningFillBrush}" Padding="12,6" IsVisible="{Binding IsConnectionBannerVisible}">
+            <TextBlock Text="{Binding ConnectionText}" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource WarningTextBrush}" TextWrapping="Wrap" />
+        </Border>
+
+        <Panel ClipToBounds="True">
+            <Panel Classes="mainLayer" Classes.helperOpen="{Binding IsHelperOpen}">
+                <ListBox x:Name="MainList" ItemsSource="{Binding Conversations}"
+                         SelectedItem="{Binding SelectedConversation}"
+                         ItemTemplate="{StaticResource ConversationTemplate}"
+                         ItemContainerTheme="{StaticResource PlainListBoxItem}"
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+            </Panel>
+
+            <DockPanel Classes="helperLayer" Classes.helperOpen="{Binding IsHelperOpen}"
+                       Background="{DynamicResource PanelBackgroundBrush}">
+                <!-- 标题行：左侧“< 返回”，右侧灰色的会话夹名称 -->
+                <DockPanel DockPanel.Dock="Top" Height="28" Margin="8,0,12,0">
+                    <Button DockPanel.Dock="Left" Theme="{StaticResource FlatButton}" Padding="4,2"
+                            Foreground="{DynamicResource TextSecondaryBrush}" Command="{Binding CloseHelperCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" Width="14" Height="14" />
+                            <TextBlock Text="返回" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="{Binding FolderTitle}" FontSize="{DynamicResource FontSizeSub}" Foreground="{DynamicResource TextSecondaryBrush}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <ListBox x:Name="HelperList" ItemsSource="{Binding HelperConversations}"
+                         SelectedItem="{Binding SelectedHelperConversation}"
+                         ItemTemplate="{StaticResource ConversationTemplate}"
+                         ItemContainerTheme="{StaticResource PlainListBoxItem}"
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+            </DockPanel>
+        </Panel>
+    </DockPanel>
+</UserControl>

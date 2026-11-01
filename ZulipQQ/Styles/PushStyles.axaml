@@ -1,0 +1,75 @@
+<!-- 强化推送的图标按钮与推送效果：设置的“强化推送”页与联系人的“群聊”列表共用（各自用 StyleInclude 引入） -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:ZulipQQ.Controls"
+        xmlns:svm="using:ZulipQQ.ViewModels.Settings">
+
+    <!-- 频道行右侧的设置图标：高亮为开启 -->
+    <Style Selector="ToggleButton.flag">
+        <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ToggleButton.flag c|TdIcon">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.flag:checked c|TdIcon">
+        <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+    </Style>
+    <!-- 话题行右侧的图标：同时只有一个高亮（on） -->
+    <Style Selector="Button.flag">
+        <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.flag c|TdIcon">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+    </Style>
+    <Style Selector="Button.flag.on c|TdIcon">
+        <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+    </Style>
+
+    <!-- 推送效果：每行行首为手机或邮件图标，之后为会发送的情况 -->
+    <Style Selector="ItemsControl.effects">
+        <Setter Property="Width" Value="96" />
+        <Setter Property="Margin" Value="8,4" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="ItemTemplate">
+            <DataTemplate x:DataType="svm:PushEffectLine">
+                <StackPanel Orientation="Horizontal" Spacing="3" Height="18" Background="Transparent"
+                            ToolTip.Tip="{Binding ToolTip}" Classes.sends="{Binding !IsNone}">
+                    <c:TdIcon Classes="lead" IconKey="{Binding IconKey}" />
+                    <c:TdIcon Icon="{StaticResource Icon.Mention}" IsVisible="{Binding Mention}" />
+                    <c:TdIcon Icon="{StaticResource Icon.Usergroup}" IsVisible="{Binding Wildcard}" />
+                    <c:TdIcon Icon="{StaticResource Icon.ChatBubble}" IsVisible="{Binding AllMessages}" />
+                </StackPanel>
+            </DataTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ItemsControl.effects c|TdIcon">
+        <Setter Property="Width" Value="13" />
+        <Setter Property="Height" Value="13" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="ItemsControl.effects c|TdIcon.lead">
+        <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+        <Setter Property="Margin" Value="0,0,2,0" />
+    </Style>
+    <!-- 有发送时为彩色，不发送时只有灰色的手机或邮件图标 -->
+    <Style Selector="ItemsControl.effects StackPanel.sends c|TdIcon">
+        <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+    </Style>
+</Styles>

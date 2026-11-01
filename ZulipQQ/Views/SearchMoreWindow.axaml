@@ -1,0 +1,57 @@
+<!-- 搜索结果“更多”：一段（联系人 / 群聊 / 聊天记录）的全部结果 -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ZulipQQ.ViewModels"
+        xmlns:c="using:ZulipQQ.Controls"
+        x:Class="ZulipQQ.Views.SearchMoreWindow"
+        x:DataType="vm:SearchMoreViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="{Binding Title}"
+        Width="380" Height="560" MinWidth="300" MinHeight="300"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+
+    <Window.Styles>
+        <Style Selector="Button.result">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Height" Value="56" />
+            <Setter Property="Padding" Value="10,0" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="38,*">
+        <c:CaptionBar Grid.Row="0" Height="30" VerticalAlignment="Top" ShowMaximize="False" />
+        <TextBlock Grid.Row="0" Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" Margin="14,0,0,0"
+                   VerticalAlignment="Center" IsHitTestVisible="False" />
+
+        <Border Grid.Row="1" Margin="2,0,2,2" CornerRadius="8,8,0,0" ClipToBounds="True"
+                Background="{DynamicResource PanelBackgroundBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1,1,1,0">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <!-- 与搜索浮层中的结果相同 -->
+                <ItemsControl ItemsSource="{Binding Items}" Margin="4">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SearchResultItem">
+                            <Button Classes="result" Command="{Binding OpenCommand}">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <c:Avatar Width="36" Height="36" Source="{Binding AvatarUrl}"
+                                              Text="{Binding AvatarText}" Fill="{Binding AvatarFill}" />
+                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="2">
+                                        <c:HighlightTextBlock Source="{Binding Title}" Highlight="{Binding Highlight}"
+                                                              FontSize="{DynamicResource FontSizeBody}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Subtitle}" FontSize="{DynamicResource FontSizeSub}" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Window>

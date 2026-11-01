@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.PluginTagPickerDialogView"
+             x:DataType="vm:PluginTagPickerDialogViewModel">
+
+    <Border Classes="dialog" Width="420">
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" Height="30">
+                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="36,0" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CloseCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <TextBox DockPanel.Dock="Top" Classes="input" Text="{Binding Filter}" PlaceholderText="搜索" Margin="20,12,20,6" />
+
+            <!-- 不在列表中的：手动输入后添加 -->
+            <StackPanel DockPanel.Dock="Bottom" Margin="20,8,20,16" Spacing="12">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Classes="secondary" Theme="{StaticResource FlatButton}" Content="添加"
+                            Padding="12,0" Margin="8,0,0,0" Command="{Binding AddCustomCommand}" />
+                    <TextBox Classes="input" Text="{Binding CustomInput}" PlaceholderText="列表中没有的，输入名称后添加" />
+                </DockPanel>
+                <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="完成" HorizontalAlignment="Right"
+                        Command="{Binding CloseCommand}" />
+            </StackPanel>
+            <Border DockPanel.Dock="Bottom" Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <Grid>
+                <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding VisibleItems}" Margin="20,0,20,6">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PluginTagPickerItemViewModel">
+                                <DockPanel Height="32">
+                                    <Button DockPanel.Dock="Right" Theme="{StaticResource FlatButton}" Content="{Binding ButtonText}"
+                                            Padding="10,0" Height="26"
+                                            Foreground="{DynamicResource BrandBrush}" Command="{Binding ToggleCommand}" />
+                                    <TextBlock Text="{Binding Value}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                <TextBlock Classes="sub" Text="没有匹配的项" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Center"
+                           Margin="0,16" IsVisible="{Binding HasNoVisibleItems}" />
+            </Grid>
+        </DockPanel>
+    </Border>
+</UserControl>

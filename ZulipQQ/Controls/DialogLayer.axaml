@@ -1,0 +1,25 @@
+<!-- 对话框层：每个对话框带一层遮罩，后打开的在上层。放在窗口内容的最上层 -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Controls.DialogLayer">
+    <ItemsControl x:Name="Items">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <Panel />
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ViewModelBase">
+                <Panel>
+                    <Border Background="{DynamicResource DialogMaskBrush}" />
+                    <!-- 窗口比对话框窄（经典模式）时缩小显示 -->
+                    <c:FitWidthDecorator Margin="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <ContentControl Content="{Binding}" />
+                    </c:FitWidthDecorator>
+                </Panel>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

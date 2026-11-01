@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.PluginTargetPickerDialogView"
+             x:DataType="vm:PluginTargetPickerDialogViewModel">
+
+    <Border Classes="dialog" Width="420">
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" Height="30">
+                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="36,0" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CancelCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <TextBox DockPanel.Dock="Top" Classes="input" Text="{Binding Filter}" PlaceholderText="搜索" Margin="20,12,20,6" />
+
+            <Grid Margin="0,0,0,12">
+                <!-- 用户可能很多：ListBox 虚拟化 -->
+                <ListBox ItemsSource="{Binding VisibleItems}" Height="360" Margin="12,0" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PluginTargetPickerItem">
+                            <Button Theme="{StaticResource FlatButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    Padding="8,4" Background="Transparent"
+                                    Command="{Binding $parent[UserControl].((vm:PluginTargetPickerDialogViewModel)DataContext).PickCommand}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Classes="sub" Text="{Binding Subtitle}" FontSize="{DynamicResource FontSizeSub}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Classes="sub" Text="没有匹配的项" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Center"
+                           VerticalAlignment="Top" Margin="0,16" IsVisible="{Binding HasNoVisibleItems}" />
+            </Grid>
+        </DockPanel>
+    </Border>
+</UserControl>

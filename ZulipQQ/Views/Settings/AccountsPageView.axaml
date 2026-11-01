@@ -1,0 +1,176 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:s="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.AccountsPageView"
+             x:DataType="s:AccountsPageViewModel">
+    <UserControl.Styles>
+        <Style Selector="c|Avatar.offline">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- 占满设置窗口的右侧：左侧所有账号，中间选中账号的设置导航，右侧当前页 -->
+    <Panel DataContext="{Binding Panel}" x:DataType="vm:AccountsPanelViewModel">
+        <Grid ColumnDefinitions="200,140,*">
+            <!-- 左侧：所有账号 -->
+            <Border Background="{DynamicResource PanelBackgroundBrush}"
+                    BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <Button DockPanel.Dock="Bottom" Classes="nav" Margin="8" Command="{Binding AddAccountCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <c:TdIcon Icon="{StaticResource Icon.Add}" Width="14" Height="14" VerticalAlignment="Center" />
+                            <TextBlock Text="添加账号" />
+                        </StackPanel>
+                    </Button>
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                        <!-- 分组标题的项在代码中设为不可用（不能选中） -->
+                        <ListBox x:Name="AccountList" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" Margin="8"
+                                 SelectionMode="Single" Background="Transparent">
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Padding" Value="10,8" />
+                                    <Setter Property="CornerRadius" Value="6" />
+                                    <Setter Property="Margin" Value="0,1" />
+                                </Style>
+                                <Style Selector="ListBoxItem:disabled">
+                                    <Setter Property="Padding" Value="10,12,10,4" />
+                                </Style>
+                            </ListBox.Styles>
+                            <ListBox.DataTemplates>
+                                <DataTemplate x:DataType="vm:AccountGroupHeader">
+                                    <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSub}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </DataTemplate>
+                                <DataTemplate x:DataType="vm:AccountEntryViewModel">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent" ToolTip.Tip="{Binding ToolTip}">
+                                        <Grid.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="退出账号" IsVisible="{Binding IsOnline}" Click="OnLogoutClick" />
+                                                <MenuItem Header="删除账号" Click="OnDeleteClick" />
+                                            </ContextMenu>
+                                        </Grid.ContextMenu>
+                                        <c:Avatar Width="32" Height="32" Source="{Binding AvatarUrl}" Text="{Binding DisplayName}"
+                                                  c:RealmImage.Client="{Binding Session.Client, FallbackValue={x:Null}}"
+                                                  Classes.offline="{Binding !IsOnline}" />
+                                        <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource FontSizeSmall}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding RealmText}" FontSize="{DynamicResource FontSizeSub}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Account.Email}" FontSize="{DynamicResource FontSizeSub}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <!-- 启用的账号 -->
+                                        <c:TdIcon Grid.Column="2" Icon="{StaticResource Icon.Check}" Width="16" Height="16"
+                                                  Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource OnlineBrush}"
+                                                  IsVisible="{Binding LoginOnStartup}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.DataTemplates>
+                        </ListBox>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- 中间：选中账号的设置导航（不在线时为空） -->
+            <Border Grid.Column="1" Background="{DynamicResource PanelBackgroundBrush}"
+                    BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <!-- 二级列表的点击由页面处理（滚动到分组） -->
+                    <ItemsControl x:Name="NavList" ItemsSource="{Binding Host.Nav, FallbackValue={x:Null}}" Margin="8">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="s:SettingsNavItem">
+                                <StackPanel>
+                                    <Button Classes="nav" Classes.active="{Binding IsSelected}"
+                                            Command="{Binding $parent[UserControl].((s:AccountsPageViewModel)DataContext).Panel.SelectPageCommand}"
+                                            CommandParameter="{Binding}">
+                                        <TextBlock Text="{Binding Title}" />
+                                    </Button>
+                                    <ItemsControl ItemsSource="{Binding Sections}" IsVisible="{Binding HasSections}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="s:SettingsNavSection">
+                                                <Button Classes="nav sub" Classes.active="{Binding IsSelected}">
+                                                    <TextBlock Text="{Binding Title}" />
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+
+            <!-- 右侧：当前页；头像、图片属于该账号 -->
+            <Panel Grid.Column="2" c:RealmImage.Client="{Binding Selected.Session.Client, FallbackValue={x:Null}}">
+                <ScrollViewer x:Name="PageScroller" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasHost}">
+                    <ContentControl Content="{Binding Host.CurrentPage, FallbackValue={x:Null}}" Margin="20,16,20,20" />
+                </ScrollViewer>
+                <Border Classes="saveTip" IsVisible="{Binding Host.CurrentPage.HasUnsavedChanges, FallbackValue=False}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="tipText" Text="有未保存的修改" />
+                        <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="撤销"
+                                Command="{Binding Host.CurrentPage.DiscardChangesCommand, FallbackValue={x:Null}}" />
+                        <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="保存"
+                                Command="{Binding Host.CurrentPage.SaveChangesCommand, FallbackValue={x:Null}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 正在登录、登录失败、未启动的账号 -->
+                <StackPanel IsVisible="{Binding !HasHost}" Margin="20,16,20,20" Spacing="8">
+                    <TextBlock Classes="pageTitle" Text="{Binding Selected.DisplayName, FallbackValue={x:Null}}" />
+                    <Border Classes="card">
+                        <StackPanel>
+                            <Grid Classes="item" ColumnDefinitions="Auto,*">
+                                <TextBlock Text="邮箱" />
+                                <TextBlock Grid.Column="1" Classes="hint" HorizontalAlignment="Right"
+                                           Text="{Binding Selected.Account.Email, FallbackValue={x:Null}}" />
+                            </Grid>
+                            <Border Classes="divider" />
+                            <Grid Classes="item" ColumnDefinitions="Auto,*">
+                                <TextBlock Text="服务器地址" />
+                                <TextBlock Grid.Column="1" Classes="hint" HorizontalAlignment="Right"
+                                           Text="{Binding Selected.Account.RealmUrl, FallbackValue={x:Null}}" />
+                            </Grid>
+                            <Border Classes="divider" />
+                            <Grid Classes="item" ColumnDefinitions="Auto,*">
+                                <TextBlock Text="状态" />
+                                <TextBlock Grid.Column="1" Classes="hint" HorizontalAlignment="Right" Margin="16,0,0,0"
+                                           Text="{Binding Selected.StatusText, FallbackValue={x:Null}}" />
+                            </Grid>
+                            <Border Classes="divider" />
+                            <Grid Classes="item" ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                    <TextBlock Text="启动" />
+                                    <TextBlock Classes="hint" Text="开启时登录此账号，启动程序时也会登录；关闭时退出此账号" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding Selected.LoginOnStartup, FallbackValue=False}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                        <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="重新登录"
+                                IsVisible="{Binding Selected.IsFailed, FallbackValue=False}" Command="{Binding ReloginCommand}" />
+                        <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="登录"
+                                IsVisible="{Binding Selected.IsDisabled, FallbackValue=False}" Command="{Binding LoginCommand}" />
+                        <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="删除账号"
+                                Command="{Binding DeleteCommand}" CommandParameter="{x:Null}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Background="#CC000000" CornerRadius="6" Padding="16,8" HorizontalAlignment="Center"
+                        VerticalAlignment="Top" Margin="0,16,0,0"
+                        IsVisible="{Binding Host.ToastText, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}">
+                    <TextBlock Text="{Binding Host.ToastText, FallbackValue={x:Null}}" Foreground="White"
+                               FontSize="{DynamicResource FontSizeSmall}" />
+                </Border>
+            </Panel>
+        </Grid>
+
+        <!-- 选中账号的页面的对话框（确认框等）盖住整个“Zulip 账号”页 -->
+        <c:DialogLayer Dialogs="{Binding Host.Dialogs, FallbackValue={x:Null}}" />
+    </Panel>
+</UserControl>

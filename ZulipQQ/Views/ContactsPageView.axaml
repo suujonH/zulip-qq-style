@@ -1,0 +1,271 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:svm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="318" d:DesignHeight="600"
+             x:Class="ZulipQQ.Views.ContactsPageView"
+             x:DataType="vm:ContactsPageViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Button.manager">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+        </Style>
+
+        <!-- 分组标题：通栏、无圆角 -->
+        <Style Selector="Button.row">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Button.row c|TdIcon">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+        </Style>
+        <Style Selector="Button.row.expanded c|TdIcon.chevron">
+            <Setter Property="RenderTransform" Value="rotate(90deg)" />
+        </Style>
+        <Style Selector="Button.row.entry.selected, Button.row.entry.selected:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+        </Style>
+        <Style Selector="Button.row.entry Ellipse.dot">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Fill" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <!-- 静音的频道标题为灰色 -->
+        <Style Selector="Button.row.dimmed TextBlock.name">
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+        </Style>
+
+        <!-- 好友 / 群聊 分段切换 -->
+        <Style Selector="Border.tabs">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="3" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+        </Style>
+        <Style Selector="Button.tab">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style Selector="Button.tab:pointerover">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.tab.active, Button.tab.active:pointerover">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+        </Style>
+
+        <!-- 分组内的联系人 / 话题 -->
+        <Style Selector="Border.contact">
+            <Setter Property="Height" Value="56" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.contact.topic">
+            <Setter Property="Height" Value="48" />
+        </Style>
+        <Style Selector="Border.contact:pointerover">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Border.contact.selected, Border.contact.selected:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+        </Style>
+
+        <!-- 强化推送的图标与推送效果（与设置的“强化推送”相同）；放在最后，图标大小不被上面行内图标的样式覆盖 -->
+        <StyleInclude Source="avares://ZulipQQ/Styles/PushStyles.axaml" />
+        <Style Selector="Button.row ItemsControl.effects">
+            <Setter Property="Margin" Value="8,0" />
+        </Style>
+        <!-- 话题名下方的推送效果：手机、邮件两行排成一行 -->
+        <Style Selector="Border.contact ItemsControl.effects">
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="10" />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top">
+            <Button Classes="manager" Theme="{StaticResource FlatButton}" Margin="16,2,16,8"
+                    Click="OnFriendManagerClick">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <c:TdIcon Icon="{StaticResource Icon.UserSetting}" Width="15" Height="15" />
+                    <TextBlock Text="好友管理器" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
+            <!-- 系统通知（Notification Bot 的公告和私信）与消息提醒，与 QQ 的“好友通知”“群通知”位置相同 -->
+            <Button Classes="row entry" Classes.selected="{Binding IsNoticesSelected}" Theme="{StaticResource FlatButton}"
+                    Command="{Binding ShowSystemNoticesCommand}">
+                <DockPanel>
+                    <c:TdIcon DockPanel.Dock="Right" Icon="{StaticResource Icon.ChevronRight}"
+                              Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                    <Ellipse DockPanel.Dock="Right" Classes="dot" IsVisible="{Binding HasUnreadNotices}" />
+                    <c:TdIcon Icon="{StaticResource Icon.Notification}" VerticalAlignment="Center" />
+                    <TextBlock Text="系统通知" Margin="8,0,0,0" VerticalAlignment="Center" />
+                </DockPanel>
+            </Button>
+            <Button Classes="row entry" Theme="{StaticResource FlatButton}" Click="OnRemindersClick">
+                <DockPanel>
+                    <c:TdIcon DockPanel.Dock="Right" Icon="{StaticResource Icon.ChevronRight}"
+                              Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                    <Ellipse DockPanel.Dock="Right" Classes="dot" IsVisible="{Binding HasUnreadReminders}" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding PendingReminderText}" Margin="0,0,6,0"
+                               Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center"
+                               IsVisible="{Binding PendingReminderText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <c:TdIcon Icon="{StaticResource Icon.Time}" VerticalAlignment="Center" />
+                    <TextBlock Text="消息提醒" Margin="8,0,0,0" VerticalAlignment="Center" />
+                </DockPanel>
+            </Button>
+
+            <Border Height="1" Margin="0,6" Background="{DynamicResource DividerBrush}" />
+
+            <Border Classes="tabs" Margin="16,6,16,8">
+                <Grid ColumnDefinitions="*,*">
+                    <Button Classes="tab" Classes.active="{Binding !IsGroupTab}" Theme="{StaticResource FlatButton}"
+                            Content="好友" Command="{Binding ShowFriendsCommand}" />
+                    <Button Grid.Column="1" Classes="tab" Classes.active="{Binding IsGroupTab}"
+                            Theme="{StaticResource FlatButton}"
+                            Content="群聊" Command="{Binding ShowGroupsCommand}" />
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <ScrollViewer x:Name="SectionScroller" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding CurrentSections}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ContactSectionViewModel">
+                        <StackPanel>
+                            <Panel>
+                                <Button Classes="row" Classes.expanded="{Binding IsExpanded}"
+                                        Classes.dimmed="{Binding IsDimmed}"
+                                        Theme="{StaticResource FlatButton}" Command="{Binding ToggleExpandedCommand}">
+                                    <DockPanel>
+                                        <c:TdIcon DockPanel.Dock="Left" Classes="chevron"
+                                                  Icon="{StaticResource Icon.ChevronRight}" />
+                                        <TextBlock DockPanel.Dock="Right" Classes="caption" Text="{Binding CountText}"
+                                                   VerticalAlignment="Center" />
+                                        <!-- 频道：右侧为强化推送的图标，中间为没有单独设置的话题的推送效果 -->
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
+                                                    VerticalAlignment="Center" DataContext="{Binding Push}"
+                                                    x:DataType="svm:PushChannelGroupViewModel"
+                                                    IsVisible="{Binding $self.DataContext, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                    IsEnabled="{Binding CanEdit}">
+                                            <ToggleButton Classes="flag" IsChecked="{Binding IsMuted}" ToolTip.Tip="频道静音">
+                                                <c:TdIcon Icon="{StaticResource Icon.NotificationOff}" />
+                                            </ToggleButton>
+                                            <ToggleButton Classes="flag" IsChecked="{Binding PushAll}" IsVisible="{Binding PushAvailable}"
+                                                          ToolTip.Tip="手机推送所有消息">
+                                                <c:TdIcon Icon="{StaticResource Icon.Mobile}" />
+                                            </ToggleButton>
+                                            <ToggleButton Classes="flag" IsChecked="{Binding EmailAll}" ToolTip.Tip="邮件发送所有消息">
+                                                <c:TdIcon Icon="{StaticResource Icon.Mail}" />
+                                            </ToggleButton>
+                                            <ToggleButton Classes="flag" IsChecked="{Binding Wildcard}" ToolTip.Tip="@全体成员时推送和发邮件">
+                                                <c:TdIcon Icon="{StaticResource Icon.Mention}" />
+                                            </ToggleButton>
+                                        </StackPanel>
+                                        <ItemsControl DockPanel.Dock="Right" Classes="effects" ItemsSource="{Binding Push.Effects}"
+                                                      IsVisible="{Binding Push, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        <c:TdIcon DockPanel.Dock="Left" Icon="{StaticResource Icon.Lock}" Margin="6,0,0,0"
+                                                  Width="12" Height="12" IsVisible="{Binding IsLocked}"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <TextBlock Classes="name" Text="{Binding Name}" Margin="6,0"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                   IsVisible="{Binding !IsRenaming}" />
+                                    </DockPanel>
+                                </Button>
+                                <!-- 重命名分组：盖在标题行上就地编辑 -->
+                                <c:InlineEditBox Classes="input" Margin="34,2,16,2" MaxLength="32"
+                                                 Text="{Binding RenameText}" IsVisible="{Binding IsRenaming}"
+                                                 CommitCommand="{Binding CommitRenameCommand}"
+                                                 CancelCommand="{Binding CancelRenameCommand}" />
+                            </Panel>
+
+                            <StackPanel IsVisible="{Binding IsExpanded}">
+                                <TextBlock Classes="caption" Text="加载中…" Margin="40,8" IsVisible="{Binding IsLoading}" />
+
+                                <!-- 分组内容按条目类型选择模板 -->
+                                <ItemsControl ItemsSource="{Binding Items}">
+                                    <ItemsControl.DataTemplates>
+                                        <DataTemplate DataType="vm:FriendItemViewModel">
+                                            <Border Classes="contact" Classes.selected="{Binding IsSelected}"
+                                                    Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
+                                                <Grid ColumnDefinitions="Auto,*">
+                                                    <Panel Width="40" Height="40">
+                                                        <c:Avatar Source="{Binding AvatarUrl}" Text="{Binding DisplayName}" />
+                                                        <Ellipse Classes="online" IsVisible="{Binding IsOnline}" />
+                                                    </Panel>
+                                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="3"
+                                                                VerticalAlignment="Center">
+                                                        <TextBlock Classes="title" Text="{Binding DisplayName}" />
+                                                        <TextBlock Classes="sub" Text="{Binding StatusText}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="vm:TopicItemViewModel">
+                                            <Border Classes="contact topic" Classes.selected="{Binding IsSelected}"
+                                                    Tapped="OnItemTapped" DoubleTapped="OnItemDoubleTapped">
+                                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                                    <c:Avatar Width="36" Height="36" Text="{Binding Title}"
+                                                              Fill="{Binding AvatarFill}" />
+                                                    <!-- 话题名下方为推送效果 -->
+                                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="2"
+                                                                VerticalAlignment="Center">
+                                                        <TextBlock Classes="title" Text="{Binding Title}" />
+                                                        <ItemsControl Classes="effects" ItemsSource="{Binding Push.Effects}" />
+                                                    </StackPanel>
+                                                    <!-- 右侧为强化推送的图标：跟随频道、静音 / 取消静音、关注 -->
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" Margin="8,0,0,0"
+                                                                VerticalAlignment="Center" DataContext="{Binding Push}"
+                                                                x:DataType="svm:PushTopicRowViewModel"
+                                                                IsVisible="{Binding $self.DataContext, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                                IsEnabled="{Binding CanEdit}">
+                                                        <Button Classes="flag" Classes.on="{Binding IsInherit}"
+                                                                Command="{Binding FollowChannelCommand}" ToolTip.Tip="跟随频道">
+                                                            <c:TdIcon Icon="{StaticResource Icon.Link}" />
+                                                        </Button>
+                                                        <Button Classes="flag" Classes.on="{Binding IsMuteSet}"
+                                                                Command="{Binding ToggleMuteCommand}" ToolTip.Tip="{Binding MuteTip}">
+                                                            <c:TdIcon IconKey="{Binding MuteIconKey}" />
+                                                        </Button>
+                                                        <Button Classes="flag" Classes.on="{Binding IsFollowed}"
+                                                                Command="{Binding ToggleFollowCommand}" ToolTip.Tip="关注">
+                                                            <c:TdIcon Icon="{StaticResource Icon.Star}" />
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.DataTemplates>
+                                </ItemsControl>
+                            </StackPanel>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

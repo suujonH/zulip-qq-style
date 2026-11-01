@@ -1,0 +1,129 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.AccountPageView"
+             x:DataType="vm:AccountPageViewModel">
+    <UserControl.Styles>
+        <!-- 可点击编辑的文字：悬停时显示底色 -->
+        <Style Selector="Button.editable">
+            <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="MaxWidth" Value="320" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="我" />
+
+        <Border Classes="card" Padding="16,14">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <c:Avatar Width="56" Height="56" Source="{Binding AvatarUrl}" Text="{Binding FullName}" />
+                <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="{Binding FullName}" FontSize="{DynamicResource FontSizeH2}" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="hint" Text="{Binding Email}" />
+                    <c:SettingSource Margin="0,2,0,0" Zulip="avatar_url" />
+                </StackPanel>
+                <Button x:Name="AvatarButton" Grid.Column="2" Classes="secondary" Theme="{StaticResource FlatButton}"
+                        Content="更换头像" IsEnabled="{Binding !IsUploadingAvatar}" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <TextBlock Classes="section" Text="资料" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="姓名" />
+                    <Panel Grid.Column="1">
+                        <Button Classes="editable" IsVisible="{Binding !IsEditingName}" Command="{Binding BeginEditNameCommand}"
+                                ToolTip.Tip="修改姓名">
+                            <TextBlock Classes="hint" Text="{Binding FullName}" TextTrimming="CharacterEllipsis" />
+                        </Button>
+                        <c:InlineEditBox Classes="input" Width="260" HorizontalAlignment="Right"
+                                         Text="{Binding NameDraft}" IsVisible="{Binding IsEditingName}"
+                                         CommitCommand="{Binding CommitNameCommand}"
+                                         CancelCommand="{Binding CancelEditNameCommand}" />
+                    </Panel>
+                </Grid>
+                <c:SettingSource Zulip="full_name" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="个性签名" />
+                    <Panel Grid.Column="1">
+                        <Button Classes="editable" IsVisible="{Binding !IsEditingSignature}"
+                                Command="{Binding BeginEditSignatureCommand}" ToolTip.Tip="编辑个性签名">
+                            <Panel>
+                                <TextBlock Classes="hint" Text="{Binding Signature}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="hint" Text="未设置" Foreground="{DynamicResource TextTertiaryBrush}"
+                                           IsVisible="{Binding Signature, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                            </Panel>
+                        </Button>
+                        <c:InlineEditBox Classes="input" Width="260" HorizontalAlignment="Right"
+                                         MaxLength="{Binding SignatureMaxLength}"
+                                         Text="{Binding SignatureDraft}" IsVisible="{Binding IsEditingSignature}"
+                                         CommitCommand="{Binding CommitSignatureCommand}"
+                                         CancelCommand="{Binding CancelEditSignatureCommand}" />
+                    </Panel>
+                </Grid>
+                <c:SettingSource Zulip="status_text" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="登录信息" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="邮箱" />
+                    <TextBlock Grid.Column="1" Classes="hint" HorizontalAlignment="Right" Margin="0,0,6,0" Text="{Binding Email}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="用户 ID" />
+                    <TextBlock Grid.Column="1" Classes="hint" HorizontalAlignment="Right" Margin="0,0,6,0" Text="{Binding UserId}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="我的角色" />
+                    <TextBlock Grid.Column="1" Classes="hint" HorizontalAlignment="Right" Margin="0,0,6,0" Text="{Binding RoleText}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="状态与同步" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="隐身" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsInvisible}" />
+                </Grid>
+                <c:SettingSource Zulip="presence_enabled" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="草稿同步" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding DraftsSync}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_drafts_synchronization" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="账号邮件" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="新设备登录时发送提醒邮件" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableLoginEmails}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_login_emails" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="接收 Zulip 产品与功能邮件" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableMarketingEmails}" />
+                </Grid>
+                <c:SettingSource Zulip="enable_marketing_emails" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

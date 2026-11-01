@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:ZulipQQ.Controls"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             x:Class="ZulipQQ.Views.Settings.ServerPageView"
+             x:DataType="vm:ServerPageViewModel">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.value">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Margin" Value="16,0,0,0" />
+        </Style>
+        <Style Selector="Button.primary.danger">
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="服务器" />
+
+        <TextBlock Classes="section" Text="账号" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <StackPanel>
+                        <TextBlock Text="启动" />
+                        <TextBlock Classes="hint" Text="开启时登录此账号，启动程序时也会登录；关闭时退出此账号" />
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding LoginOnStartup}" />
+                </Grid>
+                <c:SettingSource Local="Account" />
+            </StackPanel>
+        </Border>
+        <TextBlock Classes="section" Text="连接配置" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="允许不受信任的证书" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowInvalidCert}" />
+                </Grid>
+                <c:SettingSource Local="Account" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="服务器信息" />
+        <Border Classes="card">
+            <StackPanel>
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="服务器地址" />
+                    <SelectableTextBlock Grid.Column="1" Classes="value" Text="{Binding RealmUrl}"
+                                         FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center"
+                                         HorizontalAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="组织名称" />
+                    <TextBlock Grid.Column="1" Classes="value" Text="{Binding OrganizationName}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="Zulip 版本" />
+                    <TextBlock Grid.Column="1" Classes="value" Text="{Binding ServerVersion}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="Feature level" />
+                    <TextBlock Grid.Column="1" Classes="value" Text="{Binding FeatureLevel}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="Auto,*">
+                    <TextBlock Text="连接状态" />
+                    <TextBlock Grid.Column="1" Classes="value" Text="{Binding ConnectionText}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <Button Classes="primary danger" Theme="{StaticResource FlatButton}" Content="删除账号" HorizontalAlignment="Center"
+                Margin="0,16,0,0" Command="{Binding DeleteAccountCommand}" />
+    </StackPanel>
+</UserControl>

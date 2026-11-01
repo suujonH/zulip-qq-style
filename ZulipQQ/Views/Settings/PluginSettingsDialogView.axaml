@@ -1,0 +1,203 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:vmr="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.PluginSettingsDialogView"
+             x:DataType="vm:PluginSettingsDialogViewModel">
+
+    <UserControl.Styles>
+        <!-- 加载中：图标持续旋转 -->
+        <Style Selector="c|TdIcon.spin">
+            <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+            <Style.Animations>
+                <Animation Duration="0:0:0.8" IterationCount="Infinite">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <!-- 一个设置项：按类型显示对应的控件（列表的行中使用同一个模板） -->
+        <DataTemplate DataType="vm:PluginFieldViewModel">
+            <StackPanel Spacing="4" Margin="0,0,0,10" IsVisible="{Binding IsVisible}">
+                <TextBlock Classes="sub" Text="{Binding Label}" FontSize="{DynamicResource FontSizeSmall}"
+                           IsVisible="{Binding ShowsLabel}" />
+                <TextBox Classes="input" Text="{Binding Text}" PlaceholderText="{Binding Placeholder}"
+                         PasswordChar="{Binding PasswordChar}" IsVisible="{Binding IsSingleLine}" />
+                <TextBox Classes="input" Text="{Binding Text}" PlaceholderText="{Binding Placeholder}" AcceptsReturn="True"
+                         TextWrapping="Wrap" Height="80" VerticalContentAlignment="Top" IsVisible="{Binding IsMultiline}" />
+                <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}" HorizontalAlignment="Stretch"
+                          FontSize="{DynamicResource FontSizeSmall}" IsVisible="{Binding IsSelect}" />
+                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked}" FontSize="{DynamicResource FontSizeSmall}"
+                          IsVisible="{Binding IsBool}" />
+                <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="{Binding Label}" HorizontalAlignment="Left"
+                        Padding="12,0" Command="{Binding RunCommand}" IsVisible="{Binding IsButton}" />
+                <ComboBox ItemsSource="{Binding ResourceOptions}" SelectedItem="{Binding SelectedResource}" HorizontalAlignment="Stretch"
+                          FontSize="{DynamicResource FontSizeSmall}" IsVisible="{Binding IsResource}" />
+                <TextBlock Classes="sub" Text="{Binding NoResourcesText}" FontSize="{DynamicResource FontSizeSub}" TextWrapping="Wrap"
+                           IsVisible="{Binding HasNoResources}" />
+                <StackPanel Spacing="6" IsVisible="{Binding IsTags}">
+                    <ItemsControl ItemsSource="{Binding Tags}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PluginTagViewModel">
+                                <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="4"
+                                        Padding="8,0,2,0" Margin="0,0,6,6" Height="26">
+                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                        <TextBlock Text="{Binding Value}" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" />
+                                        <!-- 项的按钮：运行中显示加载图标，之后显示成功 / 失败（失败的原因在提示中），可以再次点击 -->
+                                        <Button Theme="{StaticResource FlatButton}" Padding="6,0" Height="22" MinWidth="34"
+                                                FontSize="{DynamicResource FontSizeSub}" ToolTip.Tip="{Binding ErrorText}"
+                                                Command="{Binding RunCommand}" IsVisible="{Binding HasItemButton}">
+                                            <Panel>
+                                                <TextBlock Text="{Binding ItemButton}" Foreground="{DynamicResource BrandBrush}"
+                                                           IsVisible="{Binding IsIdle}" />
+                                                <c:TdIcon Classes="spin" Icon="{StaticResource Icon.Loading}" Width="12" Height="12"
+                                                          Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsRunning}" />
+                                                <TextBlock Text="成功" Foreground="{DynamicResource ResolvedAvatarBrush}" IsVisible="{Binding IsOk}" />
+                                                <TextBlock Text="失败" Foreground="{DynamicResource DangerBrush}" IsVisible="{Binding IsFailed}" />
+                                            </Panel>
+                                        </Button>
+                                        <Button Theme="{StaticResource FlatButton}" Width="22" Height="22" ToolTip.Tip="删除"
+                                                Command="{Binding RemoveCommand}">
+                                            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="10" Height="10" />
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Classes="secondary" Theme="{StaticResource FlatButton}" Content="添加"
+                                Padding="12,0" Margin="8,0,0,0" Command="{Binding AddTagCommand}" />
+                        <TextBox Classes="input" Text="{Binding TagInput}" PlaceholderText="{Binding Placeholder}" />
+                    </DockPanel>
+                </StackPanel>
+                <SelectableTextBlock Text="{Binding ResultText}" FontSize="{DynamicResource FontSizeSub}" TextWrapping="Wrap"
+                                     IsVisible="{Binding HasResult}" />
+                <!-- 列表：左侧为各行（显示第一个文本项），右侧为选中行的设置项 -->
+                <Grid ColumnDefinitions="180,*" Height="440" IsVisible="{Binding IsList}">
+                    <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="6">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Bottom" Classes="secondary" Theme="{StaticResource FlatButton}" Content="添加"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="6"
+                                    Command="{Binding AddRowCommand}" />
+                            <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" Background="Transparent">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PluginListRowViewModel">
+                                        <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+                    <Panel Grid.Column="1" Margin="16,0,0,0">
+                        <DockPanel IsVisible="{Binding HasSelectedRow}">
+                            <Button DockPanel.Dock="Bottom" Classes="secondary" Theme="{StaticResource FlatButton}" Content="删除"
+                                    HorizontalAlignment="Left" Padding="12,0" Margin="0,8,0,0"
+                                    Command="{Binding SelectedRow.RemoveCommand, FallbackValue={x:Null}}" />
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding SelectedRow.Scope.Fields, FallbackValue={x:Null}}" Margin="0,0,12,0" />
+                            </ScrollViewer>
+                        </DockPanel>
+                        <TextBlock Classes="sub" Text="点击左侧的“添加”新建" FontSize="{DynamicResource FontSizeSub}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasSelectedRow}" />
+                    </Panel>
+                </Grid>
+                <TextBlock Classes="sub" Text="{Binding Hint}" FontSize="{DynamicResource FontSizeSub}" TextWrapping="Wrap"
+                           IsVisible="{Binding HasHint}" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <Border Classes="dialog" Width="{Binding DialogWidth}">
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" Height="30">
+                <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="36,0" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CancelCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"
+                        Margin="20,12,20,16">
+                <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="保存" Command="{Binding SaveCommand}" />
+                <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消" Command="{Binding CancelCommand}" />
+            </StackPanel>
+
+            <ScrollViewer MaxHeight="560" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="20,14,20,0">
+                    <ItemsControl ItemsSource="{Binding Scope.Fields}" />
+                    <!-- 插件的面板：用户 / 话题的列表，修改立即由插件保存 -->
+                    <ItemsControl ItemsSource="{Binding Panels}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vmr:PluginPanelSectionViewModel">
+                                <StackPanel Spacing="4" Margin="0,0,0,10">
+                                    <TextBlock Classes="sub" Text="{Binding Label}" FontSize="{DynamicResource FontSizeSmall}" />
+                                    <TextBlock Classes="sub" Text="请先开启插件" FontSize="{DynamicResource FontSizeSub}"
+                                               IsVisible="{Binding !IsAvailable}" />
+                                    <Grid ColumnDefinitions="220,*" Height="300" IsVisible="{Binding IsAvailable}">
+                                        <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="6">
+                                            <DockPanel>
+                                                <Button DockPanel.Dock="Bottom" Classes="secondary" Theme="{StaticResource FlatButton}" Content="添加"
+                                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="6"
+                                                        Command="{Binding AddCommand}" />
+                                                <ListBox ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" Background="Transparent">
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate x:DataType="vmr:PluginPanelEntryViewModel">
+                                                            <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeSmall}"
+                                                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                            </DockPanel>
+                                        </Border>
+                                        <Panel Grid.Column="1" Margin="16,0,0,0">
+                                            <DockPanel IsVisible="{Binding HasSelectedEntry}">
+                                                <Button DockPanel.Dock="Bottom" Classes="secondary" Theme="{StaticResource FlatButton}" Content="删除"
+                                                        HorizontalAlignment="Left" Padding="12,0" Margin="0,8,0,0"
+                                                        Command="{Binding SelectedEntry.RemoveCommand, FallbackValue={x:Null}}" />
+                                                <ItemsControl ItemsSource="{Binding Group.Fields, FallbackValue={x:Null}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vmr:PluginPanelFieldViewModel">
+                                                            <StackPanel Spacing="4" Margin="0,0,0,10">
+                                                                <TextBlock Classes="sub" Text="{Binding Label}" FontSize="{DynamicResource FontSizeSmall}"
+                                                                           IsVisible="{Binding IsSelect}" />
+                                                                <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}"
+                                                                          HorizontalAlignment="Stretch" FontSize="{DynamicResource FontSizeSmall}"
+                                                                          IsVisible="{Binding IsSelect}" />
+                                                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked}"
+                                                                          FontSize="{DynamicResource FontSizeSmall}" IsVisible="{Binding IsBool}" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </DockPanel>
+                                            <TextBlock Classes="sub" Text="点击左侧的“添加”新建" FontSize="{DynamicResource FontSizeSub}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasSelectedEntry}" />
+                                        </Panel>
+                                    </Grid>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</UserControl>

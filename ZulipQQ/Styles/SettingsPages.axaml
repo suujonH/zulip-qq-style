@@ -1,0 +1,128 @@
+<!-- 设置页共用的样式：左侧导航按钮；灰底上的白色圆角卡片，每行左边文字、右边控件。设置窗口与其中的“Zulip 账号”页共用 -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:ZulipQQ.Controls">
+    <Style Selector="Button.nav">
+        <Setter Property="Theme" Value="{StaticResource FlatButton}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="Margin" Value="0,1" />
+    </Style>
+    <Style Selector="Button.nav.active">
+        <Setter Property="Background" Value="{DynamicResource PressedBrush}" />
+    </Style>
+    <Style Selector="Button.nav TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <!-- 二级导航：当前页的分组 -->
+    <Style Selector="Button.nav.sub">
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Padding" Value="26,0,8,0" />
+    </Style>
+    <Style Selector="Button.nav.sub TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="Button.nav.sub.active">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.nav.sub.active TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+    </Style>
+
+    <!-- 手动保存的页有未保存的修改时，右侧下方的保存 / 撤销提示 -->
+    <Style Selector="Border.saveTip">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="Margin" Value="0,0,0,16" />
+        <Setter Property="Padding" Value="16,8,8,8" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BoxShadow" Value="0 4 16 0 #26000000" />
+    </Style>
+    <Style Selector="Border.saveTip TextBlock.tipText">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <Style Selector="TextBlock.pageTitle">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeH2}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="2,0,0,4" />
+    </Style>
+    <Style Selector="TextBlock.section">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Margin" Value="4,8,0,0" />
+    </Style>
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="16,4" />
+    </Style>
+    <Style Selector="Grid.item">
+        <Setter Property="MinHeight" Value="44" />
+    </Style>
+    <Style Selector="Grid.item > TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="ToggleSwitch">
+        <Setter Property="OnContent" Value="" />
+        <Setter Property="OffContent" Value="" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="RadioButton">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="Margin" Value="0,0,20,0" />
+    </Style>
+    <Style Selector="ComboBox">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+        <Setter Property="MinWidth" Value="170" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.divider">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource DividerBrush}" />
+    </Style>
+
+    <!-- 设置来源标签：开发者模式开启“显示设置来源”时，窗口根元素带 showSource 类 -->
+    <Style Selector="c|SettingSource">
+        <Setter Property="IsVisible" Value="False" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector=".showSource c|SettingSource">
+        <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="c|SettingSource > Border">
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="6,1" />
+        <Setter Property="Margin" Value="0,2,6,0" />
+        <Setter Property="Background" Value="{DynamicResource PressedBrush}" />
+    </Style>
+    <Style Selector="c|SettingSource TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="c|SettingSource c|TdIcon">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="c|SettingSource > Border.zulip TextBlock">
+        <Setter Property="FontFamily" Value="Cascadia Mono, Consolas" />
+    </Style>
+</Styles>
