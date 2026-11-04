@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -625,20 +624,6 @@ public partial class ChatViewModel : ViewModelBase
     public Task SaveImageAsAsync(ImageTarget image, TopLevel top) =>
         MessageLinks.SaveImageAsAsync(_session, new InlineImage(image.Src, image.Href), top, _showToast);
 
-    /// <summary>用浏览器打开消息（不走客户端内部跳转）。</summary>
-    public void OpenInBrowser(MessageItemViewModel item)
-    {
-        var url = MessageLink(item.Id);
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            Log.Warn($"打开链接失败：{url}", ex);
-        }
-    }
-
     /// <summary>消息链接（复制链接用）。</summary>
     public string MessageLink(long messageId)
     {
@@ -905,6 +890,53 @@ public partial class ChatViewModel : ViewModelBase
                 return;
             Log.Warn("表情回应失败", ex);
             _showToast("操作失败");
+        }
+    }
+
+    /// <summary>点击投票选项（投票 / 撤销）或待办任务（勾选 / 取消勾选）。</summary>
+    internal async Task ActivateWidgetRowAsync(MessageItemViewModel item, WidgetRowViewModel row)
+    {
+        if (item.Id <= 0)
+            return;
+        var content = row.IsTask ? WidgetEvents.Strike(row.Key) : WidgetEvents.Vote(row.Key, !row.IsHighlighted);
+        try
+        {
+            await _session.Chat.SendWidgetEventAsync(item.Id, content);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn(row.IsTask ? "勾选任务失败" : "投票失败", ex);
+            _showToast("操作失败");
+        }
+    }
+
+    /// <summary>添加投票选项 / 待办任务。重名时提示并返回 false；发送失败时返回 false。</summary>
+    internal async Task<bool> AddWidgetRowAsync(MessageItemViewModel item, string text)
+    {
+        if (item.Id <= 0 || item.Widget is not { } card)
+            return false;
+        if (card.Contains(text))
+        {
+            _showToast(card.IsPoll ? "已有相同的选项" : "已有相同的任务");
+            return false;
+        }
+        var index = Math.Max(WidgetParser.NextOwnIndex(item.Message.Submessages, _session.SelfId), item.LastWidgetIndex + 1);
+        var content = card.IsPoll ? WidgetEvents.NewOption(index, text) : WidgetEvents.NewTask(index, text, "");
+        try
+        {
+            await _session.Chat.SendWidgetEventAsync(item.Id, content);
+            item.LastWidgetIndex = index;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return false;
+            Log.Warn(card.IsPoll ? "添加选项失败" : "添加任务失败", ex);
+            _showToast("操作失败");
+            return false;
         }
     }
 

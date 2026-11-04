@@ -65,12 +65,27 @@ public partial class MessageItemViewModel : ViewModelBase
     /// <summary>显示消息内容（没有被屏蔽，也不是投票 / 待办）。</summary>
     public bool ShowsContent => !IsMutedHidden && Widget is null;
 
-    /// <summary>投票 / 待办消息：内容（“/poll …”）换成只读卡片。</summary>
+    /// <summary>投票 / 待办消息：内容（“/poll …”）换成可以投票、勾选的卡片。</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowsBare), nameof(ShowsContent), nameof(ShowsWidget))]
     public partial WidgetCardViewModel? Widget { get; private set; }
 
     public bool ShowsWidget => !IsMutedHidden && Widget is not null;
+
+    /// <summary>
+    /// 卡片中显示添加选项 / 任务的输入框。放在消息上而不是卡片上：卡片在每次 submessage 事件后重建，输入不能丢。
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsAddingWidgetRow { get; set; }
+
+    [ObservableProperty]
+    public partial string NewWidgetRowText { get; set; } = "";
+
+    /// <summary>
+    /// 上一次添加时使用的序号。服务器的 submessage 事件到达前再次添加，
+    /// 从子消息算出的序号还是旧的，用它避免重复。
+    /// </summary>
+    internal long LastWidgetIndex { get; set; }
 
     /// <summary>正在下方的输入框中编辑：气泡变为选中色，内容照常显示。</summary>
     [ObservableProperty]
@@ -191,7 +206,7 @@ public partial class MessageItemViewModel : ViewModelBase
         IsStarred = Message.IsStarred;
         IsMutedHidden = !IsOwn && !_revealed && _session.Users.IsMuted(Message.SenderId);
         Widget = WidgetParser.Parse(Message.Submessages, Message.SenderId) is { } widget
-            ? WidgetCardViewModel.Create(widget, _session)
+            ? WidgetCardViewModel.Create(widget, this, _session)
             : null;
 
         // 同一表情合并为一项，按第一次出现的顺序
@@ -267,9 +282,35 @@ public partial class MessageItemViewModel : ViewModelBase
 
     internal Task ToggleReactionAsync(ReactionViewModel reaction) => _chat.ToggleReactionAsync(this, reaction);
 
-    /// <summary>投票 / 待办卡片的“在网页中打开”：本客户端不能投票，交给网页端。</summary>
+    internal Task ActivateWidgetRowAsync(WidgetRowViewModel row) => _chat.ActivateWidgetRowAsync(this, row);
+
+    /// <summary>卡片右上角“+”：打开 / 关闭添加选项 / 任务的输入框。</summary>
     [RelayCommand]
-    private void OpenInBrowser() => _chat.OpenInBrowser(this);
+    private void ToggleAddWidgetRow()
+    {
+        NewWidgetRowText = "";
+        IsAddingWidgetRow = !IsAddingWidgetRow;
+    }
+
+    [RelayCommand]
+    private void CancelAddWidgetRow() => IsAddingWidgetRow = false;
+
+    /// <summary>回车：添加输入的选项 / 任务；成功后关闭输入框，失败时保留输入。</summary>
+    [RelayCommand]
+    private async Task SubmitWidgetRowAsync()
+    {
+        var text = NewWidgetRowText.Trim();
+        if (text.Length == 0)
+        {
+            IsAddingWidgetRow = false;
+            return;
+        }
+        if (await _chat.AddWidgetRowAsync(this, text))
+        {
+            NewWidgetRowText = "";
+            IsAddingWidgetRow = false;
+        }
+    }
 
     /// <summary>显示上一个（更早的）版本。</summary>
     [RelayCommand]

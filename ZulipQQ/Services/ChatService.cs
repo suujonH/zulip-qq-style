@@ -101,6 +101,10 @@ public sealed class ChatService(ZulipSession session)
             : session.Client.AddReactionAsync(msg.Id, emojiName, emojiCode, reactionType, session.Token);
     }
 
+    /// <summary>投票 / 待办的一次操作（<see cref="Core.WidgetEvents"/>）。不做乐观更新，界面等待 submessage 事件。</summary>
+    public Task SendWidgetEventAsync(long messageId, string content) =>
+        session.Client.SendSubmessageAsync(messageId, "widget", content, session.Token);
+
     /// <summary>
     /// 发送消息：先插入本地回显，再提交服务器。失败时回显标记为失败（可重发）；
     /// 成功后 10 秒内没有收到 message 事件，就主动查询这条消息替换回显（在后台进行）。
