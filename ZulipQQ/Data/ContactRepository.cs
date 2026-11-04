@@ -73,6 +73,26 @@ public sealed class ContactRepository(LocalDb db, long accountId)
         });
     }
 
+    /// <summary>联系人页的置顶：条目键 → 置顶时间（Unix 毫秒）。</summary>
+    public Dictionary<string, long> LoadPins() =>
+        db.Query("SELECT item_key, pinned_at FROM contact_pin WHERE account_id = @a;",
+                r => (Key: r.GetString(0), At: r.GetInt64(1)), ("@a", accountId))
+            .ToDictionary(x => x.Key, x => x.At);
+
+    /// <summary>设置置顶时间；null 表示取消置顶。</summary>
+    public void SetPin(string key, long? pinnedAt)
+    {
+        if (pinnedAt is not { } at)
+        {
+            db.Execute("DELETE FROM contact_pin WHERE account_id = @a AND item_key = @k;", ("@a", accountId), ("@k", key));
+            return;
+        }
+        db.Execute("""
+            INSERT INTO contact_pin(account_id, item_key, pinned_at) VALUES(@a, @k, @t)
+            ON CONFLICT(account_id, item_key) DO UPDATE SET pinned_at = excluded.pinned_at;
+            """, ("@a", accountId), ("@k", key), ("@t", at));
+    }
+
     /// <summary>设置备注；null 表示清除。</summary>
     public void SetRemark(long userId, string? remark)
     {

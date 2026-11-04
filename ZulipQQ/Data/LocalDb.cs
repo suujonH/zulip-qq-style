@@ -109,6 +109,17 @@ public sealed class LocalDb : IDisposable
           updated_at INTEGER NOT NULL,
           PRIMARY KEY(account_id, message_id, plugin_id));
         """,
+        // 联系人页的置顶（好友 u:{用户id}、话题同会话键）与消息列表的置顶分开：一个表示人 / 群重要，一个表示会话重要。
+        // 以前联系人页“置顶群聊”读的是会话的置顶，无法区分是在哪一页设置的，已置顶的话题在两边都保留
+        """
+        CREATE TABLE contact_pin(
+          account_id INTEGER NOT NULL,
+          item_key TEXT NOT NULL,
+          pinned_at INTEGER NOT NULL,
+          PRIMARY KEY(account_id, item_key));
+        INSERT INTO contact_pin(account_id, item_key, pinned_at)
+          SELECT account_id, conv_key, pinned_at FROM conversation_state WHERE pinned_at IS NOT NULL AND conv_key LIKE 't:%';
+        """,
     ];
 
     private readonly SqliteConnection _connection;

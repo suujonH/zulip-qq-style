@@ -118,9 +118,10 @@ public sealed class TopicActions(MainViewModel main, IDialogHost host)
         }
         if (Session.IsDisposed)
             return;
-        // 话题已不存在，同时取消置顶
+        // 话题已不存在，同时取消消息列表和联系人页的置顶
         if (Session.Conversations.Get(key) is { PinnedAt: not null })
             Session.Conversations.SetPinned(key, false);
+        Session.Contacts.SetTopicPinned(key, false);
         Session.Conversations.Remove(key);
         Session.Registry.CloseWindows(key);
         await main.CloseChatAsync(key);

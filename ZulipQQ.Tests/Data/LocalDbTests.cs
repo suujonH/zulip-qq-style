@@ -211,6 +211,42 @@ public sealed class LocalDbTests : IDisposable
     }
 
     [Fact]
+    public void ContactPins_RoundTrip()
+    {
+        var repo = new ContactRepository(_db, 1);
+        repo.SetPin("u:9", 100);
+        repo.SetPin("t:3:abc", 200);
+        new ContactRepository(_db, 2).SetPin("u:9", 300);
+        Assert.Equal(new Dictionary<string, long> { ["u:9"] = 100, ["t:3:abc"] = 200 }, repo.LoadPins());
+
+        repo.SetPin("u:9", 150);
+        Assert.Equal(150, repo.LoadPins()["u:9"]);
+        repo.SetPin("u:9", null);
+        Assert.Equal(["t:3:abc"], repo.LoadPins().Keys);
+    }
+
+    // 升级到分开的联系人置顶：已置顶的话题在联系人页也保持置顶，私聊和会话夹的置顶只留在消息列表
+    [Fact]
+    public void Migration_CopiesPinnedTopicsToContactPins()
+    {
+        var conv = new ConversationStateRepository(_db, 1);
+        var topic = new TopicKey(3, "Abc");
+        conv.SetPinned(topic, 111);
+        conv.SetPinned(new TopicKey(3, "unpinned"), null);
+        conv.SetPinned(new DmKey([7]), 222);
+        conv.SetPinned(ConversationKey.Helper, 333);
+        _db.Execute("DROP TABLE contact_pin;");
+        _db.Execute($"PRAGMA user_version = {LocalDb.SchemaVersion - 1};");
+        _db.Dispose();
+
+        using var db = LocalDb.Open(Path.Combine(_dir, "test.db"));
+        Assert.Equal(new Dictionary<string, long> { ["t:3:abc"] = 111 }, new ContactRepository(db, 1).LoadPins());
+        // 消息列表的置顶不变
+        Assert.Equal(222, new ConversationStateRepository(db, 1).Find(new DmKey([7]))!.PinnedAt);
+        Assert.Equal(111, new ConversationStateRepository(db, 1).Find(topic)!.PinnedAt);
+    }
+
+    [Fact]
     public void Downloads_RecentOrder()
     {
         var repo = new DownloadRepository(_db, 1);
