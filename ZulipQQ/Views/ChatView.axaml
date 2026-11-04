@@ -22,6 +22,10 @@
                 </Transitions>
             </Setter>
         </Style>
+        <!-- 多选模式中勾选的消息 -->
+        <Style Selector="Border.row.checked">
+            <Setter Property="Background" Value="{DynamicResource CheckedRowBrush}" />
+        </Style>
         <Style Selector="Border.row.flash">
             <Setter Property="Background" Value="{DynamicResource FlashBrush}" />
         </Style>
@@ -375,17 +379,10 @@
         </DataTemplate>
 
         <DataTemplate DataType="vm:MessageItemViewModel">
-            <Border Classes="row" Classes.flash="{Binding IsFlashing}">
-                <DockPanel>
-                <!-- 多选模式：左侧复选框只显示状态，点击整行切换；消息内容不响应鼠标 -->
+            <Border Classes="row" Classes.flash="{Binding IsFlashing}" Classes.checked="{Binding IsChecked}">
+                <Grid ColumnDefinitions="Auto,*">
                 <!-- 很少显示的部分放在 Lazy 中：第一次需要显示时才创建，创建气泡时不必创建、设置样式和绑定它们 -->
-                <c:Lazy DockPanel.Dock="Left" When="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
-                    <DataTemplate DataType="vm:MessageItemViewModel">
-                        <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" Focusable="False"
-                                  IsHitTestVisible="False" VerticalAlignment="Top" Margin="0,4,8,0" MinWidth="0" Padding="0" />
-                    </DataTemplate>
-                </c:Lazy>
-                <DockPanel Classes="msg" Classes.own="{Binding IsOwn}"
+                <DockPanel Grid.Column="1" Classes="msg" Classes.own="{Binding IsOwn}"
                            IsHitTestVisible="{Binding !$parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
                     <c:Avatar Classes="sender" Width="32" Height="32" VerticalAlignment="Top"
                               Source="{Binding AvatarUrl}" Text="{Binding SenderName}" />
@@ -637,7 +634,17 @@
                                    IsVisible="{Binding ReadStateText, Converter={x:Static ObjectConverters.IsNotNull}}" />
                     </StackPanel>
                 </DockPanel>
-                </DockPanel>
+                <!-- 多选模式：左侧复选框只显示状态，点击整行切换；消息内容不响应鼠标。
+                     复选框与气泡垂直居中（BubbleCheckSlot 在气泡之后排列，所以放在后面） -->
+                <c:BubbleCheckSlot Grid.Column="0">
+                    <c:Lazy When="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
+                        <DataTemplate DataType="vm:MessageItemViewModel">
+                            <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" Focusable="False"
+                                      IsHitTestVisible="False" Margin="0,0,8,0" MinWidth="0" Padding="0" />
+                        </DataTemplate>
+                    </c:Lazy>
+                </c:BubbleCheckSlot>
+                </Grid>
             </Border>
         </DataTemplate>
     </UserControl.DataTemplates>
