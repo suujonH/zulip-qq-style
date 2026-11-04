@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ZulipQQ.ViewModels"
              xmlns:c="using:ZulipQQ.Controls"
+             xmlns:cv="using:ZulipQQ.Controls.Virtualization"
              xmlns:v="using:ZulipQQ.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -673,7 +674,8 @@
                 <ItemsControl x:Name="MessageList" ItemsSource="{Binding Items}" Padding="0,8">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <VirtualizingStackPanel CacheLength="0.5" />
+                            <!-- 记住消息高度的虚拟化面板：消息变高时滚动条不跳动 -->
+                            <cv:MessageStackPanel CacheLength="0.5" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
