@@ -30,6 +30,15 @@
             <Setter Property="Width" Value="14" />
             <Setter Property="Height" Value="14" />
         </Style>
+        <!-- 展开 / 收起分组时箭头转动过去 -->
+        <Style Selector="Button.row c|TdIcon.chevron">
+            <Setter Property="RenderTransform" Value="rotate(0deg)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
         <Style Selector="Button.row.expanded c|TdIcon.chevron">
             <Setter Property="RenderTransform" Value="rotate(90deg)" />
         </Style>
