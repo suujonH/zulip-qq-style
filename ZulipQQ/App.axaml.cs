@@ -14,6 +14,7 @@ using ZulipQQ.Plugins;
 using ZulipQQ.Services;
 using ZulipQQ.ViewModels;
 using ZulipQQ.Views;
+using ZulipQQ.Zulip;
 
 namespace ZulipQQ;
 
@@ -66,6 +67,7 @@ public partial class App : Application
             LocalDb.Instance = LocalDb.Open(AppPaths.DatabasePath);
             ThemeService.Initialize(LocalDb.Instance);
             RequestLog.Initialize(LocalDb.Instance);
+            ZulipClient.UserAgent = ZulipClient.UserAgentFor(LocalSettings.App.ClientName);
             // 插件随程序启动（登录之前）加载
             PluginHost.Instance.LoadAll(new PluginStateRepository(LocalDb.Instance), new SettingRepository(LocalDb.Instance, null));
             // 插件菜单的键盘快捷键：在 ZulipQQ 的任意窗口中按下、且没有被焦点控件处理（例如输入框、快捷键录制框）时执行
@@ -625,6 +627,8 @@ public partial class App : Application
             ThemeService.ApplyFontSize(LocalSettings.App.FontSize);
         else if (key == LocalSettings.ShowTrayIconKey)
             OnShowTrayIconChanged();
+        else if (key == LocalSettings.ClientNameKey)
+            ZulipClient.UserAgent = ZulipClient.UserAgentFor(LocalSettings.App.ClientName);
     }
 
     private void OnShowTrayIconChanged()

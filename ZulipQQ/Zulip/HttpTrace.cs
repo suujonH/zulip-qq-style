@@ -43,6 +43,9 @@ internal sealed partial class HttpTraceHandler(HttpMessageHandler inner) : Deleg
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
+        // 客户端名称可以在设置中修改：每个请求都用当前的值（不放在 DefaultRequestHeaders 中）
+        request.Headers.Remove("User-Agent");
+        request.Headers.TryAddWithoutValidation("User-Agent", ZulipClient.UserAgent);
         if (ZulipClient.TraceSink is not { IsEnabled: true } sink)
             return await base.SendAsync(request, ct).ConfigureAwait(false);
 

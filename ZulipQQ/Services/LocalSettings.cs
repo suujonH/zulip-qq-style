@@ -66,6 +66,7 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     public const string SystemNoticesClearedBeforeKey = "system_notices_cleared_before";
     public const string ComposerSourceModeKey = "composer_source_mode";
     public const string ClearedReminderIdsKey = "cleared_reminder_ids";
+    public const string ClientNameKey = "client_name";
 
     private readonly Dictionary<(SettingRepository, string), string?> _cache = [];
 
@@ -229,6 +230,16 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     {
         get => Enum.TryParse<FileClickAction>(Read(appRepository, FileClickActionKey), out var v) ? v : FileClickAction.OpenAfterDownload;
         set => Save(appRepository, FileClickActionKey, value.ToString());
+    }
+
+    /// <summary>
+    /// 报告给服务器的客户端名称（程序级）：放在 User-Agent 中，服务器据此记录消息的发送来源和用户的活动记录。
+    /// 为空时是 ZulipQQ，见 <see cref="ZulipQQ.Zulip.ZulipClient.UserAgentFor"/>。
+    /// </summary>
+    public string ClientName
+    {
+        get => Read(appRepository, ClientNameKey) ?? "";
+        set => Save(appRepository, ClientNameKey, value.Trim());
     }
 
     /// <summary>话题会话的标题模板（程序级；会话列表、聊天标题、独立窗口标题），见 <see cref="TopicTitleFormat"/>。</summary>

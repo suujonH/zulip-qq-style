@@ -1,15 +1,31 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ZulipQQ.Core;
 using ZulipQQ.Data;
 using ZulipQQ.Services;
+using ZulipQQ.Zulip;
 
 namespace ZulipQQ.ViewModels.Settings;
 
+/// <summary>报告给服务器的客户端名称的选项；<see cref="Name"/> 为 null 时是自定义。</summary>
+public sealed record ClientNameOption(string? Name, string Text)
+{
+    public static readonly IReadOnlyList<ClientNameOption> All =
+    [
+        new(ZulipClient.ZulipQQClientName, "ZulipQQ"),
+        new(ZulipClient.DesktopClientName, "桌面版"),
+        new(ZulipClient.WebClientName, "网页版"),
+        new(null, "自定义"),
+    ];
+
+    public override string ToString() => Text;
+}
+
 /// <summary>
 /// 通用（程序级，所有账号共用）：打开聊天的方式、话题标题模板、收起已解决话题、通知类型、
-/// 主界面（边缘隐藏、托盘、关闭行为、经典模式）、字体大小。
+/// 主界面（边缘隐藏、托盘、关闭行为、经典模式）、字体大小、报告给服务器的客户端名称。
 /// </summary>
 public sealed partial class GeneralPageViewModel : SettingsPageViewModel
 {
@@ -17,7 +33,42 @@ public sealed partial class GeneralPageViewModel : SettingsPageViewModel
     {
         TitleFormat = Local.TopicTitleFormat;
         TitleDraft = TitleFormat;
+        var name = Local.ClientName;
+        var preset = ClientNameOption.All.FirstOrDefault(o => o.Name is not null
+            && string.Equals(o.Name, name.Length == 0 ? ZulipClient.ZulipQQClientName : name, StringComparison.Ordinal));
+        CustomClientName = preset is null ? name : "";
+        SelectedClientName = preset ?? ClientNameOption.All[^1];
         Local.Changed += OnChanged;
+    }
+
+    public IReadOnlyList<ClientNameOption> ClientNameOptions => ClientNameOption.All;
+
+    /// <summary>选择的客户端名称；选择预设时立即保存，选择自定义时保存输入框中的名称（为空时不改）。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCustomClientName))]
+    public partial ClientNameOption SelectedClientName { get; set; } = ClientNameOption.All[0];
+
+    /// <summary>自定义的客户端名称，输入时立即保存（服务器只取第一个“/”或空格之前的部分）。</summary>
+    [ObservableProperty]
+    public partial string CustomClientName { get; set; } = "";
+
+    public bool IsCustomClientName => SelectedClientName.Name is null;
+
+    /// <summary>实际发送的 User-Agent。</summary>
+    public string UserAgentText => "User-Agent：" + ZulipClient.UserAgentFor(Local.ClientName);
+
+    partial void OnSelectedClientNameChanged(ClientNameOption value)
+    {
+        if (value.Name is { } name)
+            Local.ClientName = name;
+        else if (CustomClientName.Trim().Length > 0)
+            Local.ClientName = CustomClientName;
+    }
+
+    partial void OnCustomClientNameChanged(string value)
+    {
+        if (IsCustomClientName && value.Trim().Length > 0)
+            Local.ClientName = value;
     }
 
     private LocalSettings Local => Owner.Local;
