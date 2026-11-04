@@ -379,7 +379,7 @@ public static partial class ZulipHtml
         if (cls.Contains("katex-display") || cls.Contains("katex"))
             return "[公式]";
         if (cls.Contains("spoiler-block"))
-            return "[剧透]";
+            return "[折叠]";
 
         if (tag == "img")
             return cls.Contains("emoji") ? e.GetAttribute("alt") ?? "" : "[图片]";

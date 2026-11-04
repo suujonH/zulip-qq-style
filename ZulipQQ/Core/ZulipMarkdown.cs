@@ -597,7 +597,7 @@ public static partial class ZulipMarkdown
                     sb.Append(line.Fence switch
                     {
                         MdFenceKind.Math => " [公式] ",
-                        MdFenceKind.Spoiler => " [剧透] ",
+                        MdFenceKind.Spoiler => " [折叠] ",
                         _ => " [代码] ",
                     });
                     break;

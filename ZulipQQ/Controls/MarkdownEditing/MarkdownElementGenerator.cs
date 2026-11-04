@@ -182,7 +182,7 @@ internal sealed class MarkdownElementGenerator(MarkdownEditor editor) : VisualLi
     private static string FenceLabel(MdLine line) => line.Fence switch
     {
         MdFenceKind.Quote => "引用",
-        MdFenceKind.Spoiler => string.IsNullOrEmpty(line.FenceInfo) ? "剧透" : $"剧透 {line.FenceInfo}",
+        MdFenceKind.Spoiler => string.IsNullOrEmpty(line.FenceInfo) ? "折叠" : $"折叠 {line.FenceInfo}",
         MdFenceKind.Math => "公式",
         _ => string.IsNullOrEmpty(line.FenceInfo) ? "代码" : $"代码 {line.FenceInfo}",
     };

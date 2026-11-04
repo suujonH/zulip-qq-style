@@ -333,7 +333,7 @@ public sealed class ZulipMarkdownTests
     [InlineData("```quote\n引用\n```\n回复", "回复")]
     [InlineData("前\n```py\nprint(1)\n```\n后", "前 [代码] 后")]
     [InlineData("```math\nx\n```", "[公式]")]
-    [InlineData("```spoiler 标题\n```py\nx\n```\n内容\n```\n后", "[剧透] 后")]
+    [InlineData("```spoiler 标题\n```py\nx\n```\n内容\n```\n后", "[折叠] 后")]
     [InlineData("前\n\n    a\n    b\n\n后", "前 [代码] 后")]
     [InlineData("a | b\n--- | ---\n1 | 2", "a b 1 2")]
     [InlineData("---\n文字", "文字")]

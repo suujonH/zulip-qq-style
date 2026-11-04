@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -68,6 +69,23 @@ public partial class ComposerView : UserControl
         };
         foreach (var button in FormatBar.Children.OfType<Button>())
             button.Click += OnFormatClick;
+        ParagraphButton.Click += (_, _) => OpenToolMenu(ParagraphButton, ParagraphMenu(enabled: true, fromToolbar: true));
+        InsertButton.Click += (_, _) =>
+        {
+            if (_vm is { } vm)
+                OpenToolMenu(InsertButton, InsertMenu(vm, fromToolbar: true));
+        };
+    }
+
+    // 工具栏按钮的下拉菜单：把子菜单的各项直接放在按钮上方弹出的菜单中（每次打开时重新生成，勾选状态是当前的）
+    private static void OpenToolMenu(Control button, MenuItem source)
+    {
+        var items = source.Items.Cast<object>().ToList();
+        source.Items.Clear();
+        var menu = new ContextMenu { Placement = PlacementMode.TopEdgeAlignedLeft };
+        foreach (var item in items)
+            menu.Items.Add(item);
+        menu.Open(button);
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -435,8 +453,9 @@ public partial class ComposerView : UserControl
         return item;
     }
 
-    // 段落 ▸：标题级别（光标所在行的级别打勾）、列表、引用
-    private MenuItem ParagraphMenu(bool enabled)
+    // 段落 ▸：标题级别（光标所在行的级别打勾）、列表、引用。
+    // 从工具栏打开时不重复工具栏上已有的按钮（无序列表、引用）
+    private MenuItem ParagraphMenu(bool enabled, bool fromToolbar = false)
     {
         var menu = new MenuItem { Header = "段落", IsEnabled = enabled };
         var current = InputBox.HeadingLevel;
@@ -447,8 +466,11 @@ public partial class ComposerView : UserControl
         menu.Items.Add(HeadingItem("段落", 0, current));
         menu.Items.Add(new Separator());
         menu.Items.Add(FormatItem("有序列表", MarkdownFormatKind.NumberedList));
-        menu.Items.Add(FormatItem("无序列表", MarkdownFormatKind.BulletedList));
-        menu.Items.Add(FormatItem("引用", MarkdownFormatKind.Quote));
+        if (!fromToolbar)
+        {
+            menu.Items.Add(FormatItem("无序列表", MarkdownFormatKind.BulletedList));
+            menu.Items.Add(FormatItem("引用", MarkdownFormatKind.Quote));
+        }
         return menu;
     }
 
@@ -473,21 +495,26 @@ public partial class ComposerView : UserControl
         return item;
     }
 
-    // 插入 ▸：块、图片 / 链接 / 时间、分隔线 / 表格、不在工具栏中的行内格式
-    private MenuItem InsertMenu(ComposerViewModel vm)
+    // 插入 ▸：块、图片 / 链接 / 时间、分隔线 / 表格、不在工具栏中的行内格式。
+    // 从工具栏打开时不重复工具栏上已有的按钮（代码、图片、链接）
+    private MenuItem InsertMenu(ComposerViewModel vm, bool fromToolbar = false)
     {
         var menu = new MenuItem { Header = "插入", IsEnabled = vm.CanEdit };
-        menu.Items.Add(MenuItem("代码块", () => Format(MarkdownFormatKind.CodeBlock), true));
+        if (!fromToolbar)
+            menu.Items.Add(MenuItem("代码块", () => Format(MarkdownFormatKind.CodeBlock), true));
         menu.Items.Add(MenuItem("公式块", () => Format(MarkdownFormatKind.MathBlock), true));
         menu.Items.Add(MenuItem("引用块", () => Format(MarkdownFormatKind.QuoteBlock), true));
-        menu.Items.Add(MenuItem("剧透", () => Format(MarkdownFormatKind.Spoiler), true));
+        menu.Items.Add(MenuItem("折叠", () => Format(MarkdownFormatKind.Spoiler), true));
         menu.Items.Add(new Separator());
-        menu.Items.Add(MenuItem("图片…", async () =>
+        if (!fromToolbar)
         {
-            if (TopLevel.GetTopLevel(this) is { } top)
-                await vm.PickImagesAsync(top);
-        }, true));
-        menu.Items.Add(MenuItem("链接", () => Format(MarkdownFormatKind.Link), true));
+            menu.Items.Add(MenuItem("图片…", async () =>
+            {
+                if (TopLevel.GetTopLevel(this) is { } top)
+                    await vm.PickImagesAsync(top);
+            }, true));
+            menu.Items.Add(MenuItem("链接", () => Format(MarkdownFormatKind.Link), true));
+        }
         menu.Items.Add(MenuItem("全局时间…", InsertTimeAsync, true));
         menu.Items.Add(new Separator());
         menu.Items.Add(MenuItem("分隔线", () => Format(MarkdownFormatKind.Rule), true));

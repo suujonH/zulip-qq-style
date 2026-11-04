@@ -44,7 +44,7 @@ public class ZulipHtmlTests
     public void Preview_Math() => Assert.Equal("[公式] 与 [公式] [公式]", ZulipHtml.ToPreview(Sample("math")));
 
     [Fact]
-    public void Preview_Spoiler() => Assert.Equal("[剧透]", ZulipHtml.ToPreview(Sample("spoiler")));
+    public void Preview_Spoiler() => Assert.Equal("[折叠]", ZulipHtml.ToPreview(Sample("spoiler")));
 
     [Fact]
     public void Preview_Mentions() => Assert.Equal("@全体成员 @话题参与者 @Members", ZulipHtml.ToPreview(Sample("mentions")));

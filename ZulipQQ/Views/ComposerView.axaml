@@ -100,6 +100,13 @@
                     <Button Classes="tool" Tag="Quote" ToolTip.Tip="引用"><c:TdIcon Icon="{StaticResource Icon.Quote}" /></Button>
                     <Button Classes="tool" Tag="BulletedList" ToolTip.Tip="无序列表"><c:TdIcon Icon="{StaticResource Icon.ViewList}" /></Button>
                 </StackPanel>
+                <!-- 段落 ▸、插入 ▸：与输入框右键菜单中的相同 -->
+                <Button x:Name="ParagraphButton" Classes="tool" ToolTip.Tip="段落" IsEnabled="{Binding CanEdit}">
+                    <c:TdIcon Icon="{StaticResource Icon.Format}" />
+                </Button>
+                <Button x:Name="InsertButton" Classes="tool" ToolTip.Tip="插入" IsEnabled="{Binding CanEdit}">
+                    <c:TdIcon Icon="{StaticResource Icon.Add}" />
+                </Button>
                 <ToggleButton Classes="tool" IsChecked="{Binding IsSourceMode, Mode=OneWay}" Command="{Binding ToggleSourceModeCommand}"
                               ToolTip.Tip="{Binding SourceModeToolTip}">
                     <c:TdIcon Icon="{StaticResource Icon.SourceCode}" />
