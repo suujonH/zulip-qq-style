@@ -47,7 +47,12 @@ public sealed class LoadingItem : ViewModelBase;
 
 /// <summary>视口中可见的消息范围，由聊天视图在滚动后报告。</summary>
 /// <param name="TopMessageId">视口中第一条服务器消息的 id；没有可见消息时为 0。</param>
-public sealed record ViewportInfo(long TopMessageId, long BottomMessageId, bool IsAtBottom, bool IsNearTop, bool IsNearBottom);
+/// <param name="TopOffset">这条消息的顶部相对视口顶部的位置（在视口上方时为负）。</param>
+public sealed record ViewportInfo(
+    long TopMessageId, long BottomMessageId, bool IsAtBottom, bool IsNearTop, bool IsNearBottom, double TopOffset = 0);
+
+/// <summary>切换会话前的滚动位置：视口中第一条消息与它的顶部相对视口顶部的位置。</summary>
+public sealed record ScrollPosition(long MessageId, double Offset);
 
 public enum ScrollAlign
 {
@@ -56,10 +61,15 @@ public enum ScrollAlign
 
     /// <summary>“以下为新消息”分隔线位于视口顶部。</summary>
     TopWithDivider,
+
+    /// <summary>消息顶部位于视口顶部 <see cref="ScrollRequest.Offset"/> 处（恢复切换前的位置）。</summary>
+    Top,
 }
 
 /// <summary>滚动请求；<see cref="MessageId"/> 为 null 表示滚动到底部。</summary>
-public sealed record ScrollRequest(long? MessageId, ScrollAlign Align = ScrollAlign.Center)
+public sealed record ScrollRequest(long? MessageId, ScrollAlign Align = ScrollAlign.Center, double Offset = 0)
 {
     public static ScrollRequest Bottom { get; } = new((long?)null);
+
+    public static ScrollRequest Restore(ScrollPosition position) => new(position.MessageId, ScrollAlign.Top, position.Offset);
 }

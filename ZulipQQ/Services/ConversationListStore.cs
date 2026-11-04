@@ -257,9 +257,10 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
         ListChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>从消息列表中移除（不影响其它状态）。</summary>
+    /// <summary>从消息列表中移除（不影响其它状态）。再次打开时从底部开始。</summary>
     public void Remove(ConversationKey key)
     {
+        session.Registry.ForgetScrollPosition(key);
         if (!_entries.TryGetValue(key, out var e) || !e.InList)
             return;
         e.InList = false;

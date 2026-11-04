@@ -47,7 +47,14 @@ public partial class ChatViewModel : ViewModelBase
     // 曾经出现在视口顶部的最小消息 id；视图第一次报告前为 MaxValue
     private long _minTopSeen = long.MaxValue;
     private int _newWhileScrolledUp;
+
+    // 不在底部时收到的第一条新消息：点击右下角按钮跳到这里
+    private long? _firstNewWhileScrolledUp;
     private bool _isAtBottom = true;
+
+    // 最近一次报告的滚动位置（停在底部时为 null），关闭时记下，切换回来时恢复
+    private ScrollPosition? _scrollPosition;
+
     private long? _selectedMessageId;
 
     private bool _loadingOlder;
@@ -178,11 +185,12 @@ public partial class ChatViewModel : ViewModelBase
     public ScrollRequest? InitialScroll { get; private set; }
 
     /// <summary>
-    /// 打开会话：取未读快照、加载消息、滚动到底部（或指定消息），正在查看时标记已读。
+    /// 打开会话：取未读快照、加载消息、滚动到底部（或指定消息、切换前的位置 <paramref name="restore"/>），正在查看时标记已读。
     /// 每次 await 返回后检查是否已关闭。
     /// </summary>
-    public async Task OpenAsync(long? focusMessageId)
+    public async Task OpenAsync(long? focusMessageId, ScrollPosition? restore = null)
     {
+        _scrollPosition = restore;
         _session.Registry.Register(this);
         Subscribe();
 
@@ -199,6 +207,12 @@ public partial class ChatViewModel : ViewModelBase
             var timeline = _session.Messages.TryGet(Key);
             if (focusMessageId is { } focus)
                 await _session.Messages.LoadAroundAsync(Key, focus);
+            else if (restore is { } position)
+            {
+                // 切换前看到的消息还在缓存中时直接使用缓存（不重新加载最新的消息，以免位置丢失）
+                if (timeline is null || !timeline.Messages.Exists(m => m.Id == position.MessageId))
+                    await _session.Messages.LoadAroundAsync(Key, position.MessageId);
+            }
             else if (timeline is not { FoundNewest: true } || timeline.Messages.Count < 30)
                 await _session.Messages.LoadNewestAsync(Key);
             _loaded = true;
@@ -216,7 +230,9 @@ public partial class ChatViewModel : ViewModelBase
 
         _opened = true;
         RebuildItems();
-        InitialScroll = focusMessageId is { } id ? new ScrollRequest(id) : ScrollRequest.Bottom;
+        InitialScroll = focusMessageId is { } id ? new ScrollRequest(id)
+            : restore is { } restored ? ScrollRequest.Restore(restored)
+            : ScrollRequest.Bottom;
         ScrollRequested?.Invoke(this, InitialScroll);
         if (focusMessageId is { } flash)
             Flash(flash);
@@ -231,6 +247,14 @@ public partial class ChatViewModel : ViewModelBase
         if (_closed)
             return Task.CompletedTask;
         _closed = true;
+        // 主窗口右侧切换会话：记下位置，切换回来时恢复。独立窗口、已从消息列表删除的会话不记录
+        if (_opened && !IsStandalone)
+        {
+            if (_session.Conversations.Get(Key) is { InList: true })
+                _session.Registry.SaveScrollPosition(Key, _scrollPosition);
+            else
+                _session.Registry.ForgetScrollPosition(Key);
+        }
         ClearTyping();
         CloseMorePanel();
         ExitMultiSelect();
@@ -266,7 +290,7 @@ public partial class ChatViewModel : ViewModelBase
         if (_closed || _session.IsDisposed)
             return;
         _opened = true;
-        _newWhileScrolledUp = 0;
+        ClearNewWhileScrolledUp();
         RebuildItems();
         ScrollRequested?.Invoke(this, ScrollRequest.Bottom);
         UpdateBottomBanner();
@@ -304,6 +328,7 @@ public partial class ChatViewModel : ViewModelBase
         if (!_opened || _closed || m.SenderId == _session.SelfId || ShowsLatest)
             return;
         _newWhileScrolledUp++;
+        _firstNewWhileScrolledUp ??= m.Id;
         UpdateBottomBanner();
     }
 
@@ -413,6 +438,7 @@ public partial class ChatViewModel : ViewModelBase
         if (!_opened || _closed)
             return;
         _isAtBottom = v.IsAtBottom;
+        _scrollPosition = v.IsAtBottom || v.TopMessageId <= 0 ? null : new ScrollPosition(v.TopMessageId, v.TopOffset);
         if (v.TopMessageId > 0)
         {
             _minTopSeen = Math.Min(_minTopSeen, v.TopMessageId);
@@ -426,14 +452,17 @@ public partial class ChatViewModel : ViewModelBase
             LoadNewer();
         // 在较早历史的底部时新消息还没有加载，提示保留到加载到最新端为止
         if (v.IsAtBottom && timeline is { FoundNewest: true })
-            _newWhileScrolledUp = 0;
+            ClearNewWhileScrolledUp();
 
         UpdateTopBanner();
         UpdateBottomBanner();
     }
 
-    /// <summary>跳转到某条消息：不在当前窗口中时加载它附近的消息。</summary>
-    public async Task JumpToMessageAsync(long id, bool highlight = true)
+    /// <summary>
+    /// 跳转到某条消息：不在当前窗口中时加载它附近的消息。
+    /// <paramref name="align"/> 为 null 时居中（跳到第一条未读时让“以下为新消息”位于顶部）。
+    /// </summary>
+    public async Task JumpToMessageAsync(long id, bool highlight = true, ScrollAlign? align = null)
     {
         var timeline = _session.Messages.TryGet(Key);
         if (timeline is null || !timeline.Messages.Exists(m => m.Id == id))
@@ -453,8 +482,10 @@ public partial class ChatViewModel : ViewModelBase
             RebuildItems();
         }
 
-        var align = !highlight && id == _firstUnreadId ? ScrollAlign.TopWithDivider : ScrollAlign.Center;
-        ScrollRequested?.Invoke(this, new ScrollRequest(id, align));
+        // 顶部对齐时留一点间距，不贴着视口边缘
+        ScrollRequested?.Invoke(this, align is ScrollAlign.Top
+            ? new ScrollRequest(id, ScrollAlign.Top, Offset: 8)
+            : new ScrollRequest(id, align ?? (!highlight && id == _firstUnreadId ? ScrollAlign.TopWithDivider : ScrollAlign.Center)));
         if (highlight)
             Flash(id);
     }
@@ -928,15 +959,30 @@ public partial class ChatViewModel : ViewModelBase
         UpdateTopBanner();
     }
 
-    /// <summary>右下角按钮：回到最新的消息。</summary>
+    /// <summary>右下角“N条新消息”：跳到不在底部时收到的第一条新消息（位于视口顶部），从这里往下看。</summary>
     [RelayCommand]
-    private Task BottomBannerClickAsync() => ShowLatestAsync();
+    private async Task BottomBannerClickAsync()
+    {
+        if (_firstNewWhileScrolledUp is not { } first)
+        {
+            await ShowLatestAsync();
+            return;
+        }
+        ClearNewWhileScrolledUp();
+        await JumpToMessageAsync(first, highlight: false, ScrollAlign.Top);
+    }
+
+    private void ClearNewWhileScrolledUp()
+    {
+        _newWhileScrolledUp = 0;
+        _firstNewWhileScrolledUp = null;
+        UpdateBottomBanner();
+    }
 
     /// <summary>回到最新的消息：当前窗口不包含最新的消息时重新加载，然后滚动到底部。</summary>
     internal async Task ShowLatestAsync()
     {
-        _newWhileScrolledUp = 0;
-        UpdateBottomBanner();
+        ClearNewWhileScrolledUp();
         if (_session.Messages.TryGet(Key) is { FoundNewest: true })
             ScrollRequested?.Invoke(this, ScrollRequest.Bottom);
         else
@@ -1231,6 +1277,8 @@ public partial class ChatViewModel : ViewModelBase
                 else
                 {
                     _newWhileScrolledUp += e.Change.Count;
+                    _firstNewWhileScrolledUp ??= _session.Messages.TryGet(Key)?.Messages
+                        .TakeLast(e.Change.Count).FirstOrDefault(m => m.Id > 0)?.Id;
                     UpdateBottomBanner();
                 }
                 return;

@@ -194,7 +194,8 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
 
         var chat = new ChatViewModel(Session, this, key);
         RightPane = chat;
-        await chat.OpenAsync(focusMessageId);
+        // 切换回之前看过的会话：回到当时的位置（跳转到指定消息时除外）
+        await chat.OpenAsync(focusMessageId, focusMessageId is null ? Session.Registry.GetScrollPosition(key) : null);
     }
 
     /// <summary>
@@ -220,6 +221,8 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
             RightPane = null;
             Messages.Select(null);
         }
+        // 在新窗口中打开从底部开始
+        Session.Registry.ForgetScrollPosition(key);
         ChatWindowRequested?.Invoke(this, new ChatWindowRequest(key, existing, focusMessageId));
     }
 

@@ -341,9 +341,12 @@ public partial class ChatView : UserControl
         }
 
         var y = ContentY(target);
-        SetOffset(request.Align == ScrollAlign.TopWithDivider
-            ? y - 8
-            : y - (MessageScroller.Viewport.Height - target.Bounds.Height) / 2);
+        SetOffset(request.Align switch
+        {
+            ScrollAlign.TopWithDivider => y - 8,
+            ScrollAlign.Top => y - request.Offset,
+            _ => y - (MessageScroller.Viewport.Height - target.Bounds.Height) / 2,
+        });
         return true;
     }
 
@@ -385,6 +388,7 @@ public partial class ChatView : UserControl
         var extent = MessageScroller.Extent.Height;
 
         long top = 0, bottom = 0;
+        double topOffset = 0;
         foreach (var (item, container, y) in RealizedItems())
         {
             if (item is not MessageItemViewModel { Id: > 0 } m)
@@ -392,7 +396,10 @@ public partial class ChatView : UserControl
             if (y + container.Bounds.Height > offset && y < offset + viewport)
             {
                 if (top == 0)
+                {
                     top = m.Id;
+                    topOffset = y - offset;
+                }
                 bottom = m.Id;
             }
             else if (top != 0)
@@ -404,7 +411,8 @@ public partial class ChatView : UserControl
         _vm.OnViewportChanged(new ViewportInfo(top, bottom,
             IsAtBottom: offset >= extent - viewport - BottomTolerance,
             IsNearTop: offset < LoadMoreDistance,
-            IsNearBottom: extent - viewport - offset < LoadMoreDistance));
+            IsNearBottom: extent - viewport - offset < LoadMoreDistance,
+            TopOffset: topOffset));
     }
 
     private void UpdateSizes()
