@@ -78,6 +78,11 @@ public partial class ChatView : UserControl
     // 同一气泡中拖动到其它段落（列表项等）时，起点到指针之间的文字块一起选中；保留到下一次左键按下
     private MessageContent? _acrossContent;
 
+    // 拖动选择文字时指针移到消息区上方 / 下方之外：自动滚动，并用最后的指针位置继续选择（见 OnDragScrollTick）
+    private readonly DispatcherTimer _dragScrollTimer = new() { Interval = TimeSpan.FromMilliseconds(16) };
+    private double _dragScrollSpeed;
+    private (IPointer Pointer, Point RootPosition, PointerPointProperties Properties, KeyModifiers Modifiers)? _dragPointer;
+
     public ChatView()
     {
         InitializeComponent();
@@ -100,11 +105,16 @@ public partial class ChatView : UserControl
         AddHandler(PointerPressedEvent, OnRangePointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         MessageList.AddHandler(PointerPressedEvent, OnRangeBlockPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         MessageList.AddHandler(PointerMovedEvent, OnRangePointerMoved, RoutingStrategies.Tunnel);
+        _dragScrollTimer.Tick += (_, _) => OnDragScrollTick();
         MessageList.AddHandler(KeyDownEvent, OnRangeKeyDown, RoutingStrategies.Tunnel);
         MessageList.AddHandler(PointerReleasedEvent, OnMessagePointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(PointerPressedEvent, OnBubblePointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerReleasedEvent, OnBubblePointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
-        AddHandler(PointerCaptureLostEvent, (_, _) => SetPressed(null), RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(PointerCaptureLostEvent, (_, _) =>
+        {
+            SetPressed(null);
+            StopDragScroll();
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
         _timeTimer.Tick += (_, _) =>
         {
             _timeTimer.Stop();
@@ -198,6 +208,7 @@ public partial class ChatView : UserControl
         _vm = null;
         HideTime();
         SetPressed(null);
+        StopDragScroll();
         _rangeOrigin = null;
         _rangeBlock = null;
         _rangeTarget = null;
@@ -361,6 +372,9 @@ public partial class ChatView : UserControl
     // 停在底部时，内容变高（贴表情、图片加载完成）或视口变矮（输入区变高）后仍然停在底部
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
+        // 滚动事件会冒泡：消息中代码块等自己的滚动条的事件不是消息列表的滚动
+        if (e.Source != MessageScroller)
+            return;
         if (_firstScrollDone && _atBottom && _pendingScroll is null && _anchor is null
             && (e.ExtentDelta.Y > 0 || e.ViewportDelta.Y < 0))
         {
@@ -824,7 +838,11 @@ public partial class ChatView : UserControl
     {
         if (_vm is null || _rangeOrigin is not { } origin || _rangeBlock is not { } block
             || !e.GetCurrentPoint(MessageList).Properties.IsLeftButtonPressed)
+        {
+            StopDragScroll();
             return;
+        }
+        UpdateDragScroll(e);
         // 指针在两条消息之间（时间分隔等）时保持上一次的范围
         _rangeTarget = MessageAt(e.GetPosition(MessageList).Y) ?? _rangeTarget;
         var messages = _vm.Items.OfType<MessageItemViewModel>().ToList();
@@ -859,6 +877,46 @@ public partial class ChatView : UserControl
         if (ContentsOf(_rangeTarget!).FirstOrDefault() is { } target)
             target.SelectTo(e.GetPosition(target), forward);
         e.Handled = true;
+    }
+
+    // 指针在消息区上方 / 下方之外时开始自动滚动：超出越多滚得越快；回到消息区内时停止
+    private void UpdateDragScroll(PointerEventArgs e)
+    {
+        var y = e.GetPosition(MessageScroller).Y;
+        var height = MessageScroller.Viewport.Height;
+        var outside = y < 0 ? y : y > height ? y - height : 0;
+        if (outside == 0 || TopLevel.GetTopLevel(this) is not { } top)
+        {
+            StopDragScroll();
+            return;
+        }
+        _dragScrollSpeed = Math.Sign(outside) * Math.Clamp(Math.Abs(outside) / 3, 4, 60);
+        _dragPointer = (e.Pointer, e.GetPosition(top), e.GetCurrentPoint(top).Properties, e.KeyModifiers);
+        if (!_dragScrollTimer.IsEnabled)
+            _dragScrollTimer.Start();
+    }
+
+    private void StopDragScroll()
+    {
+        _dragScrollTimer.Stop();
+        _dragPointer = null;
+    }
+
+    // 滚动一步，再在最后的指针位置发出一次移动事件：文字块和跨气泡选择按新滚入的内容继续选择
+    private void OnDragScrollTick()
+    {
+        if (_vm is null || _rangeOrigin is null || _dragPointer is not { } drag
+            || drag.Pointer.Captured is not Interactive captured || TopLevel.GetTopLevel(this) is not { } top)
+        {
+            StopDragScroll();
+            return;
+        }
+        var before = MessageScroller.Offset.Y;
+        SetOffset(before + _dragScrollSpeed);
+        if (MessageScroller.Offset.Y == before)
+            return;
+        captured.RaiseEvent(new PointerEventArgs(PointerMovedEvent, captured, drag.Pointer, top, drag.RootPosition,
+            (ulong)Environment.TickCount64, drag.Properties, drag.Modifiers));
     }
 
     // 有跨气泡选择或气泡中多个段落的选择时 Ctrl+C 复制它们（文字块自己的复制只复制它选中的文字）
@@ -1026,6 +1084,7 @@ public partial class ChatView : UserControl
     {
         // 跨气泡拖动选择结束：不当作点击
         var rangeDragged = _rangeOrigin is not null && (_range.Count > 0 || _acrossContent?.SelectedAcross() is not null);
+        StopDragScroll();
         _rangeOrigin = null;
         _rangeBlock = null;
         _rangeTarget = null;

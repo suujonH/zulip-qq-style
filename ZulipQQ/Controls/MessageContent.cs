@@ -38,6 +38,16 @@ public class MessageContent : Decorator
         set => SetValue(HtmlProperty, value);
     }
 
+    /// <summary>自己发送的消息：链接和提及使用适合浅蓝色气泡的颜色。</summary>
+    public static readonly StyledProperty<bool> IsOwnProperty =
+        AvaloniaProperty.Register<MessageContent, bool>(nameof(IsOwn));
+
+    public bool IsOwn
+    {
+        get => GetValue(IsOwnProperty);
+        set => SetValue(IsOwnProperty, value);
+    }
+
     public string? MeSender
     {
         get => GetValue(MeSenderProperty);
@@ -57,7 +67,7 @@ public class MessageContent : Decorator
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == HtmlProperty || change.Property == MeSenderProperty)
+        if (change.Property == HtmlProperty || change.Property == MeSenderProperty || change.Property == IsOwnProperty)
             Rebuild();
     }
 
@@ -235,7 +245,7 @@ public class MessageContent : Decorator
         var html = Html ?? "";
         try
         {
-            Child = ZulipHtmlRenderer.Build(html, MeSender);
+            Child = ZulipHtmlRenderer.Build(html, MeSender, IsOwn);
         }
         catch (Exception ex)
         {

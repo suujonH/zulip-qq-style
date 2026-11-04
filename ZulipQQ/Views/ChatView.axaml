@@ -425,7 +425,7 @@
                                     MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}">
                                 <Panel>
                                     <StackPanel IsVisible="{Binding ShowsContent}">
-                                        <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
+                                        <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" IsOwn="{Binding IsOwn}" />
                                         <!-- 插件临时替换了显示内容（例如翻译）：只显示切换原文 / 插件内容的链接 -->
                                         <c:Lazy When="{Binding HasRender}">
                                             <DataTemplate DataType="vm:MessageItemViewModel">

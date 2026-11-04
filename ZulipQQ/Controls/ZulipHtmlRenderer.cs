@@ -34,10 +34,14 @@ internal static partial class ZulipHtmlRenderer
         "p", "div", "blockquote", "pre", "ul", "ol", "table", "hr", "h1", "h2", "h3", "h4", "h5", "h6",
     };
 
-    public static Control Build(string html, string? meSender)
+    /// <param name="isOwn">自己发送的消息（浅蓝色气泡）：链接和提及使用更深的颜色，保证可读。</param>
+    public static Control Build(string html, string? meSender, bool isOwn = false)
     {
         var root = ZulipHtml.ParseFragment(html);
-        var ctx = new Context(ZulipHtml.InlinePreviewPaths(root), ZulipHtml.InlinedPreviews(root), meSender);
+        var ctx = new Context(ZulipHtml.InlinePreviewPaths(root), ZulipHtml.InlinedPreviews(root), meSender)
+        {
+            AccentKey = isOwn ? "OwnLinkBrush" : "BrandBrush",
+        };
         var panel = NewStack();
         BuildBlocks(root.ChildNodes, panel, ctx);
         return panel;
@@ -57,6 +61,9 @@ internal static partial class ZulipHtmlRenderer
         public string? MePrefix { get; set; } = meSender;
 
         public bool Italic { get; } = meSender is not null;
+
+        /// <summary>链接、提及的颜色资源：自己的气泡中为 OwnLinkBrush。</summary>
+        public string AccentKey { get; init; } = "BrandBrush";
     }
 
     private static StackPanel NewStack(double spacing = 6) => new() { Spacing = spacing };
@@ -598,13 +605,14 @@ internal static partial class ZulipHtmlRenderer
                 run.TextDecorations = TextDecorations.Strikethrough;
             if (style.Code)
             {
+                // 背景由 MessageTextBlock 画成带内边距的圆角块（Run 的背景只是紧贴文字的方块）
                 run.FontFamily = Mono;
-                BindResource(run, TextElement.BackgroundProperty, block, "FillBrush");
+                block.AddCodeRange(_length, _length + text.Length);
             }
             if (style.Highlight)
                 BindResource(run, TextElement.BackgroundProperty, block, "SearchHighlightBrush");
             if (style.Accent)
-                BindResource(run, TextElement.ForegroundProperty, block, "BrandBrush");
+                BindResource(run, TextElement.ForegroundProperty, block, ctx.AccentKey);
             if (style.Deleted)
                 BindResource(run, TextElement.ForegroundProperty, block, "DangerBrush");
 
