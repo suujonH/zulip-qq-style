@@ -23,9 +23,39 @@ public sealed class ZulipClient : IDisposable
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
     private const int MaxRateLimitRetries = 3;
 
-    private static readonly string UserAgent = "ZulipQQ/" + (
+    private static readonly string AppVersion =
         Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            .Split('+')[0] ?? "0.0.0");
+            .Split('+')[0] ?? "0.0.0";
+
+    /// <summary>客户端名称：ZulipQQ 自己（默认）。</summary>
+    public const string ZulipQQClientName = "ZulipQQ";
+
+    /// <summary>客户端名称：Zulip 桌面版（Electron）。</summary>
+    public const string DesktopClientName = "ZulipElectron";
+
+    /// <summary>客户端名称：Zulip 网页版（服务器把浏览器发来的请求都记为 website）。</summary>
+    public const string WebClientName = "website";
+
+    // 冒充桌面版时报告的版本：服务器拒绝低于 DESKTOP_MINIMUM_VERSION（5.4.3）的桌面版，用一个较新的版本
+    private const string DesktopVersion = "5.12.1";
+
+    /// <summary>
+    /// 所有请求的 User-Agent，修改后从下一个请求起生效。服务器取第一个“/”或空格之前的部分作为客户端名称
+    /// （zerver/middleware.py 的 parse_client），记入消息的发送来源和用户的活动记录。
+    /// </summary>
+    public static string UserAgent { get; set; } = UserAgentFor(null);
+
+    /// <summary>客户端名称对应的 User-Agent：ZulipQQ 和桌面版带上版本，其它名称原样使用；为空时是 ZulipQQ。</summary>
+    public static string UserAgentFor(string? clientName)
+    {
+        var name = clientName?.Trim().ReplaceLineEndings(" ") ?? "";
+        return name switch
+        {
+            "" or ZulipQQClientName => $"{ZulipQQClientName}/{AppVersion}",
+            DesktopClientName => $"{DesktopClientName}/{DesktopVersion}",
+            _ => name,
+        };
+    }
 
     private readonly HttpClient _http;
     // 取文件大小专用：不自动解压
@@ -671,7 +701,7 @@ public sealed class ZulipClient : IDisposable
             handler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
 
         var http = new HttpClient(new HttpTraceHandler(handler)) { BaseAddress = realm, Timeout = Timeout.InfiniteTimeSpan };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+        // User-Agent 由 HttpTraceHandler 按 UserAgent 逐个请求设置，设置中修改后不必重新登录
         return http;
     }
 

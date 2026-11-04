@@ -401,7 +401,7 @@ internal static partial class ZulipHtmlRenderer
         if (e.QuerySelector(".spoiler-header") is { } h)
             BuildBlocks(h.ChildNodes, header, ctx);
         if (header.Children.Count == 0)
-            header.Children.Add(new TextBlock { Text = "剧透" });
+            header.Children.Add(new TextBlock { Text = "折叠" });
 
         var body = NewStack();
         if (e.QuerySelector(".spoiler-content") is { } content)

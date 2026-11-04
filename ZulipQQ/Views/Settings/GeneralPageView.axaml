@@ -100,6 +100,23 @@
             </StackPanel>
         </Border>
 
+        <TextBlock Classes="section" Text="连接" />
+        <Border Classes="card">
+            <StackPanel>
+                <!-- 服务器据此记录消息的发送来源、用户的活动记录；修改后从下一个请求起生效 -->
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="客户端标识" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <TextBox Classes="input" Width="160" MaxLength="60" PlaceholderText="客户端名称"
+                                 Text="{Binding CustomClientName}" IsVisible="{Binding IsCustomClientName}" />
+                        <ComboBox ItemsSource="{Binding ClientNameOptions}" SelectedItem="{Binding SelectedClientName}" />
+                    </StackPanel>
+                </Grid>
+                <TextBlock Classes="hint" Margin="0,0,0,8" HorizontalAlignment="Right" Text="{Binding UserAgentText}" />
+                <c:SettingSource Local="App" />
+            </StackPanel>
+        </Border>
+
         <TextBlock Classes="section" Text="字体大小" />
         <Border Classes="card">
             <StackPanel>
