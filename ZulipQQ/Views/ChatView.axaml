@@ -533,9 +533,11 @@
             </Grid>
         </Border>
 
-        <!-- 消息区：不虚拟化，向上加载时需要精确保持滚动位置 -->
+        <!-- 消息区：不虚拟化，向上加载时需要精确保持滚动位置。
+             消息文字可以获得焦点：关闭右键菜单时焦点回到之前点过的文字（例如点击引用跳转后，焦点还在下方的引用里），
+             不能因此把它滚动回视口 -->
         <Panel Grid.Row="1">
-            <ScrollViewer x:Name="MessageScroller" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer x:Name="MessageScroller" HorizontalScrollBarVisibility="Disabled" BringIntoViewOnFocusChange="False">
                 <ItemsControl x:Name="MessageList" ItemsSource="{Binding Items}" Padding="0,8">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
