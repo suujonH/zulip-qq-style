@@ -72,7 +72,11 @@ public sealed class WidgetCardViewModel
                 o.Text,
                 $"{o.Voters.Count}票({(total == 0 ? 0 : o.Voters.Count * 100.0 / total):0}%)",
                 share: total == 0 ? 0 : (double)o.Voters.Count / total,
-                voters: o.Voters.Select(id => new VoterViewModel(session.Users.Get(id)?.AvatarUrl, session.Contacts.DisplayName(id))).ToList(),
+                // 自己投过时自己的头像排第一个（OrderBy 是稳定排序，其他人保持原顺序）
+                voters: o.Voters
+                    .OrderBy(id => id == session.SelfId ? 0 : 1)
+                    .Select(id => new VoterViewModel(session.Users.Get(id)?.AvatarUrl, session.Contacts.DisplayName(id), id == session.SelfId))
+                    .ToList(),
                 isHighlighted: o.Voters.Contains(session.SelfId),
                 isCompleted: false,
                 isTask: false,
@@ -115,4 +119,4 @@ public sealed partial class WidgetRowViewModel(
 }
 
 /// <summary>投票人的头像。</summary>
-public sealed record VoterViewModel(string? AvatarUrl, string Name);
+public sealed record VoterViewModel(string? AvatarUrl, string Name, bool IsSelf = false);

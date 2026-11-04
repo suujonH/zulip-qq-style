@@ -88,9 +88,58 @@
         </Style>
 
         <!-- 投票 / 待办卡片：自己投过的选项为品牌色，完成的任务划线 -->
-        <Style Selector="TextBlock.widgetRow.highlighted">
+        <!-- 投票选项左侧的圆圈：自己投过的显示主题色实心圆加勾号 -->
+        <Style Selector="Border.voteMark">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.voteMark.voted">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Border.voteMark c|TdIcon">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Border.voteMark.voted c|TdIcon">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <!-- 投票人头像：白边隔开重叠的头像。自己的头像稍大，白边内再加一圈主题色：
+             白边把它和蓝色票条隔开，主题色圈标出是自己 -->
+        <Style Selector="Border.voter">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        </Style>
+        <Style Selector="Border.voter c|Avatar">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+        </Style>
+        <Style Selector="Border.voter.self">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="CornerRadius" Value="11" />
+            <Setter Property="Padding" Value="1.5" />
+        </Style>
+        <Style Selector="Border.voter.self > Border.voterRing">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="1.5" />
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Border.voter.self c|Avatar">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+        </Style>
+        <Style Selector="TextBlock.voteCount.highlighted">
             <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
         <Style Selector="ProgressBar.voteShare">
             <Setter Property="Foreground" Value="{DynamicResource PressedBrush}" />
@@ -428,30 +477,35 @@
                                                         <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsCompleted, Mode=OneWay}"
                                                                   IsVisible="{Binding IsTask}" IsHitTestVisible="False" Focusable="False"
                                                                   MinWidth="0" MinHeight="0" Padding="0" Margin="0,0,6,0" VerticalAlignment="Top" />
+                                                        <Border DockPanel.Dock="Left" Classes="voteMark" Classes.voted="{Binding IsHighlighted}"
+                                                                IsVisible="{Binding !IsTask}" VerticalAlignment="Top" Margin="0,3,6,0">
+                                                            <c:TdIcon Icon="{StaticResource Icon.Check}" />
+                                                        </Border>
                                                         <StackPanel>
-                                                            <TextBlock Classes="widgetRow" Classes.highlighted="{Binding IsHighlighted}"
-                                                                       Classes.completed="{Binding IsCompleted}" Text="{Binding Text}"
+                                                            <TextBlock Classes="widgetRow" Classes.completed="{Binding IsCompleted}" Text="{Binding Text}"
                                                                        TextWrapping="Wrap" />
                                                             <!-- 投票：进度条（投票人头像重叠显示在其中，放不下的不显示）+ 票数 -->
                                                             <DockPanel Margin="0,4,0,2" IsVisible="{Binding !IsTask}">
-                                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" Margin="8,0,0,0"
+                                                                <TextBlock DockPanel.Dock="Right" Classes="voteCount" Classes.highlighted="{Binding IsHighlighted}"
+                                                                           Text="{Binding Detail}" Margin="8,0,0,0"
                                                                            FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center"
                                                                            Foreground="{DynamicResource TextSecondaryBrush}" />
                                                                 <Panel>
                                                                     <ProgressBar Classes="voteShare" Classes.highlighted="{Binding IsHighlighted}"
                                                                                  Height="22" MinHeight="22" MinWidth="0"
                                                                                  Minimum="0" Maximum="1" Value="{Binding Share}" />
-                                                                    <ItemsControl ItemsSource="{Binding Voters}" Margin="2,0" IsHitTestVisible="False">
+                                                                    <ItemsControl ItemsSource="{Binding Voters}" Margin="6,0,2,0" IsHitTestVisible="False">
                                                                         <ItemsControl.ItemsPanel>
                                                                             <ItemsPanelTemplate>
-                                                                                <c:OverlapStack Step="13" />
+                                                                                <c:OverlapStack Step="9" />
                                                                             </ItemsPanelTemplate>
                                                                         </ItemsControl.ItemsPanel>
                                                                         <ItemsControl.ItemTemplate>
                                                                             <DataTemplate DataType="vm:VoterViewModel">
-                                                                                <Border Width="20" Height="20" CornerRadius="10" Padding="1"
-                                                                                        Background="{DynamicResource CardBrush}">
-                                                                                    <c:Avatar Width="18" Height="18" Source="{Binding AvatarUrl}" Text="{Binding Name}" />
+                                                                                <Border Classes="voter" Classes.self="{Binding IsSelf}">
+                                                                                    <Border Classes="voterRing">
+                                                                                        <c:Avatar Source="{Binding AvatarUrl}" Text="{Binding Name}" />
+                                                                                    </Border>
                                                                                 </Border>
                                                                             </DataTemplate>
                                                                         </ItemsControl.ItemTemplate>

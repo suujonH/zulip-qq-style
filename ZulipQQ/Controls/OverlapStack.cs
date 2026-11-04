@@ -6,7 +6,7 @@ namespace ZulipQQ.Controls;
 
 /// <summary>
 /// 从左向右重叠排列子元素（投票人头像）：每一个比前一个右移 <see cref="Step"/>，压在前一个的下面。
-/// 宽度不够时，放不下的子元素不显示（排列为空矩形）。期望宽度为 0，不撑大所在的容器。
+/// 剩余宽度不足 1.5 个子元素时，后面的子元素不显示（排列为空矩形）。期望宽度为 0，不撑大所在的容器。
 /// </summary>
 public class OverlapStack : Panel
 {
@@ -44,7 +44,8 @@ public class OverlapStack : Panel
         {
             var child = Children[i];
             var size = child.DesiredSize;
-            fits = fits && x + size.Width <= finalSize.Width;
+            // 剩余宽度不足 1.5 个头像时不再显示后面的头像，避免最后一个贴着边缘
+            fits = fits && x + size.Width * 1.5 <= finalSize.Width;
             // 先出现的在上面
             child.ZIndex = Children.Count - i;
             child.Arrange(fits ? new Rect(x, (finalSize.Height - size.Height) / 2, size.Width, size.Height) : default);
