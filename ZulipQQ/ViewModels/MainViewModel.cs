@@ -26,6 +26,16 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         Topics = new TopicActions(this, this);
         Search = new SearchViewModel(session, this);
         CurrentPage = Messages;
+        // 启动后第一次打开聊天时，控件样式、模板、字体等第一次准备，要 700～800ms（之后 100～150ms）：
+        // 第一个会话预载好后如果还没有打开聊天，让主窗口在后台把它创建、渲染一次
+        Messages.PrefetchCompleted += (_, key) =>
+        {
+            if (RightPane is not null || Session.IsDisposed)
+                return;
+            var chat = new ChatViewModel(Session, this, key);
+            chat.PrepareWarmup();
+            ChatWarmupRequested?.Invoke(this, chat);
+        };
 
         session.Users.UserChanged += (_, id) =>
         {
@@ -141,6 +151,9 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         _toastTimer.Stop();
         _toastTimer.Start();
     }
+
+    /// <summary>请求视图在后台创建、渲染一次聊天（预热，不显示、不打开）。</summary>
+    public event EventHandler<ChatViewModel>? ChatWarmupRequested;
 
     /// <summary>
     /// 打开会话：在右侧显示聊天（已在独立窗口中打开时激活该窗口），切换到消息页并选中该会话。

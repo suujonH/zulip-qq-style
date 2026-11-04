@@ -240,6 +240,12 @@ public partial class ChatViewModel : ViewModelBase
         _ = RefreshReadStateAsync();
     }
 
+    /// <summary>
+    /// 预热用：只用缓存中的消息生成条目，让视图在后台创建、布局、渲染一次（见 MainWindow 的预热）。
+    /// 不调用 <see cref="OpenAsync"/>：不注册到打开的聊天、不订阅事件、不标记已读，丢弃即可。
+    /// </summary>
+    public void PrepareWarmup() => RebuildItems();
+
     /// <summary>关闭会话（幂等）：取消订阅、从打开列表中移除，并等待草稿保存完成。</summary>
     public Task CloseAsync()
     {

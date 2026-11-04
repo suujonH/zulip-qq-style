@@ -63,6 +63,7 @@ public partial class MainWindow : Window, ISessionWindow
             _vm.SystemNoticesWindowRequested -= OnSystemNoticesWindowRequested;
             _vm.MainWindowRequested -= OnMainWindowRequested;
             _vm.PropertyChanged -= OnVmPropertyChanged;
+            _vm.ChatWarmupRequested -= OnChatWarmupRequested;
         }
         _vm = DataContext as MainViewModel;
         if (_vm is not null)
@@ -75,8 +76,31 @@ public partial class MainWindow : Window, ISessionWindow
             _vm.SystemNoticesWindowRequested += OnSystemNoticesWindowRequested;
             _vm.MainWindowRequested += OnMainWindowRequested;
             _vm.PropertyChanged += OnVmPropertyChanged;
+            _vm.ChatWarmupRequested += OnChatWarmupRequested;
         }
         ApplyEmpty();
+    }
+
+    // 预热：在右侧几乎透明地创建、布局、渲染一次聊天视图，再移除。之后第一次打开聊天时，
+    // 样式、模板、字体、HTML 渲染等都已准备好，与之后打开一样快
+    private async void OnChatWarmupRequested(object? sender, ChatViewModel chat)
+    {
+        if (WarmupHost.Children.Count > 0)
+            return;
+        var start = System.Diagnostics.Stopwatch.GetTimestamp();
+        var view = new ChatView { DataContext = chat };
+        WarmupHost.Children.Add(view);
+        try
+        {
+            // 后台优先级在布局之后执行；再等一帧，让渲染也完成
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+            await System.Threading.Tasks.Task.Delay(50);
+        }
+        finally
+        {
+            WarmupHost.Children.Remove(view);
+        }
+        Log.Debug($"聊天视图预热：{System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds:0}ms，{chat.Items.Count} 项");
     }
 
     // 没有在线的账号（DataContext 为 null）：只保留导航中的账号、添加账号、设置和调色盘，中间显示引导

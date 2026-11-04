@@ -79,13 +79,23 @@ public partial class MessagesPageViewModel : ViewModelBase
     {
         await Task.Delay(StartupPrefetchDelay);
         var keys = Conversations.Where(CanPrefetch).Take(StartupPrefetchCount).Select(c => c.Key).ToList();
+        var warmed = false;
         foreach (var key in keys)
         {
             if (_session.IsDisposed)
                 return;
             await _session.Messages.PrefetchAsync(key);
+            // 第一个缓存好的会话就用来预热聊天视图，越早越可能赶在用户第一次点击之前
+            if (!warmed && !_session.IsDisposed && _session.Messages.HasEnoughCached(key))
+            {
+                warmed = true;
+                PrefetchCompleted?.Invoke(this, key);
+            }
         }
     }
+
+    /// <summary>启动预载中第一个会话已缓存好（用于预热聊天视图）。</summary>
+    public event EventHandler<ConversationKey>? PrefetchCompleted;
 
     /// <summary>指针在会话上停留片刻：后台预载它最新的消息，点击时多半已经加载好。</summary>
     public void Prefetch(ConversationItemViewModel item)

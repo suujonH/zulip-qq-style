@@ -417,6 +417,8 @@
 
                 <!-- 右侧内容区：聊天、资料面板等；没有内容时显示企鹅占位 -->
                 <Panel Grid.Column="2" IsVisible="{Binding !IsClassicMode}">
+                    <!-- 预热聊天视图：几乎透明（透明度为 0 时不会渲染），不响应鼠标，渲染一次后移除 -->
+                    <Panel x:Name="WarmupHost" Opacity="0.01" IsHitTestVisible="False" />
                     <c:TdIcon Icon="{StaticResource Icon.QqFilled}" Width="90" Height="90"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               Foreground="{DynamicResource PlaceholderLogoBrush}" IsVisible="{Binding !HasRightPane}" />
