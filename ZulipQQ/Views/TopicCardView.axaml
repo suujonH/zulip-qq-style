@@ -32,20 +32,40 @@
         <StackPanel Spacing="14">
             <Grid ColumnDefinitions="Auto,*">
                 <c:Avatar Width="64" Height="64" Text="{Binding Title}" Fill="{Binding AvatarFill}" VerticalAlignment="Top" />
-                <StackPanel Grid.Column="1" Margin="14,4,0,0" Spacing="6">
-                    <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <!-- 频道名在话题名上方，用灰色小字，与话题名区分 -->
+                <StackPanel Grid.Column="1" Margin="14,4,0,0" Spacing="4">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <c:TdIcon Icon="{StaticResource Icon.Lock}" Width="12" Height="12" IsVisible="{Binding IsPrivate}"
                                   Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <TextBlock Classes="sub" Text="{Binding ChannelText}" />
+                        <TextBlock Text="{Binding ChannelText}" FontSize="{DynamicResource FontSizeSmall}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
+                    <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold" TextWrapping="Wrap" />
                 </StackPanel>
             </Grid>
 
             <Border Height="1" Background="{DynamicResource DividerBrush}" />
 
             <DockPanel Classes="row">
-                <TextBlock Classes="label" Text="备注" />
+                <TextBlock Classes="label" Text="频道备注" />
+                <Panel>
+                    <Button Classes="editable" Theme="{StaticResource FlatButton}"
+                            Command="{Binding BeginEditChannelRemarkCommand}" IsVisible="{Binding !IsEditingChannelRemark}">
+                        <Panel>
+                            <TextBlock Classes="value" Text="{Binding ChannelRemarkText}" />
+                            <TextBlock Classes="value" Text="设置备注" Foreground="{DynamicResource TextTertiaryBrush}"
+                                       IsVisible="{Binding ChannelRemarkText, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                        </Panel>
+                    </Button>
+                    <c:InlineEditBox Classes="input" MaxLength="32" Text="{Binding ChannelRemarkDraft}"
+                                     IsVisible="{Binding IsEditingChannelRemark}"
+                                     CommitCommand="{Binding CommitChannelRemarkCommand}"
+                                     CancelCommand="{Binding CancelChannelRemarkCommand}" />
+                </Panel>
+            </DockPanel>
+
+            <DockPanel Classes="row">
+                <TextBlock Classes="label" Text="话题备注" />
                 <Panel>
                     <Button Classes="editable" Theme="{StaticResource FlatButton}"
                             Command="{Binding BeginEditRemarkCommand}" IsVisible="{Binding !IsEditingRemark}">

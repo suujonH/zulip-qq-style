@@ -4,7 +4,7 @@ using ZulipQQ.Models;
 
 namespace ZulipQQ.Data;
 
-/// <summary>好友分组、分组成员关系和好友备注。一个用户最多属于一个自定义分组。</summary>
+/// <summary>好友分组、分组成员关系、好友备注和频道备注。一个用户最多属于一个自定义分组。</summary>
 public sealed class ContactRepository(LocalDb db, long accountId)
 {
     /// <summary>按 sort_order 排列的自定义分组。</summary>
@@ -105,5 +105,25 @@ public sealed class ContactRepository(LocalDb db, long accountId)
             INSERT INTO user_remark(account_id, user_id, remark) VALUES(@a, @u, @r)
             ON CONFLICT(account_id, user_id) DO UPDATE SET remark = excluded.remark;
             """, ("@a", accountId), ("@u", userId), ("@r", remark));
+    }
+
+    /// <summary>频道 id → 频道备注。</summary>
+    public Dictionary<long, string> LoadChannelRemarks() =>
+        db.Query("SELECT stream_id, remark FROM channel_remark WHERE account_id = @a;",
+                r => (StreamId: r.GetInt64(0), Remark: r.GetString(1)), ("@a", accountId))
+            .ToDictionary(x => x.StreamId, x => x.Remark);
+
+    /// <summary>设置频道备注；null 表示清除。</summary>
+    public void SetChannelRemark(long streamId, string? remark)
+    {
+        if (remark is null)
+        {
+            db.Execute("DELETE FROM channel_remark WHERE account_id = @a AND stream_id = @s;", ("@a", accountId), ("@s", streamId));
+            return;
+        }
+        db.Execute("""
+            INSERT INTO channel_remark(account_id, stream_id, remark) VALUES(@a, @s, @r)
+            ON CONFLICT(account_id, stream_id) DO UPDATE SET remark = excluded.remark;
+            """, ("@a", accountId), ("@s", streamId), ("@r", remark));
     }
 }

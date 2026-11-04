@@ -14,7 +14,7 @@
                 <Button Theme="{StaticResource FlatButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                         Padding="0,2" Command="{Binding ShowNoticeCommand}">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="群公告" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" />
+                        <TextBlock Text="频道公告" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" />
                         <c:TdIcon Grid.Column="1" Icon="{StaticResource Icon.ChevronRight}" Width="14" Height="14"
                                   Foreground="{DynamicResource TextTertiaryBrush}" />
                     </Grid>
@@ -30,7 +30,7 @@
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Height="36" Margin="12,4,6,0">
             <TextBlock Text="{Binding MembersTitle}" FontSize="{DynamicResource FontSizeSmall}" FontWeight="SemiBold" VerticalAlignment="Center" />
             <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="26" Height="26"
-                    ToolTip.Tip="搜索群成员" Command="{Binding ToggleSearchCommand}">
+                    ToolTip.Tip="搜索频道成员" Command="{Binding ToggleSearchCommand}">
                 <c:TdIcon Icon="{StaticResource Icon.Search}" Width="14" Height="14" />
             </Button>
         </Grid>

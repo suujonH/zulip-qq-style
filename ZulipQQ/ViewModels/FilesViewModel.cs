@@ -244,7 +244,7 @@ public partial class FilesViewModel : ViewModelBase
         FilesView.Recent => "最近使用",
         FilesView.Sender => SelectedSource is { } s ? $"发送人 - {s.Title}" : "发送人",
         FilesView.Conversation => SelectedSource is { } c ? $"会话 - {c.Title}" : "会话",
-        FilesView.Group => SelectedSource is { } g ? $"群文件 - {g.Title}" : "群文件",
+        FilesView.Group => SelectedSource is { } g ? $"频道文件 - {g.Title}" : "频道文件",
         _ => "全部文件",
     };
 
@@ -279,7 +279,7 @@ public partial class FilesViewModel : ViewModelBase
         : ShowSources && SelectedSource is null ? View switch
         {
             FilesView.Sender => "请选择发送人",
-            FilesView.Group => "请选择群聊",
+            FilesView.Group => "请选择频道",
             _ => "请选择会话",
         }
         : HasError ? "加载失败"

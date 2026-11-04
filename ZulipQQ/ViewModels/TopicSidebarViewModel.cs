@@ -37,7 +37,7 @@ public partial class TopicSidebarViewModel : ViewModelBase
     public bool HasNotice => NoticeHtml.Length > 0;
 
     [ObservableProperty]
-    public partial string MembersTitle { get; private set; } = "群聊成员";
+    public partial string MembersTitle { get; private set; } = "频道成员";
 
     [ObservableProperty]
     public partial bool IsSearching { get; private set; }
@@ -144,7 +144,7 @@ public partial class TopicSidebarViewModel : ViewModelBase
             return;
 
         _members = ChatMembers.Build(Session, Session.Channels.Get(streamId), ids);
-        MembersTitle = $"群聊成员 {_members.Count}";
+        MembersTitle = $"频道成员 {_members.Count}";
         ApplyFilter();
     }
 

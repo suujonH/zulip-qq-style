@@ -157,7 +157,7 @@
                             Content="好友" Command="{Binding ShowFriendsCommand}" />
                     <Button Grid.Column="1" Classes="tab" Classes.active="{Binding IsGroupTab}"
                             Theme="{StaticResource FlatButton}"
-                            Content="群聊" Command="{Binding ShowGroupsCommand}" />
+                            Content="频道" Command="{Binding ShowGroupsCommand}" />
                 </Grid>
             </Border>
         </StackPanel>

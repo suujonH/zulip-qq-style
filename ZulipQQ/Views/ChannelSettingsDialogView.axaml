@@ -29,7 +29,7 @@
                     <TextBox Classes="input" Text="{Binding Name}"
                              MaxLength="{x:Static vm:CreateChannelDialogViewModel.MaxNameLength}" />
 
-                    <TextBlock Classes="sub" Text="描述（群公告）" FontSize="{DynamicResource FontSizeSmall}" Margin="0,6,0,0" />
+                    <TextBlock Classes="sub" Text="描述（频道公告）" FontSize="{DynamicResource FontSizeSmall}" Margin="0,6,0,0" />
                     <TextBox Classes="input" Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap"
                              Height="72" VerticalContentAlignment="Top"
                              MaxLength="{x:Static vm:CreateChannelDialogViewModel.MaxDescriptionLength}" />

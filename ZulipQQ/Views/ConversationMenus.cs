@@ -25,7 +25,7 @@ internal static class ConversationMenus
     /// <summary>“群消息设置 ▸”：四个级别的单选项，当前级别打勾。</summary>
     public static MenuItem LevelSubmenu(DndLevel current, Action<DndLevel> set)
     {
-        var levels = new MenuItem { Header = "群消息设置" };
+        var levels = new MenuItem { Header = "消息设置" };
         foreach (var level in LevelOption.All)
         {
             var option = Item(level.Text, () => set(level.Level));

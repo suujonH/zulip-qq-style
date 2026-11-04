@@ -332,7 +332,7 @@ public partial class SettingsViewModel : ViewModelBase
             Nav.Add(new SettingsNavItem(SettingsPage.Preferences, "偏好设置"));
             Nav.Add(new SettingsNavItem(SettingsPage.Notifications, "消息通知"));
             Nav.Add(new SettingsNavItem(SettingsPage.EnhancedPush, "强化推送"));
-            Nav.Add(new SettingsNavItem(SettingsPage.GroupMessages, "群消息设置"));
+            Nav.Add(new SettingsNavItem(SettingsPage.GroupMessages, "话题消息设置"));
             Nav.Add(new SettingsNavItem(SettingsPage.Privacy, "隐私"));
             Nav.Add(new SettingsNavItem(SettingsPage.AlertWords, "提醒词"));
             // 所有人可以查看，组织管理员可以修改

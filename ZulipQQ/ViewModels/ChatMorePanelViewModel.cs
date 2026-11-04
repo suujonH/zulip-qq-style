@@ -286,7 +286,7 @@ public partial class ChatMorePanelViewModel : ViewModelBase
             IsUserMuted = key is DmKey { OtherUserIds.Length: 1 } dm && Session.Users.IsMuted(dm.OtherUserIds[0]);
 
             var channel = key is TopicKey t ? Session.Channels.Get(t.StreamId) : null;
-            ChannelText = channel is null ? "" : $"#{channel.Name}";
+            ChannelText = channel is null ? "" : $"#{Session.Channels.DisplayName(channel.StreamId)}";
             IsPrivate = channel?.InviteOnly ?? false;
             AvatarFill = ConversationItemViewModel.BrushOf(channel?.Color);
             NoticeText = FirstLine(channel is null ? null : ZulipHtml.ToPlainText(channel.RenderedDescription));
@@ -372,8 +372,8 @@ public partial class ChatMorePanelViewModel : ViewModelBase
 
         _members = ChatMembers.Build(Session, channel, ids);
         PreviewMembers = _members.Take(PreviewMemberCount).ToList();
-        MemberCountText = $"查看{_members.Count}名群成员";
-        MemberListTitle = $"群聊成员 {_members.Count}";
+        MemberCountText = $"查看{_members.Count}名频道成员";
+        MemberListTitle = $"频道成员 {_members.Count}";
         ApplyMemberFilter();
     }
 

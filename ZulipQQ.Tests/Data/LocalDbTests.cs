@@ -235,8 +235,10 @@ public sealed class LocalDbTests : IDisposable
         conv.SetPinned(new TopicKey(3, "unpinned"), null);
         conv.SetPinned(new DmKey([7]), 222);
         conv.SetPinned(ConversationKey.Helper, 333);
+        // 回到添加 contact_pin 之前的版本（之后的迁移也会重新执行）
         _db.Execute("DROP TABLE contact_pin;");
-        _db.Execute($"PRAGMA user_version = {LocalDb.SchemaVersion - 1};");
+        _db.Execute("DROP TABLE channel_remark;");
+        _db.Execute($"PRAGMA user_version = {LocalDb.SchemaVersion - 2};");
         _db.Dispose();
 
         using var db = LocalDb.Open(Path.Combine(_dir, "test.db"));
@@ -244,6 +246,44 @@ public sealed class LocalDbTests : IDisposable
         // 消息列表的置顶不变
         Assert.Equal(222, new ConversationStateRepository(db, 1).Find(new DmKey([7]))!.PinnedAt);
         Assert.Equal(111, new ConversationStateRepository(db, 1).Find(topic)!.PinnedAt);
+    }
+
+    [Fact]
+    public void ChannelRemarks_RoundTrip()
+    {
+        var repo = new ContactRepository(_db, 1);
+        repo.SetChannelRemark(3, "后端");
+        repo.SetChannelRemark(4, "前端");
+        new ContactRepository(_db, 2).SetChannelRemark(3, "其它账号");
+        Assert.Equal(new Dictionary<long, string> { [3] = "后端", [4] = "前端" }, repo.LoadChannelRemarks());
+
+        repo.SetChannelRemark(3, "后端组");
+        Assert.Equal("后端组", repo.LoadChannelRemarks()[3]);
+        repo.SetChannelRemark(3, null);
+        Assert.Equal([4L], repo.LoadChannelRemarks().Keys);
+        // 用户备注是另一张表
+        Assert.Empty(repo.LoadRemarks());
+    }
+
+    // 升级到有频道备注的版本：已有的用户备注和话题备注不受影响
+    [Fact]
+    public void Migration_AddsChannelRemarks_KeepsOtherRemarks()
+    {
+        new ContactRepository(_db, 1).SetRemark(9, "小九");
+        var topic = new TopicKey(3, "Abc");
+        new ConversationStateRepository(_db, 1).SetRemark(topic, "话题备注");
+        _db.Execute("DROP TABLE channel_remark;");
+        _db.Execute($"PRAGMA user_version = {LocalDb.SchemaVersion - 1};");
+        _db.Dispose();
+
+        using var db = LocalDb.Open(Path.Combine(_dir, "test.db"));
+        Assert.Equal(LocalDb.SchemaVersion, db.UserVersion);
+        var contacts = new ContactRepository(db, 1);
+        Assert.Empty(contacts.LoadChannelRemarks());
+        contacts.SetChannelRemark(3, "频道备注");
+        Assert.Equal("频道备注", contacts.LoadChannelRemarks()[3]);
+        Assert.Equal("小九", contacts.LoadRemarks()[9]);
+        Assert.Equal("话题备注", new ConversationStateRepository(db, 1).Find(topic)!.Remark);
     }
 
     [Fact]

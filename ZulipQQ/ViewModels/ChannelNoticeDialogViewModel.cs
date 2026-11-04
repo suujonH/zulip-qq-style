@@ -89,7 +89,7 @@ public partial class ChannelNoticeDialogViewModel : ViewModelBase, IDisposable
     private void Refresh()
     {
         var channel = _session.Channels.Get(_streamId);
-        Title = channel is null ? "群公告" : $"群公告 - #{channel.Name}";
+        Title = channel is null ? "频道公告" : $"频道公告 - #{channel.Name}";
         Html = channel?.RenderedDescription.Trim() ?? "";
         CanEdit = channel is { IsArchived: false } && _session.Shows(_session.Permissions.CanAdministerChannel(channel));
         if (!CanEdit)
@@ -124,7 +124,7 @@ public partial class ChannelNoticeDialogViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex) when (!_session.IsDisposed)
         {
-            Log.Warn($"修改群公告失败：{_streamId}", ex);
+            Log.Warn($"修改频道公告失败：{_streamId}", ex);
             _host.ShowToast(ex is ZulipApiException { Message.Length: > 0 } api ? $"保存失败：{api.Message}" : "保存失败");
         }
         finally

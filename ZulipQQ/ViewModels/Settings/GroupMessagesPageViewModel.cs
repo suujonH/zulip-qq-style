@@ -38,7 +38,8 @@ public sealed partial class LevelRowViewModel : ObservableObject
     public void Refresh()
     {
         _updating = true;
-        Title = _session.Conversations.GetTitle(Key);
+        // 话题显示“备注(话题名)”，便于对照
+        Title = Key is TopicKey t ? _session.Conversations.GetTopicTitleWithOriginal(t) : _session.Conversations.GetTitle(Key);
         var level = _session.Conversations.GetLevel(Key);
         Selected = LevelOption.All.First(o => o.Level == level);
         _updating = false;
@@ -91,7 +92,7 @@ public sealed partial class ChannelLevelGroupViewModel : ObservableObject
     {
         if (_session.Channels.Get(StreamId) is not { } channel)
             return;
-        Name = channel.Name;
+        Name = _session.Channels.NameWithOriginal(StreamId);
         Fill = ConversationItemViewModel.BrushOf(channel.Color);
         foreach (var row in Topics)
             row.Refresh();

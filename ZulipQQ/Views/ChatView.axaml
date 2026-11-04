@@ -662,7 +662,7 @@
                                IsVisible="{Binding TypingText, Converter={x:Static ObjectConverters.IsNotNull}}" />
                 </StackPanel>
                 <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,4,0"
-                        ToolTip.Tip="群文件" IsVisible="{Binding IsTopic}" Click="OnGroupFilesClick">
+                        ToolTip.Tip="频道文件" IsVisible="{Binding IsTopic}" Click="OnGroupFilesClick">
                     <c:TdIcon Icon="{StaticResource Icon.Folder}" Width="20" Height="20" />
                 </Button>
                 <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,12,0"

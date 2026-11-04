@@ -183,6 +183,40 @@ public partial class ContactsPageViewModel : ViewModelBase
         _main.Dialogs.Add(dialog);
     }
 
+    // ---- 备注（只保存在本地）----
+
+    public void ShowUserRemarkDialog(long userId)
+    {
+        var name = Session.Users.Get(userId)?.FullName ?? "未知用户";
+        var contacts = Session.Contacts;
+        ShowRemarkDialog(contacts.GetRemark(userId), name, remark => contacts.SetRemark(userId, remark));
+    }
+
+    public void ShowChannelRemarkDialog(long streamId)
+    {
+        var name = Session.Channels.Get(streamId)?.Name ?? "";
+        ShowRemarkDialog(Session.Contacts.GetChannelRemark(streamId), $"#{name}",
+            remark => Session.Channels.SetRemark(streamId, remark));
+    }
+
+    public void ShowTopicRemarkDialog(TopicKey key)
+    {
+        var conversations = Session.Conversations;
+        ShowRemarkDialog(conversations.Get(key)?.Remark, conversations.GetOriginalTopicTitle(key),
+            remark => conversations.SetRemark(key, remark));
+    }
+
+    private void ShowRemarkDialog(string? remark, string originalName, Action<string?> save)
+    {
+        RemarkDialogViewModel dialog = null!;
+        dialog = new RemarkDialogViewModel(RemarkMenuText(remark).TrimEnd('…'), originalName, remark, save,
+            () => _main.Dialogs.Remove(dialog));
+        _main.Dialogs.Add(dialog);
+    }
+
+    /// <summary>右键菜单中的文字：没有备注时“设置备注…”，已有备注时“修改备注…”。</summary>
+    public static string RemarkMenuText(string? remark) => string.IsNullOrEmpty(remark) ? "设置备注…" : "修改备注…";
+
     public async Task DeleteGroupAsync(ContactSectionViewModel section)
     {
         if (await _main.ConfirmAsync("删除后，该分组中的好友将移至我的好友", "删除"))
@@ -333,7 +367,7 @@ public partial class ContactsPageViewModel : ViewModelBase
         if (pinned.Count > 0)
         {
             var section = SectionFor(GroupSections, ContactSectionKind.PinnedTopics, PinnedTopicsSectionId);
-            section.Update("置顶群聊", "", pinned);
+            section.Update("置顶话题", "", pinned);
             desired.Add(section);
         }
 
@@ -349,12 +383,12 @@ public partial class ContactsPageViewModel : ViewModelBase
             if (Session.Channels.TryGetTopics(streamId) is { } topics)
             {
                 var items = topics.Select(t => TopicItem(new TopicKey(streamId, t.Name), used)).ToList<ViewModelBase>();
-                section.Update(channel.Name, "", items,
+                section.Update(Session.Channels.NameWithOriginal(streamId), "", items,
                     isLocked: channel.InviteOnly, isDimmed: channel.IsMuted);
             }
             else
             {
-                section.Update(channel.Name, "", [], () => LoadTopicsAsync(streamId),
+                section.Update(Session.Channels.NameWithOriginal(streamId), "", [], () => LoadTopicsAsync(streamId),
                     isLocked: channel.InviteOnly, isDimmed: channel.IsMuted);
             }
             desired.Add(section);
@@ -370,7 +404,7 @@ public partial class ContactsPageViewModel : ViewModelBase
         used.Add(key);
         if (!_topicItems.TryGetValue(key, out var item))
             _topicItems[key] = item = new TopicItemViewModel(key);
-        item.Update(Session.Conversations.GetTitle(key), Session.Channels.Get(key.StreamId)?.Color);
+        item.Update(Session.Conversations.GetTopicTitleWithOriginal(key), Session.Channels.Get(key.StreamId)?.Color);
         if (item.Push is { } push)
             push.Refresh();
         else

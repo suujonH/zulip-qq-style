@@ -92,7 +92,7 @@ public partial class ContactsPageView : UserControl
         menu.Open(anchor);
     }
 
-    // 好友：发消息、置顶（只影响联系人页的“置顶好友”，与消息列表的置顶无关）
+    // 好友：发消息、置顶（只影响联系人页的“置顶好友”，与消息列表的置顶无关）、备注
     private static ContextMenu FriendMenu(ContactsPageViewModel vm, FriendItemViewModel friend)
     {
         var contacts = vm.Session.Contacts;
@@ -102,6 +102,7 @@ public partial class ContactsPageView : UserControl
         menu.Items.Add(ConversationMenus.Item("发消息", () => vm.Open(friend)));
         menu.Items.Add(new Separator());
         menu.Items.Add(ConversationMenus.Item(pinned ? "取消置顶" : "设为置顶", () => contacts.SetFriendPinned(id, !pinned)));
+        menu.Items.Add(ConversationMenus.Item(ContactsPageViewModel.RemarkMenuText(contacts.GetRemark(id)), () => vm.ShowUserRemarkDialog(id)));
         return menu;
     }
 
@@ -120,6 +121,8 @@ public partial class ContactsPageView : UserControl
                 session.Conversations.EnsureEntry(key, session.Conversations.GetTopicName(key));
             session.Contacts.SetTopicPinned(key, !pinned);
         }));
+        menu.Items.Add(ConversationMenus.Item(ContactsPageViewModel.RemarkMenuText(session.Conversations.Get(key)?.Remark),
+            () => vm.ShowTopicRemarkDialog(key)));
         menu.Items.Add(ConversationMenus.LevelSubmenu(session.Conversations.GetLevel(key), level => vm.SetLevel(key, level)));
         menu.Items.Add(new Separator());
         menu.Items.Add(ConversationMenus.MoreSubmenu(main, key, anchor));
@@ -149,6 +152,8 @@ public partial class ContactsPageView : UserControl
                     colors.Items.Add(item);
                 }
                 menu.Items.Add(colors);
+                menu.Items.Add(ConversationMenus.Item(ContactsPageViewModel.RemarkMenuText(main.Session.Contacts.GetChannelRemark(id)),
+                    () => vm.ShowChannelRemarkDialog(id)));
                 menu.Items.Add(new Separator());
                 menu.Items.Add(ConversationMenus.Item("复制频道链接", () => _ = ConversationMenus.CopyAsync(anchor,
                     ZulipLinks.ChannelLink(main.Session.Client.RealmUrl, id, channel.Name), main)));

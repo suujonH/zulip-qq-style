@@ -17,6 +17,7 @@ public sealed class ContactStore(ContactRepository repo, UserStore users)
     private readonly List<FriendGroup> _groups = [];
     private readonly Dictionary<long, long> _membership = [];
     private readonly Dictionary<long, string> _remarks = [];
+    private readonly Dictionary<long, string> _channelRemarks = [];
 
     // 联系人页的置顶：好友 u:{用户id}，话题为会话键。与消息列表的置顶（ConversationListStore）相互独立
     private readonly Dictionary<string, long> _pins = [];
@@ -36,6 +37,9 @@ public sealed class ContactStore(ContactRepository repo, UserStore users)
         _remarks.Clear();
         foreach (var (user, remark) in repo.LoadRemarks())
             _remarks[user] = remark;
+        _channelRemarks.Clear();
+        foreach (var (stream, remark) in repo.LoadChannelRemarks())
+            _channelRemarks[stream] = remark;
         _pins.Clear();
         foreach (var (key, at) in repo.LoadPins())
             _pins[key] = at;
@@ -110,6 +114,30 @@ public sealed class ContactStore(ContactRepository repo, UserStore users)
     /// <summary>备注优先，其次 Zulip 昵称；用户不存在时为“未知用户”。</summary>
     public string DisplayName(long userId) =>
         GetRemark(userId) ?? users.Get(userId)?.FullName ?? "未知用户";
+
+    /// <summary>联系人页等管理用列表中的名称：“备注(Zulip 昵称)”，没有备注时为昵称。</summary>
+    public string NameWithOriginal(long userId) =>
+        RemarkFormat.WithOriginal(GetRemark(userId), users.Get(userId)?.FullName ?? "未知用户");
+
+    public string? GetChannelRemark(long streamId) => _channelRemarks.GetValueOrDefault(streamId);
+
+    /// <summary>
+    /// 设置频道备注。去掉首尾空白后为空则视为清除。未变化时返回 false，不触发 <see cref="Changed"/>。
+    /// 一般经 <see cref="ChannelStore.SetRemark"/> 调用，以便显示频道名的界面一起刷新。
+    /// </summary>
+    public bool SetChannelRemark(long streamId, string? remark)
+    {
+        var normalized = RemarkFormat.Normalize(remark);
+        if (GetChannelRemark(streamId) == normalized)
+            return false;
+        repo.SetChannelRemark(streamId, normalized);
+        if (normalized is null)
+            _channelRemarks.Remove(streamId);
+        else
+            _channelRemarks[streamId] = normalized;
+        RaiseChanged();
+        return true;
+    }
 
     public int CountInGroup(long groupId) => _membership.Values.Count(g => g == groupId);
 

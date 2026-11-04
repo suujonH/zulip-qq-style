@@ -130,7 +130,7 @@ public partial class SearchViewModel : ViewModelBase
 
     public SearchSection Contacts { get; } = new("联系人");
 
-    public SearchSection Groups { get; } = new("群聊");
+    public SearchSection Groups { get; } = new("频道与话题");
 
     public SearchSection Messages { get; } = new("聊天记录");
 
@@ -209,11 +209,12 @@ public partial class SearchViewModel : ViewModelBase
     {
         var result = new List<SearchResultItem>();
         var conversations = _session.Conversations;
-        foreach (var channel in _session.Channels.Subscribed().Where(c => Matches(c.Name, q)))
+        foreach (var channel in _session.Channels.Subscribed()
+                     .Where(c => Matches(c.Name, q) || Matches(_session.Contacts.GetChannelRemark(c.StreamId), q)))
         {
             var topics = _session.Channels.TryGetTopics(channel.StreamId);
             var streamId = channel.StreamId;
-            result.Add(new SearchResultItem("#" + channel.Name, q, topics is null ? "频道" : $"{topics.Count}个话题",
+            result.Add(new SearchResultItem("#" + _session.Channels.DisplayName(streamId), q, topics is null ? "频道" : $"{topics.Count}个话题",
                 null, channel.Name, ConversationItemViewModel.BrushOf(channel.Color), () => ShowChannel(streamId)));
         }
 
@@ -224,7 +225,7 @@ public partial class SearchViewModel : ViewModelBase
             {
                 var key = new TopicKey(channel.StreamId, topic.Name);
                 if (Matches(topic.Name, q) || Matches(conversations.Get(key)?.Remark, q))
-                    matches.Add((key, topic.Name, channel.Name, topic.MaxId));
+                    matches.Add((key, topic.Name, _session.Channels.DisplayName(channel.StreamId), topic.MaxId));
             }
         }
         foreach (var (key, name, channelName, _) in matches.OrderByDescending(m => m.MaxId).Take(MaxLocalResults))

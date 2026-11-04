@@ -10,8 +10,8 @@ public sealed record LevelOption(DndLevel Level, string Text)
     [
         new(DndLevel.Notify, "允许消息提醒"),
         new(DndLevel.Silent, "接收消息但不提醒"),
-        new(DndLevel.Assistant, "收进群助手且不提醒"),
-        new(DndLevel.Blocked, "屏蔽群消息"),
+        new(DndLevel.Assistant, "收进话题助手且不提醒"),
+        new(DndLevel.Blocked, "屏蔽消息"),
     ];
 
     public override string ToString() => Text;
