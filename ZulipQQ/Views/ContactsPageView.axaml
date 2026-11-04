@@ -89,11 +89,12 @@
 
         <!-- 强化推送的图标与推送效果（与设置的“强化推送”相同）；放在最后，图标大小不被上面行内图标的样式覆盖 -->
         <StyleInclude Source="avares://ZulipQQ/Styles/PushStyles.axaml" />
-        <Style Selector="Button.row ItemsControl.effects">
-            <Setter Property="Margin" Value="8,0" />
+        <!-- 频道有推送效果时标题行加高，推送效果显示在频道名下方（与话题相同） -->
+        <Style Selector="Button.row.effects">
+            <Setter Property="Height" Value="48" />
         </Style>
-        <!-- 话题名下方的推送效果：手机、邮件两行排成一行 -->
-        <Style Selector="Border.contact ItemsControl.effects">
+        <!-- 频道名、话题名下方的推送效果：手机、邮件两行排成一行 -->
+        <Style Selector="Border.contact ItemsControl.effects, Button.row ItemsControl.effects">
             <Setter Property="Width" Value="NaN" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="HorizontalAlignment" Value="Left" />
@@ -160,13 +161,14 @@
                             <Panel>
                                 <Button Classes="row" Classes.expanded="{Binding IsExpanded}"
                                         Classes.dimmed="{Binding IsDimmed}"
+                                        Classes.effects="{Binding Push, Converter={x:Static ObjectConverters.IsNotNull}}"
                                         Theme="{StaticResource FlatButton}" Command="{Binding ToggleExpandedCommand}">
                                     <DockPanel>
                                         <c:TdIcon DockPanel.Dock="Left" Classes="chevron"
                                                   Icon="{StaticResource Icon.ChevronRight}" />
                                         <TextBlock DockPanel.Dock="Right" Classes="caption" Text="{Binding CountText}"
                                                    VerticalAlignment="Center" />
-                                        <!-- 频道：右侧为强化推送的图标，中间为没有单独设置的话题的推送效果 -->
+                                        <!-- 频道：右侧为强化推送的图标，频道名下方为没有单独设置的话题的推送效果 -->
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
                                                     VerticalAlignment="Center" DataContext="{Binding Push}"
                                                     x:DataType="svm:PushChannelGroupViewModel"
@@ -186,14 +188,15 @@
                                                 <c:TdIcon Icon="{StaticResource Icon.Mention}" />
                                             </ToggleButton>
                                         </StackPanel>
-                                        <ItemsControl DockPanel.Dock="Right" Classes="effects" ItemsSource="{Binding Push.Effects}"
-                                                      IsVisible="{Binding Push, Converter={x:Static ObjectConverters.IsNotNull}}" />
                                         <c:TdIcon DockPanel.Dock="Left" Icon="{StaticResource Icon.Lock}" Margin="6,0,0,0"
                                                   Width="12" Height="12" IsVisible="{Binding IsLocked}"
                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
-                                        <TextBlock Classes="name" Text="{Binding Name}" Margin="6,0"
-                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                                   IsVisible="{Binding !IsRenaming}" />
+                                        <StackPanel Margin="6,0" Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Classes="name" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                       IsVisible="{Binding !IsRenaming}" />
+                                            <ItemsControl Classes="effects" ItemsSource="{Binding Push.Effects}"
+                                                          IsVisible="{Binding Push, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        </StackPanel>
                                     </DockPanel>
                                 </Button>
                                 <!-- 重命名分组：盖在标题行上就地编辑 -->
