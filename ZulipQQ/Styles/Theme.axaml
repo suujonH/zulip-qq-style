@@ -48,6 +48,7 @@
             <SolidColorBrush x:Key="OtherBubbleBrush" Color="White" />
             <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#E5E5E5" />
             <SolidColorBrush x:Key="FlashBrush" Color="#E3E3E3" />
+            <SolidColorBrush x:Key="CheckedRowBrush" Color="#1A0099FF" />
             <!-- 消息中的引用卡片（半透明，叠在白色和蓝色气泡上都适用）；悬停；左侧竖线 -->
             <SolidColorBrush x:Key="QuoteCardBrush" Color="#0D000000" />
             <SolidColorBrush x:Key="QuoteCardHoverBrush" Color="#1A000000" />
@@ -100,6 +101,7 @@
             <SolidColorBrush x:Key="OtherBubbleBrush" Color="#2E2E2E" />
             <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#3A3A3A" />
             <SolidColorBrush x:Key="FlashBrush" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="CheckedRowBrush" Color="#290099FF" />
             <SolidColorBrush x:Key="QuoteCardBrush" Color="#14FFFFFF" />
             <SolidColorBrush x:Key="QuoteCardHoverBrush" Color="#24FFFFFF" />
             <SolidColorBrush x:Key="QuoteBarBrush" Color="#555555" />

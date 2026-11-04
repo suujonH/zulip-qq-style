@@ -228,7 +228,9 @@ internal static partial class ZulipHtmlRenderer
         var inner = NewStack(4);
         if (source?.Author is { Length: > 0 } author)
         {
-            var header = new TextBlock { Text = author, TextTrimming = TextTrimming.CharacterEllipsis };
+            // 与正文一样可以选择、复制（跨段落选择也包括它）
+            var header = new MessageTextBlock { Text = author, TextTrimming = TextTrimming.CharacterEllipsis };
+            header.AddSource(author, null);
             BindResource(header, TextBlock.FontSizeProperty, header, "FontSizeSub");
             inner.Children.Add(header);
         }

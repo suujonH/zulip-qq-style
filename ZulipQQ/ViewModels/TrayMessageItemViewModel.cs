@@ -104,11 +104,11 @@ public sealed class TrayMessageItemViewModel
         }
 
         foreach (var e in session.SystemNotices.DeliveredReminders.Where(e => session.SystemNotices.IsUnread(e.Id)))
-            yield return Reminder(ZulipHtml.ToPreview(e.Html), e.Timestamp, () => openReminders(ReminderTab.Delivered));
+            yield return Reminder(ZulipHtml.ToPreview(SystemNoticeText.LocalizeReminder(e.Html)), e.Timestamp, () => openReminders(ReminderTab.Delivered));
         foreach (var r in session.Reminders.Pending.Where(r => !r.Failed
                      && TimeText.FromUnix(r.ScheduledDeliveryTimestamp) - now <= UpcomingWindow))
         {
-            var content = ZulipHtml.ToPreview(r.RenderedContent.Length > 0 ? r.RenderedContent : r.Content);
+            var content = ZulipHtml.ToPreview(SystemNoticeText.LocalizeReminder(r.RenderedContent.Length > 0 ? r.RenderedContent : r.Content));
             yield return Reminder(content, r.ScheduledDeliveryTimestamp, () => openReminders(ReminderTab.Pending));
         }
 

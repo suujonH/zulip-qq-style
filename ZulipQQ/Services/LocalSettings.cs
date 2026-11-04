@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using ZulipQQ.Core;
 using ZulipQQ.Data;
 
@@ -64,6 +65,7 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     public const string WildcardMentionsNotifyKey = "wildcard_mentions_notify";
     public const string SystemNoticesClearedBeforeKey = "system_notices_cleared_before";
     public const string ComposerSourceModeKey = "composer_source_mode";
+    public const string ClearedReminderIdsKey = "cleared_reminder_ids";
 
     private readonly Dictionary<(SettingRepository, string), string?> _cache = [];
 
@@ -262,6 +264,16 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     {
         get => long.TryParse(Read(repository, SystemNoticesClearedBeforeKey), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : 0;
         set => Save(SystemNoticesClearedBeforeKey, value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>“已提醒”中清除（不再显示）的提醒私信 id。</summary>
+    public IReadOnlySet<long> ClearedReminderIds
+    {
+        get => (Read(repository, ClearedReminderIdsKey) ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => long.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : 0)
+            .Where(v => v > 0).ToHashSet();
+        set => Save(ClearedReminderIdsKey, string.Join(',', value.Order().Select(v => v.ToString(CultureInfo.InvariantCulture))));
     }
 
     private void Save(string key, string value) => Save(repository, key, value);

@@ -74,8 +74,13 @@
                 <Panel Grid.Column="1" Background="{DynamicResource WindowBackgroundBrush}">
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="20,16,20,20" Spacing="8">
-                            <TextBlock Text="{Binding TabTitle}" FontSize="{DynamicResource FontSizeH2}" FontWeight="SemiBold"
-                                       Margin="2,0,0,4" />
+                            <DockPanel Margin="2,0,0,4">
+                                <Button DockPanel.Dock="Right" Theme="{StaticResource FlatButton}" Padding="8,4" Content="清除全部"
+                                        VerticalAlignment="Center" Foreground="{DynamicResource DangerBrush}"
+                                        IsVisible="{Binding CanClearAll}" Command="{Binding ClearAllCommand}" />
+                                <TextBlock Text="{Binding TabTitle}" FontSize="{DynamicResource FontSizeH2}" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
                             <ItemsControl ItemsSource="{Binding Items}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:ReminderItemViewModel">
@@ -88,13 +93,19 @@
                                                     <TextBlock Classes="hint" Text="提醒失败" Foreground="{DynamicResource DangerBrush}"
                                                                IsVisible="{Binding IsFailed}" />
                                                 </StackPanel>
-                                                <StackPanel Grid.Column="1" Grid.RowSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <StackPanel Grid.Column="1" Grid.RowSpan="2" VerticalAlignment="Center" Spacing="2">
                                                     <Button Theme="{StaticResource FlatButton}" Padding="8,4" Content="查看消息"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                             Foreground="{DynamicResource BrandBrush}"
                                                             IsVisible="{Binding CanView}" Command="{Binding ViewCommand}" />
                                                     <Button Theme="{StaticResource FlatButton}" Padding="8,4" Content="删除"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                             Foreground="{DynamicResource DangerBrush}"
                                                             IsVisible="{Binding CanDelete}" Command="{Binding DeleteCommand}" />
+                                                    <Button Theme="{StaticResource FlatButton}" Padding="8,4" Content="清除"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                            Foreground="{DynamicResource DangerBrush}"
+                                                            IsVisible="{Binding CanClear}" Command="{Binding ClearCommand}" />
                                                 </StackPanel>
                                                 <c:MessageContent Grid.Row="1" Html="{Binding Html}" Margin="0,6,12,0"
                                                                   TextElement.FontSize="{DynamicResource FontSizeSmall}" />
