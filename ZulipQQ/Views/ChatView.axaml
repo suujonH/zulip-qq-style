@@ -92,6 +92,14 @@
             <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
+        <Style Selector="ProgressBar.voteShare">
+            <Setter Property="Foreground" Value="{DynamicResource PressedBrush}" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+            <Setter Property="CornerRadius" Value="11" />
+        </Style>
+        <Style Selector="ProgressBar.voteShare.highlighted">
+            <Setter Property="Foreground" Value="{DynamicResource BrandDisabledBrush}" />
+        </Style>
         <Style Selector="TextBlock.widgetRow.completed">
             <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
             <Setter Property="TextDecorations" Value="Strikethrough" />
@@ -394,28 +402,62 @@
                                             </DataTemplate>
                                         </c:Lazy>
                                     </StackPanel>
-                                    <!-- 投票 / 待办：只读，操作交给网页端 -->
+                                    <!-- 投票 / 待办：点击投票、勾选，右上角“+”添加选项 / 任务 -->
                                     <c:Lazy When="{Binding ShowsWidget}">
                                     <DataTemplate DataType="vm:MessageItemViewModel">
-                                    <StackPanel Spacing="6" MinWidth="220">
-                                        <TextBlock Text="{Binding Widget.Kind}" FontSize="{DynamicResource FontSizeCaption}"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <StackPanel Spacing="6" MinWidth="300">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Theme="{StaticResource FlatButton}" Width="20" Height="20"
+                                                    Cursor="Hand" ToolTip.Tip="{Binding Widget.AddToolTip}"
+                                                    Command="{Binding ToggleAddWidgetRowCommand}">
+                                                <c:TdIcon Icon="{StaticResource Icon.Add}" Width="14" Height="14"
+                                                          Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            </Button>
+                                            <TextBlock Text="{Binding Widget.Kind}" FontSize="{DynamicResource FontSizeCaption}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                        </DockPanel>
                                         <SelectableTextBlock Text="{Binding Widget.Title}" FontWeight="SemiBold" TextWrapping="Wrap"
                                                              IsVisible="{Binding Widget.HasTitle}" />
                                         <ItemsControl ItemsSource="{Binding Widget.Rows}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="vm:WidgetRowViewModel">
-                                                    <DockPanel Margin="0,2" Background="Transparent" ToolTip.Tip="{Binding ToolTipText}">
+                                                    <Button Theme="{StaticResource FlatButton}" Command="{Binding ActivateCommand}"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                            Padding="4,2" Margin="-4,0" Cursor="Hand" ToolTip.Tip="{Binding ToolTipText}">
+                                                    <DockPanel>
                                                         <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsCompleted, Mode=OneWay}"
                                                                   IsVisible="{Binding IsTask}" IsHitTestVisible="False" Focusable="False"
                                                                   MinWidth="0" MinHeight="0" Padding="0" Margin="0,0,6,0" VerticalAlignment="Top" />
-                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" Margin="12,0,0,0"
-                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                   IsVisible="{Binding !IsTask}" />
                                                         <StackPanel>
                                                             <TextBlock Classes="widgetRow" Classes.highlighted="{Binding IsHighlighted}"
                                                                        Classes.completed="{Binding IsCompleted}" Text="{Binding Text}"
                                                                        TextWrapping="Wrap" />
+                                                            <!-- 投票：进度条（投票人头像重叠显示在其中，放不下的不显示）+ 票数 -->
+                                                            <DockPanel Margin="0,4,0,2" IsVisible="{Binding !IsTask}">
+                                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" Margin="8,0,0,0"
+                                                                           FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                                <Panel>
+                                                                    <ProgressBar Classes="voteShare" Classes.highlighted="{Binding IsHighlighted}"
+                                                                                 Height="22" MinHeight="22" MinWidth="0"
+                                                                                 Minimum="0" Maximum="1" Value="{Binding Share}" />
+                                                                    <ItemsControl ItemsSource="{Binding Voters}" Margin="2,0" IsHitTestVisible="False">
+                                                                        <ItemsControl.ItemsPanel>
+                                                                            <ItemsPanelTemplate>
+                                                                                <c:OverlapStack Step="13" />
+                                                                            </ItemsPanelTemplate>
+                                                                        </ItemsControl.ItemsPanel>
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate DataType="vm:VoterViewModel">
+                                                                                <Border Width="20" Height="20" CornerRadius="10" Padding="1"
+                                                                                        Background="{DynamicResource CardBrush}">
+                                                                                    <c:Avatar Width="18" Height="18" Source="{Binding AvatarUrl}" Text="{Binding Name}" />
+                                                                                </Border>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </Panel>
+                                                            </DockPanel>
                                                             <TextBlock Text="{Binding Detail}" FontSize="{DynamicResource FontSizeSub}"
                                                                        Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap">
                                                                 <TextBlock.IsVisible>
@@ -427,14 +469,20 @@
                                                             </TextBlock>
                                                         </StackPanel>
                                                     </DockPanel>
+                                                    </Button>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <TextBlock Text="暂无内容" FontSize="{DynamicResource FontSizeSub}"
                                                    Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding Widget.IsEmpty}" />
-                                        <Button Classes="link" Theme="{StaticResource FlatButton}" Content="在网页中打开"
-                                                HorizontalAlignment="Left" Padding="0" Foreground="{DynamicResource BrandBrush}"
-                                                Background="Transparent" Command="{Binding OpenInBrowserCommand}" />
+                                        <TextBox Classes="input" PlaceholderText="{Binding Widget.AddPlaceholder}" MaxLength="200"
+                                                 Text="{Binding NewWidgetRowText}" IsVisible="{Binding IsAddingWidgetRow}"
+                                                 PropertyChanged="OnWidgetInputPropertyChanged">
+                                            <TextBox.KeyBindings>
+                                                <KeyBinding Gesture="Enter" Command="{Binding SubmitWidgetRowCommand}" />
+                                                <KeyBinding Gesture="Escape" Command="{Binding CancelAddWidgetRowCommand}" />
+                                            </TextBox.KeyBindings>
+                                        </TextBox>
                                     </StackPanel>
                                     </DataTemplate>
                                     </c:Lazy>

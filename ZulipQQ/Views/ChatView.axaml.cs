@@ -425,6 +425,13 @@ public partial class ChatView : UserControl
             RootGrid.RowDefinitions[3].MaxHeight = Math.Max(120, Bounds.Height * 0.6);
     }
 
+    // 投票 / 待办卡片的添加输入框显示时获得焦点（布局后才能获得焦点）
+    private void OnWidgetInputPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == IsVisibleProperty && e.NewValue is true && sender is TextBox box)
+            Dispatcher.UIThread.Post(() => box.Focus(), DispatcherPriority.Loaded);
+    }
+
     private void OnLinkClicked(object? sender, MessageLinkEventArgs e)
     {
         if (_vm is null)
