@@ -68,6 +68,9 @@ public sealed class MessageStore(ZulipSession session, MessageVersionRepository 
     private readonly Dictionary<long, ChatMessage> _byId = [];
     private readonly Dictionary<ConversationKey, Timeline> _timelines = [];
 
+    // 进行中的“加载最新消息”请求，同一会话的再次加载共用它
+    private readonly Dictionary<ConversationKey, Task<Timeline>> _newestLoads = [];
+
     // 实时收到时被插件拦截的消息：本次会话内加载历史时同样不显示
     private readonly HashSet<long> _hiddenByPlugin = [];
 
@@ -124,8 +127,64 @@ public sealed class MessageStore(ZulipSession session, MessageVersionRepository 
     public ChatMessage? LatestInTimeline(ConversationKey key) =>
         _timelines.TryGetValue(key, out var timeline) ? timeline.Messages.LastOrDefault(m => m.Id > 0) : null;
 
-    /// <summary>加载最新的消息，替换窗口。</summary>
-    public async Task<Timeline> LoadNewestAsync(ConversationKey key, int count = 50)
+    /// <summary>
+    /// 缓存足够直接打开：包含最新的消息，并且有 30 条以上或已到最早的消息（整个会话都在缓存中）。
+    /// 不算作使用（不影响淘汰顺序）。
+    /// </summary>
+    public bool HasEnoughCached(ConversationKey key) =>
+        _timelines.TryGetValue(key, out var t) && t.FoundNewest && (t.Messages.Count >= 30 || t.FoundOldest);
+
+    /// <summary>
+    /// 预载会话最新的消息（悬停在消息列表上、启动后），点击时直接使用缓存。缓存足够时不请求；
+    /// 失败只记调试日志（打开时会重新加载）。
+    /// </summary>
+    public async Task PrefetchAsync(ConversationKey key)
+    {
+        if (HasEnoughCached(key))
+            return;
+        try
+        {
+            await LoadNewestAsync(key);
+        }
+        catch (Exception ex)
+        {
+            if (!session.IsDisposed)
+                Log.Debug($"预载消息失败：{key.ToStorageString()}", ex);
+        }
+    }
+
+    /// <summary>
+    /// 加载最新的 <paramref name="count"/> 条消息，替换会话的窗口。
+    /// 同一会话正在加载最新的消息时（例如悬停预载还没完成就点击了）共用这次请求。
+    /// </summary>
+    public Task<Timeline> LoadNewestAsync(ConversationKey key, int count = 50)
+    {
+        if (_newestLoads.TryGetValue(key, out var running))
+            return running;
+        var task = LoadNewestCoreAsync(key, count);
+        if (!task.IsCompleted)
+        {
+            _newestLoads[key] = task;
+            _ = ForgetNewestLoadAsync(key, task);
+        }
+        return task;
+    }
+
+    private async Task ForgetNewestLoadAsync(ConversationKey key, Task<Timeline> task)
+    {
+        try
+        {
+            await task;
+        }
+        catch
+        {
+            // 由调用方处理
+        }
+        if (_newestLoads.TryGetValue(key, out var current) && current == task)
+            _newestLoads.Remove(key);
+    }
+
+    private async Task<Timeline> LoadNewestCoreAsync(ConversationKey key, int count)
     {
         var timeline = GetOrCreate(key);
         var version = ++timeline.Version;

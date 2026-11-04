@@ -61,6 +61,13 @@ public class MessageContent : Decorator
             Rebuild();
     }
 
+    // 消息列表虚拟化，控件会复用给其它消息：换消息时取消文字选择（内容相同的消息不会重建文字块）
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        ClearSelection();
+    }
+
     // 显示中的文字块，按内容顺序（折叠的剧透内容除外）
     private List<MessageTextBlock> TextBlocks() =>
         [.. this.GetVisualDescendants().OfType<MessageTextBlock>().Where(b => b.IsEffectivelyVisible)];

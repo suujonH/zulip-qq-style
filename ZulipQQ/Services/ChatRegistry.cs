@@ -16,6 +16,9 @@ public sealed class ChatRegistry(ZulipSession session)
     private readonly List<ChatViewModel> _open = [];
     private readonly List<Task> _closing = [];
 
+    // 主窗口右侧切换走的会话的滚动位置，切换回来时恢复。只在内存中，重启后从底部开始
+    private readonly Dictionary<ConversationKey, ScrollPosition> _scrollPositions = [];
+
     /// <summary>打开或关闭了聊天（会话列表据此决定是否显示草稿）。</summary>
     public event EventHandler? Changed;
 
@@ -51,6 +54,20 @@ public sealed class ChatRegistry(ZulipSession session)
             Log.Warn("关闭聊天时保存草稿失败", ex);
         }
     }
+
+    /// <summary>记下会话的滚动位置；null（停在底部）时清除，下次打开从底部开始。</summary>
+    public void SaveScrollPosition(ConversationKey key, ScrollPosition? position)
+    {
+        if (position is null)
+            _scrollPositions.Remove(key);
+        else
+            _scrollPositions[key] = position;
+    }
+
+    public ScrollPosition? GetScrollPosition(ConversationKey key) => _scrollPositions.GetValueOrDefault(key);
+
+    /// <summary>清除滚动位置（在新窗口中打开、从消息列表中删除）：下次打开从底部开始。</summary>
+    public void ForgetScrollPosition(ConversationKey key) => _scrollPositions.Remove(key);
 
     public void Unregister(ChatViewModel vm)
     {

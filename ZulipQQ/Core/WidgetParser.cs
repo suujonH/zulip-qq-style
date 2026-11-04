@@ -8,12 +8,13 @@ namespace ZulipQQ.Core;
 /// <summary>消息中的小部件（投票、待办）。</summary>
 public abstract record Widget;
 
-/// <summary>投票的一个选项与投票人。</summary>
-public sealed record PollOption(string Text, IReadOnlyList<long> Voters);
+/// <summary>投票的一个选项与投票人。<see cref="Key"/> 是投票时引用的键（<c>canned,序号</c> 或 <c>发送者,idx</c>）。</summary>
+public sealed record PollOption(string Key, string Text, IReadOnlyList<long> Voters);
 
 public sealed record PollWidget(string Question, IReadOnlyList<PollOption> Options) : Widget;
 
-public sealed record TodoTask(string Text, string Description, bool Completed);
+/// <summary>待办任务。<see cref="Key"/> 是勾选时引用的键（<c>序号,canned</c> 或 <c>key,发送者</c>）。</summary>
+public sealed record TodoTask(string Key, string Text, string Description, bool Completed);
 
 public sealed record TodoWidget(string Title, IReadOnlyList<TodoTask> Tasks) : Widget;
 
@@ -103,7 +104,7 @@ public static class WidgetParser
                     break;
             }
         }
-        return new PollWidget(question, options.Select(o => new PollOption(o.Option.Text, o.Option.Voters.ToList())).ToList());
+        return new PollWidget(question, options.Select(o => new PollOption(o.Key, o.Option.Text, o.Option.Voters.ToList())).ToList());
     }
 
     private static TodoWidget ParseTodo(JsonElement extra, IEnumerable<SubmessageDto> events, long messageSenderId)
@@ -114,7 +115,7 @@ public static class WidgetParser
         void AddTask(string key, string text, string desc, bool completed)
         {
             if (text.Length > 0 && !tasks.Exists(t => t.Key == key || t.Task.Text == text))
-                tasks.Add((key, new TodoTask(text, desc, completed)));
+                tasks.Add((key, new TodoTask(key, text, desc, completed)));
         }
 
         if (extra.ValueKind == JsonValueKind.Object && extra.TryGetProperty("tasks", out var canned) && canned.ValueKind == JsonValueKind.Array)
@@ -148,6 +149,29 @@ public static class WidgetParser
         return new TodoWidget(title, tasks.Select(t => t.Task).ToList());
     }
 
+    /// <summary>
+    /// 自己下一个新选项 / 新任务的序号（投票的 <c>idx</c>、待办的 <c>key</c>）：比自己用过的最大序号大 1，从 1 开始。
+    /// 键由“发送者 + 序号”组成，同一发送者不能重复（网页端 <c>my_idx</c> 的规则）。
+    /// </summary>
+    public static long NextOwnIndex(IReadOnlyList<SubmessageDto> submessages, long selfId)
+    {
+        var next = 1L;
+        foreach (var s in submessages.Where(s => s.MsgType == "widget" && s.SenderId == selfId))
+        {
+            if (Event(s) is not { } ev)
+                continue;
+            var idx = String(ev, "type") switch
+            {
+                "new_option" => Integer(ev, "idx"),
+                "new_task" => Integer(ev, "key"),
+                _ => null,
+            };
+            if (idx is { } i && i >= next)
+                next = i + 1;
+        }
+        return next;
+    }
+
     // 一次操作的 JSON；格式错误的操作跳过（不影响其它操作）
     private static JsonElement? Event(SubmessageDto s)
     {
@@ -170,4 +194,27 @@ public static class WidgetParser
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String
             ? v.GetString() ?? ""
             : "";
+}
+
+/// <summary>
+/// 投票 / 待办的操作（<c>POST /submessage</c> 的 content），格式与网页端 <c>poll_data.ts</c> / <c>todo_data.ts</c> 一致。
+/// 服务器只校验格式，不改写内容，结果由随后的 submessage 事件带回。
+/// </summary>
+public static class WidgetEvents
+{
+    /// <summary>投票（<paramref name="vote"/> 为 true）或撤销投票。</summary>
+    public static string Vote(string optionKey, bool vote) =>
+        JsonSerializer.Serialize(new { type = "vote", key = optionKey, vote = vote ? 1 : -1 });
+
+    /// <summary>添加投票选项；<paramref name="idx"/> 来自 <see cref="WidgetParser.NextOwnIndex"/>。</summary>
+    public static string NewOption(long idx, string option) =>
+        JsonSerializer.Serialize(new { type = "new_option", idx, option });
+
+    /// <summary>添加待办任务；<paramref name="key"/> 来自 <see cref="WidgetParser.NextOwnIndex"/>。</summary>
+    public static string NewTask(long key, string task, string desc) =>
+        JsonSerializer.Serialize(new { type = "new_task", key, task, desc, completed = false });
+
+    /// <summary>切换任务的完成状态。</summary>
+    public static string Strike(string taskKey) =>
+        JsonSerializer.Serialize(new { type = "strike", key = taskKey });
 }

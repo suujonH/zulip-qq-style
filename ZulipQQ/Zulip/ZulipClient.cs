@@ -196,6 +196,16 @@ public sealed class ZulipClient : IDisposable
         return SendAsync(HttpMethod.Delete, $"api/v1/messages/{Id(messageId)}/reactions", args, DefaultTimeout, ct);
     }
 
+    /// <summary>
+    /// 给消息添加子消息（投票、勾选任务等小部件操作）。接口没有收入 API 文档，网页端的小部件使用它；
+    /// 服务器按小部件类型校验 <paramref name="content"/>，结果通过 submessage 事件下发。
+    /// </summary>
+    public Task SendSubmessageAsync(long messageId, string msgType, string content, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().Add("message_id", messageId).Add("msg_type", msgType).Add("content", content);
+        return SendAsync(HttpMethod.Post, "api/v1/submessage", args, DefaultTimeout, ct);
+    }
+
     // ---- 文件 ----
 
     /// <summary>上传文件，不设超时。返回的地址形如 <c>/user_uploads/…</c>。</summary>

@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ZulipQQ.ViewModels"
              xmlns:c="using:ZulipQQ.Controls"
+             xmlns:cv="using:ZulipQQ.Controls.Virtualization"
              xmlns:v="using:ZulipQQ.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -88,9 +89,66 @@
         </Style>
 
         <!-- 投票 / 待办卡片：自己投过的选项为品牌色，完成的任务划线 -->
-        <Style Selector="TextBlock.widgetRow.highlighted">
+        <!-- 投票选项左侧的圆圈：自己投过的显示主题色实心圆加勾号 -->
+        <Style Selector="Border.voteMark">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.voteMark.voted">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Border.voteMark c|TdIcon">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Border.voteMark.voted c|TdIcon">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <!-- 投票人头像：白边隔开重叠的头像。自己的头像稍大，白边内再加一圈主题色：
+             白边把它和蓝色票条隔开，主题色圈标出是自己 -->
+        <Style Selector="Border.voter">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        </Style>
+        <Style Selector="Border.voter c|Avatar">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+        </Style>
+        <Style Selector="Border.voter.self">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="CornerRadius" Value="11" />
+            <Setter Property="Padding" Value="1.5" />
+        </Style>
+        <Style Selector="Border.voter.self > Border.voterRing">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="1.5" />
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Border.voter.self c|Avatar">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+        </Style>
+        <Style Selector="TextBlock.voteCount.highlighted">
             <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="ProgressBar.voteShare">
+            <Setter Property="Foreground" Value="{DynamicResource PressedBrush}" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+            <Setter Property="CornerRadius" Value="11" />
+        </Style>
+        <Style Selector="ProgressBar.voteShare.highlighted">
+            <Setter Property="Foreground" Value="{DynamicResource BrandDisabledBrush}" />
         </Style>
         <Style Selector="TextBlock.widgetRow.completed">
             <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
@@ -320,9 +378,13 @@
             <Border Classes="row" Classes.flash="{Binding IsFlashing}">
                 <DockPanel>
                 <!-- 多选模式：左侧复选框只显示状态，点击整行切换；消息内容不响应鼠标 -->
-                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsChecked, Mode=OneWay}" Focusable="False"
-                          IsHitTestVisible="False" VerticalAlignment="Top" Margin="0,4,8,0" MinWidth="0" Padding="0"
-                          IsVisible="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}" />
+                <!-- 很少显示的部分放在 Lazy 中：第一次需要显示时才创建，创建气泡时不必创建、设置样式和绑定它们 -->
+                <c:Lazy DockPanel.Dock="Left" When="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
+                    <DataTemplate DataType="vm:MessageItemViewModel">
+                        <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" Focusable="False"
+                                  IsHitTestVisible="False" VerticalAlignment="Top" Margin="0,4,8,0" MinWidth="0" Padding="0" />
+                    </DataTemplate>
+                </c:Lazy>
                 <DockPanel Classes="msg" Classes.own="{Binding IsOwn}"
                            IsHitTestVisible="{Binding !$parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
                     <c:Avatar Classes="sender" Width="32" Height="32" VerticalAlignment="Top"
@@ -342,14 +404,21 @@
                                    IsHitTestVisible="False" IsVisible="{Binding !ShowSenderName}" />
                         <StackPanel Orientation="Horizontal" Spacing="6"
                                     HorizontalAlignment="{Binding $parent[StackPanel].HorizontalAlignment}">
-                            <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.Loading}"
-                                      Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsPending}" />
-                            <Button Theme="{StaticResource FlatButton}" Width="20" Height="20" CornerRadius="10"
-                                    VerticalAlignment="Center" IsVisible="{Binding IsFailed}"
-                                    Command="{Binding RetryCommand}" ToolTip.Tip="发送失败，点击重发">
-                                <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.ErrorCircle}"
-                                          Foreground="{DynamicResource DangerBrush}" />
-                            </Button>
+                            <c:Lazy When="{Binding IsPending}" VerticalAlignment="Center">
+                                <DataTemplate DataType="vm:MessageItemViewModel">
+                                    <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.Loading}"
+                                              Foreground="{DynamicResource TextTertiaryBrush}" />
+                                </DataTemplate>
+                            </c:Lazy>
+                            <c:Lazy When="{Binding IsFailed}" VerticalAlignment="Center">
+                                <DataTemplate DataType="vm:MessageItemViewModel">
+                                    <Button Theme="{StaticResource FlatButton}" Width="20" Height="20" CornerRadius="10"
+                                            Command="{Binding RetryCommand}" ToolTip.Tip="发送失败，点击重发">
+                                        <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.ErrorCircle}"
+                                                  Foreground="{DynamicResource DangerBrush}" />
+                                    </Button>
+                                </DataTemplate>
+                            </c:Lazy>
                             <Border Classes="bubble" Classes.bare="{Binding ShowsBare}"
                                     Classes.rangeSelected="{Binding IsRangeSelected}"
                                     Classes.selected="{Binding IsHighlighted}"
@@ -358,45 +427,92 @@
                                     <StackPanel IsVisible="{Binding ShowsContent}">
                                         <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
                                         <!-- 插件临时替换了显示内容（例如翻译）：只显示切换原文 / 插件内容的链接 -->
-                                        <StackPanel Classes="render" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0"
-                                                    IsVisible="{Binding HasRender}">
-                                            <Button Classes="link" Theme="{StaticResource FlatButton}" Content="{Binding RenderToggleText}"
-                                                    Foreground="{DynamicResource BrandBrush}" Command="{Binding ToggleRenderCommand}" />
-                                        </StackPanel>
+                                        <c:Lazy When="{Binding HasRender}">
+                                            <DataTemplate DataType="vm:MessageItemViewModel">
+                                                <StackPanel Classes="render" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                                                    <Button Classes="link" Theme="{StaticResource FlatButton}" Content="{Binding RenderToggleText}"
+                                                            Foreground="{DynamicResource BrandBrush}" Command="{Binding ToggleRenderCommand}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </c:Lazy>
                                         <!-- 编辑过的消息：当前版本 / 版本总数，左右箭头切换 -->
-                                        <StackPanel Classes="versions" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,0,0"
-                                                    IsVisible="{Binding HasVersions}">
-                                            <Button Command="{Binding ShowPreviousVersionCommand}" IsEnabled="{Binding CanShowPreviousVersion}"
-                                                    ToolTip.Tip="上一个版本">
-                                                <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" />
-                                            </Button>
-                                            <TextBlock Text="{Binding VersionText}" />
-                                            <Button Command="{Binding ShowNextVersionCommand}" IsEnabled="{Binding CanShowNextVersion}"
-                                                    ToolTip.Tip="下一个版本">
-                                                <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" />
-                                            </Button>
-                                        </StackPanel>
+                                        <c:Lazy When="{Binding HasVersions}">
+                                            <DataTemplate DataType="vm:MessageItemViewModel">
+                                                <StackPanel Classes="versions" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,0,0">
+                                                    <Button Command="{Binding ShowPreviousVersionCommand}" IsEnabled="{Binding CanShowPreviousVersion}"
+                                                            ToolTip.Tip="上一个版本">
+                                                        <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" />
+                                                    </Button>
+                                                    <TextBlock Text="{Binding VersionText}" />
+                                                    <Button Command="{Binding ShowNextVersionCommand}" IsEnabled="{Binding CanShowNextVersion}"
+                                                            ToolTip.Tip="下一个版本">
+                                                        <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </c:Lazy>
                                     </StackPanel>
-                                    <!-- 投票 / 待办：只读，操作交给网页端 -->
-                                    <StackPanel Spacing="6" MinWidth="220" IsVisible="{Binding ShowsWidget}">
-                                        <TextBlock Text="{Binding Widget.Kind}" FontSize="{DynamicResource FontSizeCaption}"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <!-- 投票 / 待办：点击投票、勾选，右上角“+”添加选项 / 任务 -->
+                                    <c:Lazy When="{Binding ShowsWidget}">
+                                    <DataTemplate DataType="vm:MessageItemViewModel">
+                                    <StackPanel Spacing="6" MinWidth="300">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Theme="{StaticResource FlatButton}" Width="20" Height="20"
+                                                    Cursor="Hand" ToolTip.Tip="{Binding Widget.AddToolTip}"
+                                                    Command="{Binding ToggleAddWidgetRowCommand}">
+                                                <c:TdIcon Icon="{StaticResource Icon.Add}" Width="14" Height="14"
+                                                          Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            </Button>
+                                            <TextBlock Text="{Binding Widget.Kind}" FontSize="{DynamicResource FontSizeCaption}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                        </DockPanel>
                                         <SelectableTextBlock Text="{Binding Widget.Title}" FontWeight="SemiBold" TextWrapping="Wrap"
                                                              IsVisible="{Binding Widget.HasTitle}" />
                                         <ItemsControl ItemsSource="{Binding Widget.Rows}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="vm:WidgetRowViewModel">
-                                                    <DockPanel Margin="0,2" Background="Transparent" ToolTip.Tip="{Binding ToolTipText}">
+                                                    <Button Theme="{StaticResource FlatButton}" Command="{Binding ActivateCommand}"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                            Padding="4,2" Margin="-4,0" Cursor="Hand" ToolTip.Tip="{Binding ToolTipText}">
+                                                    <DockPanel>
                                                         <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsCompleted, Mode=OneWay}"
                                                                   IsVisible="{Binding IsTask}" IsHitTestVisible="False" Focusable="False"
                                                                   MinWidth="0" MinHeight="0" Padding="0" Margin="0,0,6,0" VerticalAlignment="Top" />
-                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" Margin="12,0,0,0"
-                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                   IsVisible="{Binding !IsTask}" />
+                                                        <Border DockPanel.Dock="Left" Classes="voteMark" Classes.voted="{Binding IsHighlighted}"
+                                                                IsVisible="{Binding !IsTask}" VerticalAlignment="Top" Margin="0,3,6,0">
+                                                            <c:TdIcon Icon="{StaticResource Icon.Check}" />
+                                                        </Border>
                                                         <StackPanel>
-                                                            <TextBlock Classes="widgetRow" Classes.highlighted="{Binding IsHighlighted}"
-                                                                       Classes.completed="{Binding IsCompleted}" Text="{Binding Text}"
+                                                            <TextBlock Classes="widgetRow" Classes.completed="{Binding IsCompleted}" Text="{Binding Text}"
                                                                        TextWrapping="Wrap" />
+                                                            <!-- 投票：进度条（投票人头像重叠显示在其中，放不下的不显示）+ 票数 -->
+                                                            <DockPanel Margin="0,4,0,2" IsVisible="{Binding !IsTask}">
+                                                                <TextBlock DockPanel.Dock="Right" Classes="voteCount" Classes.highlighted="{Binding IsHighlighted}"
+                                                                           Text="{Binding Detail}" Margin="8,0,0,0"
+                                                                           FontSize="{DynamicResource FontSizeSub}" VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                                <Panel>
+                                                                    <ProgressBar Classes="voteShare" Classes.highlighted="{Binding IsHighlighted}"
+                                                                                 Height="22" MinHeight="22" MinWidth="0"
+                                                                                 Minimum="0" Maximum="1" Value="{Binding Share}" />
+                                                                    <ItemsControl ItemsSource="{Binding Voters}" Margin="6,0,2,0" IsHitTestVisible="False">
+                                                                        <ItemsControl.ItemsPanel>
+                                                                            <ItemsPanelTemplate>
+                                                                                <c:OverlapStack Step="9" />
+                                                                            </ItemsPanelTemplate>
+                                                                        </ItemsControl.ItemsPanel>
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate DataType="vm:VoterViewModel">
+                                                                                <Border Classes="voter" Classes.self="{Binding IsSelf}">
+                                                                                    <Border Classes="voterRing">
+                                                                                        <c:Avatar Source="{Binding AvatarUrl}" Text="{Binding Name}" />
+                                                                                    </Border>
+                                                                                </Border>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </Panel>
+                                                            </DockPanel>
                                                             <TextBlock Text="{Binding Detail}" FontSize="{DynamicResource FontSizeSub}"
                                                                        Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap">
                                                                 <TextBlock.IsVisible>
@@ -408,17 +524,29 @@
                                                             </TextBlock>
                                                         </StackPanel>
                                                     </DockPanel>
+                                                    </Button>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <TextBlock Text="暂无内容" FontSize="{DynamicResource FontSizeSub}"
                                                    Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding Widget.IsEmpty}" />
-                                        <Button Classes="link" Theme="{StaticResource FlatButton}" Content="在网页中打开"
-                                                HorizontalAlignment="Left" Padding="0" Foreground="{DynamicResource BrandBrush}"
-                                                Background="Transparent" Command="{Binding OpenInBrowserCommand}" />
+                                        <TextBox Classes="input" PlaceholderText="{Binding Widget.AddPlaceholder}" MaxLength="200"
+                                                 Text="{Binding NewWidgetRowText}" IsVisible="{Binding IsAddingWidgetRow}"
+                                                 PropertyChanged="OnWidgetInputPropertyChanged">
+                                            <TextBox.KeyBindings>
+                                                <KeyBinding Gesture="Enter" Command="{Binding SubmitWidgetRowCommand}" />
+                                                <KeyBinding Gesture="Escape" Command="{Binding CancelAddWidgetRowCommand}" />
+                                            </TextBox.KeyBindings>
+                                        </TextBox>
                                     </StackPanel>
-                                    <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="{DynamicResource FontSizeBody}" Cursor="Hand"
-                                               Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsMutedHidden}" />
+                                    </DataTemplate>
+                                    </c:Lazy>
+                                    <c:Lazy When="{Binding IsMutedHidden}">
+                                        <DataTemplate DataType="vm:MessageItemViewModel">
+                                            <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="{DynamicResource FontSizeBody}" Cursor="Hand"
+                                                       Foreground="{DynamicResource TextTertiaryBrush}" />
+                                        </DataTemplate>
+                                    </c:Lazy>
                                 </Panel>
                             </Border>
                         </StackPanel>
@@ -444,7 +572,9 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <!-- 插件附加的内容：与消息原文分开保存，点击插件名折叠 / 展开 -->
-                        <ItemsControl ItemsSource="{Binding Annotations}" IsVisible="{Binding HasAnnotations}" Margin="0,4,0,0"
+                        <c:Lazy When="{Binding HasAnnotations}">
+                        <DataTemplate DataType="vm:MessageItemViewModel">
+                        <ItemsControl ItemsSource="{Binding Annotations}" Margin="0,4,0,0"
                                       MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}"
                                       HorizontalAlignment="{Binding $parent[StackPanel].HorizontalAlignment}">
                             <ItemsControl.ItemTemplate>
@@ -500,6 +630,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        </DataTemplate>
+                        </c:Lazy>
                         <!-- 一对一私聊：自己最后一条消息的已读状态 -->
                         <TextBlock Classes="readState" Classes.unread="{Binding IsReadStateUnread}" Text="{Binding ReadStateText}"
                                    IsVisible="{Binding ReadStateText, Converter={x:Static ObjectConverters.IsNotNull}}" />
@@ -533,7 +665,8 @@
             </Grid>
         </Border>
 
-        <!-- 消息区：不虚拟化，向上加载时需要精确保持滚动位置。
+        <!-- 消息区：虚拟化，只创建视口及上下各半屏内的消息（打开消息多的会话不卡顿）。
+             向上加载时由 ScrollViewer 的滚动锚点（虚拟化面板登记视口内的条目）保持位置。
              消息文字可以获得焦点：关闭右键菜单时焦点回到之前点过的文字（例如点击引用跳转后，焦点还在下方的引用里），
              不能因此把它滚动回视口 -->
         <Panel Grid.Row="1">
@@ -541,7 +674,8 @@
                 <ItemsControl x:Name="MessageList" ItemsSource="{Binding Items}" Padding="0,8">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <StackPanel />
+                            <!-- 记住消息高度的虚拟化面板：消息变高时滚动条不跳动 -->
+                            <cv:MessageStackPanel CacheLength="0.5" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>

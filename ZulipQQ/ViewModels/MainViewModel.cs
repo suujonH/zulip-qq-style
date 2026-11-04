@@ -26,6 +26,16 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         Topics = new TopicActions(this, this);
         Search = new SearchViewModel(session, this);
         CurrentPage = Messages;
+        // 启动后第一次打开聊天时，控件样式、模板、字体等第一次准备，要 700～800ms（之后 100～150ms）：
+        // 第一个会话预载好后如果还没有打开聊天，让主窗口在后台把它创建、渲染一次
+        Messages.PrefetchCompleted += (_, key) =>
+        {
+            if (RightPane is not null || Session.IsDisposed)
+                return;
+            var chat = new ChatViewModel(Session, this, key);
+            chat.PrepareWarmup();
+            ChatWarmupRequested?.Invoke(this, chat);
+        };
 
         session.Users.UserChanged += (_, id) =>
         {
@@ -142,6 +152,9 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         _toastTimer.Start();
     }
 
+    /// <summary>请求视图在后台创建、渲染一次聊天（预热，不显示、不打开）。</summary>
+    public event EventHandler<ChatViewModel>? ChatWarmupRequested;
+
     /// <summary>
     /// 打开会话：在右侧显示聊天（已在独立窗口中打开时激活该窗口），切换到消息页并选中该会话。
     /// 会话已有消息时确保它在消息列表中；没有任何消息的新会话等第一条消息发出后再由新消息加入列表。
@@ -194,7 +207,8 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
 
         var chat = new ChatViewModel(Session, this, key);
         RightPane = chat;
-        await chat.OpenAsync(focusMessageId);
+        // 切换回之前看过的会话：回到当时的位置（跳转到指定消息时除外）
+        await chat.OpenAsync(focusMessageId, focusMessageId is null ? Session.Registry.GetScrollPosition(key) : null);
     }
 
     /// <summary>
@@ -220,6 +234,8 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
             RightPane = null;
             Messages.Select(null);
         }
+        // 在新窗口中打开从底部开始
+        Session.Registry.ForgetScrollPosition(key);
         ChatWindowRequested?.Invoke(this, new ChatWindowRequest(key, existing, focusMessageId));
     }
 
