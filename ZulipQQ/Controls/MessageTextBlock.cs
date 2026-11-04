@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Avalonia.Media;
 using ZulipQQ.Core;
 using ZulipQQ.Services;
 
@@ -22,6 +23,7 @@ public class MessageTextBlock : SelectableTextBlock
     private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
 
     private readonly List<(int Start, int End, MessageLinkTarget Target)> _links = [];
+    private readonly List<(int Start, int End)> _codeRanges = [];
     private bool _overLink;
 
     // 段落文字（行内控件为一个 ￼）与各段的来源，复制时转回 Markdown
@@ -29,6 +31,18 @@ public class MessageTextBlock : SelectableTextBlock
     private readonly List<InlinePiece> _pieces = [];
 
     protected override Type StyleKeyOverride => typeof(SelectableTextBlock);
+
+    public MessageTextBlock()
+    {
+        // 选中的文字显示为白色：选择色与链接、提及同为主题蓝色，不改时选中的链接看不见（与输入框 MarkdownEditor 一致）
+        SelectionForegroundBrush = Brushes.White;
+        // 行内代码背景的颜色随主题变化
+        ActualThemeVariantChanged += (_, _) =>
+        {
+            if (_codeRanges.Count > 0)
+                InvalidateVisual();
+        };
+    }
 
     /// <summary>标题段落的 Markdown 前缀（如 “## ”）：从段落开头复制时加上。</summary>
     internal string? MarkdownPrefix { get; set; }
@@ -64,6 +78,34 @@ public class MessageTextBlock : SelectableTextBlock
     {
         if (end > start)
             _links.Add((start, end, target));
+    }
+
+    /// <summary>登记 [start, end) 区间的文字为行内代码：背景画成带内边距的圆角块。</summary>
+    internal void AddCodeRange(int start, int end)
+    {
+        if (end > start)
+            _codeRanges.Add((start, end));
+    }
+
+    // 行内代码的背景：左右各留 3px、圆角，画在文字（和选择色）之后
+    private const double CodePaddingX = 3;
+    private const double CodeCornerRadius = 4;
+
+    protected override void RenderTextLayout(DrawingContext context, Point origin)
+    {
+        if (_codeRanges.Count > 0 && this.TryFindResource("CodeChipBrush", ActualThemeVariant, out var resource) && resource is IBrush brush)
+        {
+            foreach (var (start, end) in _codeRanges)
+            {
+                foreach (var rect in TextLayout.HitTestTextRange(start, end - start))
+                {
+                    var chip = new Rect(origin.X + rect.X - CodePaddingX, origin.Y + rect.Y,
+                        rect.Width + CodePaddingX * 2, rect.Height);
+                    context.DrawRectangle(brush, null, chip, CodeCornerRadius, CodeCornerRadius);
+                }
+            }
+        }
+        base.RenderTextLayout(context, origin);
     }
 
     /// <summary>登记追加到段落末尾的文字及其来源；<paramref name="piece"/> 为 null 时复制为原文（换行等）。</summary>

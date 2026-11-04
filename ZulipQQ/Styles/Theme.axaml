@@ -41,6 +41,10 @@
             <!-- 聊天气泡：自己浅蓝、别人白色；点击后的选中色；跳转高亮 -->
             <SolidColorBrush x:Key="OwnBubbleBrush" Color="#CCE4FF" />
             <SolidColorBrush x:Key="OwnBubbleSelectedBrush" Color="#B3D7FF" />
+            <!-- 自己气泡中的链接、提及：BrandBrush 在浅蓝色气泡上对比度不足 -->
+            <SolidColorBrush x:Key="OwnLinkBrush" Color="#0058B8" />
+            <!-- 行内代码背景：半透明，白色和蓝色气泡上都适用 -->
+            <SolidColorBrush x:Key="CodeChipBrush" Color="#14000000" />
             <SolidColorBrush x:Key="OtherBubbleBrush" Color="White" />
             <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#E5E5E5" />
             <SolidColorBrush x:Key="FlashBrush" Color="#E3E3E3" />
@@ -91,6 +95,8 @@
             <SolidColorBrush x:Key="CardBrush" Color="#2B2B2B" />
             <SolidColorBrush x:Key="OwnBubbleBrush" Color="#1D4E7A" />
             <SolidColorBrush x:Key="OwnBubbleSelectedBrush" Color="#24609A" />
+            <SolidColorBrush x:Key="OwnLinkBrush" Color="#A8D4FF" />
+            <SolidColorBrush x:Key="CodeChipBrush" Color="#24FFFFFF" />
             <SolidColorBrush x:Key="OtherBubbleBrush" Color="#2E2E2E" />
             <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#3A3A3A" />
             <SolidColorBrush x:Key="FlashBrush" Color="#3A3A3A" />
