@@ -16,13 +16,42 @@ public partial class MessagesPageView : UserControl
 {
     private MessagesPageViewModel? _vm;
 
+    // 指针在同一个会话上停留这么久后预载它的消息（移动指针去点击通常要 200～300ms）
+    private readonly DispatcherTimer _hoverTimer = new() { Interval = TimeSpan.FromMilliseconds(150) };
+    private ConversationItemViewModel? _hoverItem;
+
     public MessagesPageView()
     {
         InitializeComponent();
+        _hoverTimer.Tick += (_, _) =>
+        {
+            _hoverTimer.Stop();
+            if (_hoverItem is { } item)
+                _vm?.Prefetch(item);
+        };
+        foreach (var list in new[] { MainList, HelperList })
+        {
+            list.AddHandler(PointerMovedEvent, OnListPointerMoved, RoutingStrategies.Bubble, handledEventsToo: true);
+            list.PointerExited += (_, _) => SetHoverItem(null);
+        }
         MainList.AddHandler(ContextRequestedEvent, OnContextRequested);
         HelperList.AddHandler(ContextRequestedEvent, OnContextRequested);
         MainList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         HelperList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
+    }
+
+    private void OnListPointerMoved(object? sender, PointerEventArgs e) =>
+        SetHoverItem((e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(includeSelf: true)?.DataContext as ConversationItemViewModel);
+
+    // 指针移到另一个会话上时重新计时
+    private void SetHoverItem(ConversationItemViewModel? item)
+    {
+        if (item == _hoverItem)
+            return;
+        _hoverItem = item;
+        _hoverTimer.Stop();
+        if (item is not null)
+            _hoverTimer.Start();
     }
 
     // 右键只弹出菜单，不选中（不打开）会话。左键点击已选中的会话时选中项不变、不会触发打开，

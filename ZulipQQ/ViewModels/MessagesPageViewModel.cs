@@ -68,7 +68,36 @@ public partial class MessagesPageViewModel : ViewModelBase
 
         Refresh();
         UpdateConnection();
+        _ = PrefetchTopAsync();
     }
+
+    // 启动后预载列表最前面的会话（置顶、最近）的消息；依次请求，不同时占用连接
+    private const int StartupPrefetchCount = 5;
+    private static readonly TimeSpan StartupPrefetchDelay = TimeSpan.FromSeconds(2);
+
+    private async Task PrefetchTopAsync()
+    {
+        await Task.Delay(StartupPrefetchDelay);
+        var keys = Conversations.Where(CanPrefetch).Take(StartupPrefetchCount).Select(c => c.Key).ToList();
+        foreach (var key in keys)
+        {
+            if (_session.IsDisposed)
+                return;
+            await _session.Messages.PrefetchAsync(key);
+        }
+    }
+
+    /// <summary>指针在会话上停留片刻：后台预载它最新的消息，点击时多半已经加载好。</summary>
+    public void Prefetch(ConversationItemViewModel item)
+    {
+        if (CanPrefetch(item))
+            _ = _session.Messages.PrefetchAsync(item.Key);
+    }
+
+    // 会话夹、系统通知（机器人私聊）不是聊天；已打开的聊天自己维护消息
+    private bool CanPrefetch(ConversationItemViewModel item) =>
+        !item.IsFolder && !_session.IsDisposed && !_session.SystemNotices.IsBotDm(item.Key)
+        && !_session.Registry.All.Any(c => c.Key.Equals(item.Key));
 
     /// <summary>主列表。</summary>
     public ObservableCollection<ConversationItemViewModel> Conversations { get; } = [];

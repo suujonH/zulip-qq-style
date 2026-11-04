@@ -213,7 +213,7 @@ public partial class ChatViewModel : ViewModelBase
                 if (timeline is null || !timeline.Messages.Exists(m => m.Id == position.MessageId))
                     await _session.Messages.LoadAroundAsync(Key, position.MessageId);
             }
-            else if (timeline is not { FoundNewest: true } || timeline.Messages.Count < 30)
+            else if (!_session.Messages.HasEnoughCached(Key))
                 await _session.Messages.LoadNewestAsync(Key);
             _loaded = true;
         }
