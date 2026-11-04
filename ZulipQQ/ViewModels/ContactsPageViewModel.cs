@@ -28,6 +28,8 @@ public partial class ContactsPageViewModel : ViewModelBase
 
     private const long BotSectionId = -2;
 
+    private const long PinnedFriendsSectionId = -3;
+
     private static readonly StringComparer NameComparer =
         StringComparer.Create(CultureInfo.GetCultureInfo("zh-CN"), CompareOptions.None);
 
@@ -45,7 +47,7 @@ public partial class ContactsPageViewModel : ViewModelBase
         _main = main;
         Refresh();
 
-        // 分组、备注、用户资料、在线状态、频道、话题、置顶变化后刷新
+        // 分组、备注、置顶、用户资料、在线状态、频道、话题变化后刷新
         session.Contacts.Changed += (_, _) => RequestRefresh();
         session.Users.UserChanged += (_, _) => RequestRefresh();
         session.Users.PresenceChanged += (_, _) => RequestRefresh();
@@ -245,7 +247,7 @@ public partial class ContactsPageViewModel : ViewModelBase
         ApplySelection();
     }
 
-    // “我的好友”显示全部用户；自定义分组显示成员；有机器人时追加“机器人”分组（只显示总数）
+    // “置顶好友”（有置顶的好友时显示）；“我的好友”显示全部用户；自定义分组显示成员；有机器人时追加“机器人”分组（只显示总数）
     private void RefreshFriends()
     {
         var now = DateTimeOffset.UtcNow;
@@ -253,7 +255,13 @@ public partial class ContactsPageViewModel : ViewModelBase
         var humans = Session.Users.ActiveHumans(excludeSelf: true).ToList();
         var used = new HashSet<long>();
 
-        List<ContactSectionViewModel> desired = [FriendSection(ContactSectionKind.AllFriends, AllFriendsSectionId, "我的好友", humans, now, used)];
+        List<ContactSectionViewModel> desired = [];
+        // 联系人页自己的置顶（与消息列表的置顶无关）；已停用的用户不显示
+        var shown = humans.Concat(Session.Users.ActiveBots()).ToDictionary(u => u.Id);
+        var pinned = contacts.PinnedFriends().Where(shown.ContainsKey).Select(id => shown[id]).ToList();
+        if (pinned.Count > 0)
+            desired.Add(FriendSection(ContactSectionKind.PinnedFriends, PinnedFriendsSectionId, "置顶好友", pinned, now, used));
+        desired.Add(FriendSection(ContactSectionKind.AllFriends, AllFriendsSectionId, "我的好友", humans, now, used));
         foreach (var g in contacts.Groups)
         {
             var section = FriendSection(ContactSectionKind.FriendGroup, g.Id, g.Name,
@@ -316,10 +324,11 @@ public partial class ContactsPageViewModel : ViewModelBase
         var used = new HashSet<TopicKey>();
         List<ContactSectionViewModel> desired = [];
 
-        var pinned = Session.Conversations.Entries
-            .Where(e => e is { IsPinned: true, Key: TopicKey t } && Session.Channels.Get(t.StreamId) is { IsSubscribed: true })
-            .OrderByDescending(e => e.PinnedAt)
-            .Select(e => TopicItem((TopicKey)e.Key, used))
+        // 联系人页自己的置顶（与消息列表的置顶无关），最后置顶的在前。
+        // 保存的键中话题名是小写的，换成实际的话题名，打开聊天、发消息时才是正确的话题
+        var pinned = Session.Contacts.PinnedTopics()
+            .Where(t => Session.Channels.Get(t.StreamId) is { IsSubscribed: true })
+            .Select(t => TopicItem(new TopicKey(t.StreamId, Session.Conversations.GetTopicName(t)), used))
             .ToList<ViewModelBase>();
         if (pinned.Count > 0)
         {

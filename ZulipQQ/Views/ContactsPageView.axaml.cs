@@ -92,22 +92,34 @@ public partial class ContactsPageView : UserControl
         menu.Open(anchor);
     }
 
+    // 好友：发消息、置顶（只影响联系人页的“置顶好友”，与消息列表的置顶无关）
     private static ContextMenu FriendMenu(ContactsPageViewModel vm, FriendItemViewModel friend)
     {
+        var contacts = vm.Session.Contacts;
+        var id = friend.UserId;
+        var pinned = contacts.IsFriendPinned(id);
         var menu = new ContextMenu();
         menu.Items.Add(ConversationMenus.Item("发消息", () => vm.Open(friend)));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(ConversationMenus.Item(pinned ? "取消置顶" : "设为置顶", () => contacts.SetFriendPinned(id, !pinned)));
         return menu;
     }
 
-    // 话题：发消息、置顶、群消息设置，以及“更多设置”（复制链接与有权限的话题管理操作）
+    // 话题：发消息、置顶（联系人页自己的置顶，与消息列表的置顶无关）、群消息设置，以及“更多设置”（复制链接与有权限的话题管理操作）
     private static ContextMenu TopicMenu(MainViewModel main, ContactsPageViewModel vm, TopicKey key, Visual anchor)
     {
         var session = main.Session;
         var menu = new ContextMenu();
         menu.Items.Add(ConversationMenus.Item("发消息", () => _ = main.OpenChatAsync(key)));
         menu.Items.Add(new Separator());
-        var pinned = session.Conversations.Get(key)?.IsPinned ?? false;
-        menu.Items.Add(ConversationMenus.Item(pinned ? "取消置顶" : "设为置顶", () => session.Conversations.SetPinned(key, !pinned)));
+        var pinned = session.Contacts.IsTopicPinned(key);
+        menu.Items.Add(ConversationMenus.Item(pinned ? "取消置顶" : "设为置顶", () =>
+        {
+            // 保存话题名（不加入消息列表），之后话题列表未加载时“置顶群聊”也能显示原来的大小写
+            if (!pinned)
+                session.Conversations.EnsureEntry(key, session.Conversations.GetTopicName(key));
+            session.Contacts.SetTopicPinned(key, !pinned);
+        }));
         menu.Items.Add(ConversationMenus.LevelSubmenu(session.Conversations.GetLevel(key), level => vm.SetLevel(key, level)));
         menu.Items.Add(new Separator());
         menu.Items.Add(ConversationMenus.MoreSubmenu(main, key, anchor));

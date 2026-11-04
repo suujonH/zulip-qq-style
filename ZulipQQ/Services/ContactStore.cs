@@ -1,13 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using ZulipQQ.Core;
 using ZulipQQ.Data;
 using ZulipQQ.Models;
 
 namespace ZulipQQ.Services;
 
 /// <summary>
-/// 好友分组与好友备注（只保存在本地）。联系人页、好友管理器都从这里读取，所有修改也都经过这里，
+/// 好友分组、好友备注与联系人页的置顶（只保存在本地）。联系人页、好友管理器都从这里读取，所有修改也都经过这里，
 /// 修改后触发 <see cref="Changed"/>，各界面据此刷新。“我的好友”是虚拟分组，显示全部用户，不在 <see cref="Groups"/> 中。
 /// </summary>
 public sealed class ContactStore(ContactRepository repo, UserStore users)
@@ -15,6 +17,9 @@ public sealed class ContactStore(ContactRepository repo, UserStore users)
     private readonly List<FriendGroup> _groups = [];
     private readonly Dictionary<long, long> _membership = [];
     private readonly Dictionary<long, string> _remarks = [];
+
+    // 联系人页的置顶：好友 u:{用户id}，话题为会话键。与消息列表的置顶（ConversationListStore）相互独立
+    private readonly Dictionary<string, long> _pins = [];
 
     public event EventHandler? Changed;
 
@@ -31,6 +36,70 @@ public sealed class ContactStore(ContactRepository repo, UserStore users)
         _remarks.Clear();
         foreach (var (user, remark) in repo.LoadRemarks())
             _remarks[user] = remark;
+        _pins.Clear();
+        foreach (var (key, at) in repo.LoadPins())
+            _pins[key] = at;
+    }
+
+    /// <summary>当前时间（Unix 毫秒），测试中可替换。</summary>
+    public Func<long> Now { get; init; } = () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    public bool IsFriendPinned(long userId) => _pins.ContainsKey(FriendPinKey(userId));
+
+    public bool IsTopicPinned(TopicKey key) => _pins.ContainsKey(key.ToStorageString());
+
+    /// <summary>在联系人页置顶或取消置顶好友，不影响消息列表中私聊的置顶。</summary>
+    public void SetFriendPinned(long userId, bool pinned) => SetPin(FriendPinKey(userId), pinned);
+
+    /// <summary>在联系人页置顶或取消置顶话题（显示在“置顶群聊”中），不影响消息列表中会话的置顶。</summary>
+    public void SetTopicPinned(TopicKey key, bool pinned) => SetPin(key.ToStorageString(), pinned);
+
+    /// <summary>置顶的好友，最后置顶的在前。</summary>
+    public IReadOnlyList<long> PinnedFriends() =>
+        [.. _pins.Where(p => p.Key.StartsWith(FriendPrefix, StringComparison.Ordinal))
+            .OrderByDescending(p => p.Value)
+            .Select(p => long.Parse(p.Key.AsSpan(FriendPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture))];
+
+    /// <summary>置顶的话题，最后置顶的在前。话题名是小写的（来自会话键），只能用于比较和查找。</summary>
+    public IReadOnlyList<TopicKey> PinnedTopics() =>
+        [.. _pins.Where(p => p.Key.StartsWith("t:", StringComparison.Ordinal))
+            .OrderByDescending(p => p.Value)
+            .Select(p => ConversationKey.Parse(p.Key))
+            .OfType<TopicKey>()];
+
+    /// <summary>话题被整体移动或改名：置顶跟着移到新话题（新话题已置顶时保留新话题的）。</summary>
+    public void RekeyTopic(TopicKey oldKey, TopicKey newKey)
+    {
+        var (oldS, newS) = (oldKey.ToStorageString(), newKey.ToStorageString());
+        if (oldS == newS || !_pins.Remove(oldS, out var at))
+            return;
+        repo.SetPin(oldS, null);
+        if (_pins.TryAdd(newS, at))
+            repo.SetPin(newS, at);
+        RaiseChanged();
+    }
+
+    private const string FriendPrefix = "u:";
+
+    private static string FriendPinKey(long userId) => FriendPrefix + userId.ToString(CultureInfo.InvariantCulture);
+
+    // 置顶时间严格递增：同一毫秒内连续置顶时顺序也确定（后置顶的在前）
+    private void SetPin(string key, bool pinned)
+    {
+        if (pinned == _pins.ContainsKey(key))
+            return;
+        if (pinned)
+        {
+            var at = Math.Max(Now(), _pins.Count == 0 ? 0 : _pins.Values.Max() + 1);
+            _pins[key] = at;
+            repo.SetPin(key, at);
+        }
+        else
+        {
+            _pins.Remove(key);
+            repo.SetPin(key, null);
+        }
+        RaiseChanged();
     }
 
     /// <summary>用户所在的自定义分组；只在“我的好友”中时为 null。</summary>

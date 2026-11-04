@@ -167,6 +167,10 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
             return;
         }
 
+        // 联系人页的置顶独立保存，不依赖消息列表中是否有这个会话
+        if (move.PropagateMode == "change_all")
+            session.Contacts.RekeyTopic(oldKey, newKey);
+
         if (move.PropagateMode == "change_all" && _entries.Remove(oldKey, out var moved))
         {
             repo.Rename(oldKey, newKey, newTitle);

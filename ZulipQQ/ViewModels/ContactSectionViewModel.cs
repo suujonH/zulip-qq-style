@@ -14,6 +14,9 @@ public enum ContactSectionKind
 {
     /// <summary>“我的好友”：全部用户。</summary>
     AllFriends,
+
+    /// <summary>“置顶好友”：在联系人页置顶的好友。</summary>
+    PinnedFriends,
     FriendGroup,
     Bots,
     PinnedTopics,
