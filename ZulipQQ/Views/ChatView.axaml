@@ -533,7 +533,8 @@
             </Grid>
         </Border>
 
-        <!-- 消息区：不虚拟化，向上加载时需要精确保持滚动位置。
+        <!-- 消息区：虚拟化，只创建视口及上下各半屏内的消息（打开消息多的会话不卡顿）。
+             向上加载时由 ScrollViewer 的滚动锚点（虚拟化面板登记视口内的条目）保持位置。
              消息文字可以获得焦点：关闭右键菜单时焦点回到之前点过的文字（例如点击引用跳转后，焦点还在下方的引用里），
              不能因此把它滚动回视口 -->
         <Panel Grid.Row="1">
@@ -541,7 +542,7 @@
                 <ItemsControl x:Name="MessageList" ItemsSource="{Binding Items}" Padding="0,8">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <StackPanel />
+                            <VirtualizingStackPanel CacheLength="0.5" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>

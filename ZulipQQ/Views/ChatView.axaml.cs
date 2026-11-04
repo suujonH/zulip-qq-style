@@ -25,6 +25,7 @@ namespace ZulipQQ.Views;
 /// <summary>
 /// 聊天视图：负责滚动。插入或删除消息时保持视口中第一条消息的位置不动；
 /// 滚动请求在下一次布局完成后执行（此时新消息已有位置）；滚动停止 100ms 后向 ViewModel 报告可见范围。
+/// 消息列表是虚拟化的，只有视口附近的条目有控件，查找控件时都要考虑条目还没有创建的情况。
 /// </summary>
 public partial class ChatView : UserControl
 {
@@ -32,11 +33,15 @@ public partial class ChatView : UserControl
     private const double LoadMoreDistance = 300;
     private const double SidebarMinChatWidth = 640;
 
+    // 跳转的目标条目还没有创建时，先滚动到它（创建出来）再定位，最多重试的次数
+    private const int MaxScrollAttempts = 5;
+
     private readonly DispatcherTimer _viewportTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private ChatViewModel? _vm;
     private Window? _host;
 
     private ScrollRequest? _pendingScroll;
+    private int _scrollAttempts;
     private (object Item, double Delta)? _anchor;
 
     // 第一次滚动定位之前不报告可见范围
@@ -115,6 +120,7 @@ public partial class ChatView : UserControl
         // 隧道阶段处理：SelectableTextBlock 自带的“Copy”菜单会在冒泡阶段先处理
         MessageList.AddHandler(ContextRequestedEvent, OnMessageContextRequested, RoutingStrategies.Tunnel);
         MessageList.AddHandler(DoubleTappedEvent, OnMessageDoubleTapped);
+        MessageList.ContainerPrepared += OnContainerPrepared;
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
@@ -219,6 +225,7 @@ public partial class ChatView : UserControl
     private void RequestScroll(ScrollRequest request)
     {
         _pendingScroll = request;
+        _scrollAttempts = 0;
         _anchor = null;
         // 保证会有一次布局完成事件来执行滚动
         MessageList.InvalidateArrange();
@@ -231,17 +238,39 @@ public partial class ChatView : UserControl
         if (_vm is null || _pendingScroll is not null || _anchor is not null || !_firstScrollDone)
             return;
         var offset = MessageScroller.Offset.Y;
-        foreach (var item in _vm.Items)
+        foreach (var (item, container, y) in RealizedItems())
         {
-            if (MessageList.ContainerFromItem(item) is not { } container || container.Bounds.Height <= 0)
-                continue;
-            var y = ContentY(container);
             if (y + container.Bounds.Height > offset)
             {
                 _anchor = (item, y - offset);
                 return;
             }
         }
+    }
+
+    /// <summary>已创建并完成布局的条目（视口及缓冲区内），按位置从上到下。</summary>
+    private List<(object Item, Control Container, double Y)> RealizedItems() =>
+    [
+        .. MessageList.GetRealizedContainers()
+            .Where(c => c.IsVisible && c.Bounds.Height > 0 && c.DataContext is not null)
+            .Select(c => (c.DataContext!, c, ContentY(c)))
+            .OrderBy(x => x.Item3),
+    ];
+
+    // 跨气泡选择中的消息滚动回视口（重新创建控件）时，文字也显示为全选
+    private void OnContainerPrepared(object? sender, ContainerPreparedEventArgs e)
+    {
+        if (e.Container.DataContext is not MessageItemViewModel item || !_range.Contains(item))
+            return;
+        // 控件模板在布局时才生成，布局后再选择
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (e.Container.DataContext == item && _range.Contains(item))
+            {
+                foreach (var content in ContentsOf(item))
+                    content.SelectAll();
+            }
+        }, DispatcherPriority.Loaded);
     }
 
     private void OnLayoutUpdated(object? sender, EventArgs e)
@@ -252,7 +281,14 @@ public partial class ChatView : UserControl
         {
             _pendingScroll = null;
             _anchor = null;
-            ExecuteScroll(request);
+            if (!ExecuteScroll(request) && ++_scrollAttempts < MaxScrollAttempts)
+            {
+                // 目标正在创建：下一次布局完成后再定位
+                _pendingScroll = request;
+                MessageList.InvalidateArrange();
+                return;
+            }
+            _scrollAttempts = 0;
             _firstScrollDone = true;
             ScheduleViewport();
             return;
@@ -265,39 +301,50 @@ public partial class ChatView : UserControl
         }
     }
 
-    private void ExecuteScroll(ScrollRequest request)
+    /// <summary>
+    /// 执行滚动请求。目标条目还没有创建（不在视口附近）时先让列表滚动到它，返回 false，下一次布局后再定位；
+    /// 完成（或目标不在列表中）时返回 true。
+    /// </summary>
+    private bool ExecuteScroll(ScrollRequest request)
     {
         if (request.MessageId is not { } id)
         {
+            // 末尾条目的高度是估计的，创建后内容高度会变化：标记停在底部，由 OnScrollChanged 继续贴住底部
             MessageScroller.ScrollToEnd();
-            return;
+            _atBottom = true;
+            return true;
         }
 
-        Control? target = null;
-        foreach (var item in _vm!.Items)
+        var items = _vm!.Items;
+        var index = -1;
+        for (var i = 0; i < items.Count; i++)
         {
             var match = request.Align == ScrollAlign.TopWithDivider
-                ? item is NewMessagesDividerItem
-                : item is MessageItemViewModel m && m.Id == id;
+                ? items[i] is NewMessagesDividerItem
+                : items[i] is MessageItemViewModel m && m.Id == id;
             if (match)
             {
-                target = MessageList.ContainerFromItem(item);
+                index = i;
                 break;
             }
         }
         // 没有分隔线时退回按消息定位
-        if (target is null && request.Align == ScrollAlign.TopWithDivider)
+        if (index < 0 && request.Align == ScrollAlign.TopWithDivider)
+            return ExecuteScroll(request with { Align = ScrollAlign.Center });
+        if (index < 0)
+            return true;
+
+        if (MessageList.ContainerFromIndex(index) is not { Bounds.Height: > 0 } target)
         {
-            ExecuteScroll(request with { Align = ScrollAlign.Center });
-            return;
+            MessageList.ScrollIntoView(index);
+            return false;
         }
-        if (target is null)
-            return;
 
         var y = ContentY(target);
         SetOffset(request.Align == ScrollAlign.TopWithDivider
             ? y - 8
             : y - (MessageScroller.Viewport.Height - target.Bounds.Height) / 2);
+        return true;
     }
 
     private void SetOffset(double y)
@@ -338,12 +385,10 @@ public partial class ChatView : UserControl
         var extent = MessageScroller.Extent.Height;
 
         long top = 0, bottom = 0;
-        foreach (var item in _vm.Items)
+        foreach (var (item, container, y) in RealizedItems())
         {
-            if (item is not MessageItemViewModel { Id: > 0 } m
-                || MessageList.ContainerFromItem(item) is not { } container || container.Bounds.Height <= 0)
+            if (item is not MessageItemViewModel { Id: > 0 } m)
                 continue;
-            var y = ContentY(container);
             if (y + container.Bounds.Height > offset && y < offset + viewport)
             {
                 if (top == 0)
@@ -834,12 +879,10 @@ public partial class ChatView : UserControl
     /// <summary>纵坐标（相对 <see cref="MessageList"/>）所在的消息行；不在任何消息行上时为 null。</summary>
     private MessageItemViewModel? MessageAt(double y)
     {
-        foreach (var item in _vm!.Items)
+        foreach (var (item, container, top) in RealizedItems())
         {
-            if (item is not MessageItemViewModel m || MessageList.ContainerFromItem(item) is not { } container
-                || container.Bounds.Height <= 0)
+            if (item is not MessageItemViewModel m)
                 continue;
-            var top = ContentY(container);
             if (y < top)
                 return null;
             if (y < top + container.Bounds.Height)
@@ -863,6 +906,7 @@ public partial class ChatView : UserControl
         _range.AddRange(items);
     }
 
+    // 条目不在视口附近（没有控件）时为空；它的选择状态在重新创建时由 OnContainerPrepared 恢复
     private IEnumerable<MessageContent> ContentsOf(MessageItemViewModel item) =>
         MessageList.ContainerFromItem(item)?.GetVisualDescendants().OfType<MessageContent>() ?? [];
 
