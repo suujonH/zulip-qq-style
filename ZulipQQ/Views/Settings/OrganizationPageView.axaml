@@ -16,7 +16,7 @@
                 <Grid Classes="item" ColumnDefinitions="Auto,*">
                     <TextBlock Text="组织名称" />
                     <TextBox Grid.Column="1" Classes="input" Width="260" HorizontalAlignment="Right" MaxLength="40"
-                             Text="{Binding Name}" IsReadOnly="{Binding !CanEdit}" />
+                             Text="{Binding Name}" IsEnabled="{Binding CanEdit}" />
                 </Grid>
                 <c:SettingSource Zulip="name" />
             </StackPanel>
