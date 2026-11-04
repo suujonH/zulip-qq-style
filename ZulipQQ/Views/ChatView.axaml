@@ -320,9 +320,13 @@
             <Border Classes="row" Classes.flash="{Binding IsFlashing}">
                 <DockPanel>
                 <!-- 多选模式：左侧复选框只显示状态，点击整行切换；消息内容不响应鼠标 -->
-                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsChecked, Mode=OneWay}" Focusable="False"
-                          IsHitTestVisible="False" VerticalAlignment="Top" Margin="0,4,8,0" MinWidth="0" Padding="0"
-                          IsVisible="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}" />
+                <!-- 很少显示的部分放在 Lazy 中：第一次需要显示时才创建，创建气泡时不必创建、设置样式和绑定它们 -->
+                <c:Lazy DockPanel.Dock="Left" When="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
+                    <DataTemplate DataType="vm:MessageItemViewModel">
+                        <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" Focusable="False"
+                                  IsHitTestVisible="False" VerticalAlignment="Top" Margin="0,4,8,0" MinWidth="0" Padding="0" />
+                    </DataTemplate>
+                </c:Lazy>
                 <DockPanel Classes="msg" Classes.own="{Binding IsOwn}"
                            IsHitTestVisible="{Binding !$parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
                     <c:Avatar Classes="sender" Width="32" Height="32" VerticalAlignment="Top"
@@ -342,14 +346,21 @@
                                    IsHitTestVisible="False" IsVisible="{Binding !ShowSenderName}" />
                         <StackPanel Orientation="Horizontal" Spacing="6"
                                     HorizontalAlignment="{Binding $parent[StackPanel].HorizontalAlignment}">
-                            <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.Loading}"
-                                      Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsPending}" />
-                            <Button Theme="{StaticResource FlatButton}" Width="20" Height="20" CornerRadius="10"
-                                    VerticalAlignment="Center" IsVisible="{Binding IsFailed}"
-                                    Command="{Binding RetryCommand}" ToolTip.Tip="发送失败，点击重发">
-                                <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.ErrorCircle}"
-                                          Foreground="{DynamicResource DangerBrush}" />
-                            </Button>
+                            <c:Lazy When="{Binding IsPending}" VerticalAlignment="Center">
+                                <DataTemplate DataType="vm:MessageItemViewModel">
+                                    <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.Loading}"
+                                              Foreground="{DynamicResource TextTertiaryBrush}" />
+                                </DataTemplate>
+                            </c:Lazy>
+                            <c:Lazy When="{Binding IsFailed}" VerticalAlignment="Center">
+                                <DataTemplate DataType="vm:MessageItemViewModel">
+                                    <Button Theme="{StaticResource FlatButton}" Width="20" Height="20" CornerRadius="10"
+                                            Command="{Binding RetryCommand}" ToolTip.Tip="发送失败，点击重发">
+                                        <c:TdIcon Classes="sendState" Icon="{StaticResource Icon.ErrorCircle}"
+                                                  Foreground="{DynamicResource DangerBrush}" />
+                                    </Button>
+                                </DataTemplate>
+                            </c:Lazy>
                             <Border Classes="bubble" Classes.bare="{Binding ShowsBare}"
                                     Classes.rangeSelected="{Binding IsRangeSelected}"
                                     Classes.selected="{Binding IsHighlighted}"
@@ -358,27 +369,35 @@
                                     <StackPanel IsVisible="{Binding ShowsContent}">
                                         <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" />
                                         <!-- 插件临时替换了显示内容（例如翻译）：只显示切换原文 / 插件内容的链接 -->
-                                        <StackPanel Classes="render" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0"
-                                                    IsVisible="{Binding HasRender}">
-                                            <Button Classes="link" Theme="{StaticResource FlatButton}" Content="{Binding RenderToggleText}"
-                                                    Foreground="{DynamicResource BrandBrush}" Command="{Binding ToggleRenderCommand}" />
-                                        </StackPanel>
+                                        <c:Lazy When="{Binding HasRender}">
+                                            <DataTemplate DataType="vm:MessageItemViewModel">
+                                                <StackPanel Classes="render" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                                                    <Button Classes="link" Theme="{StaticResource FlatButton}" Content="{Binding RenderToggleText}"
+                                                            Foreground="{DynamicResource BrandBrush}" Command="{Binding ToggleRenderCommand}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </c:Lazy>
                                         <!-- 编辑过的消息：当前版本 / 版本总数，左右箭头切换 -->
-                                        <StackPanel Classes="versions" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,0,0"
-                                                    IsVisible="{Binding HasVersions}">
-                                            <Button Command="{Binding ShowPreviousVersionCommand}" IsEnabled="{Binding CanShowPreviousVersion}"
-                                                    ToolTip.Tip="上一个版本">
-                                                <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" />
-                                            </Button>
-                                            <TextBlock Text="{Binding VersionText}" />
-                                            <Button Command="{Binding ShowNextVersionCommand}" IsEnabled="{Binding CanShowNextVersion}"
-                                                    ToolTip.Tip="下一个版本">
-                                                <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" />
-                                            </Button>
-                                        </StackPanel>
+                                        <c:Lazy When="{Binding HasVersions}">
+                                            <DataTemplate DataType="vm:MessageItemViewModel">
+                                                <StackPanel Classes="versions" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,0,0">
+                                                    <Button Command="{Binding ShowPreviousVersionCommand}" IsEnabled="{Binding CanShowPreviousVersion}"
+                                                            ToolTip.Tip="上一个版本">
+                                                        <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" />
+                                                    </Button>
+                                                    <TextBlock Text="{Binding VersionText}" />
+                                                    <Button Command="{Binding ShowNextVersionCommand}" IsEnabled="{Binding CanShowNextVersion}"
+                                                            ToolTip.Tip="下一个版本">
+                                                        <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </c:Lazy>
                                     </StackPanel>
                                     <!-- 投票 / 待办：只读，操作交给网页端 -->
-                                    <StackPanel Spacing="6" MinWidth="220" IsVisible="{Binding ShowsWidget}">
+                                    <c:Lazy When="{Binding ShowsWidget}">
+                                    <DataTemplate DataType="vm:MessageItemViewModel">
+                                    <StackPanel Spacing="6" MinWidth="220">
                                         <TextBlock Text="{Binding Widget.Kind}" FontSize="{DynamicResource FontSizeCaption}"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" />
                                         <SelectableTextBlock Text="{Binding Widget.Title}" FontWeight="SemiBold" TextWrapping="Wrap"
@@ -417,8 +436,14 @@
                                                 HorizontalAlignment="Left" Padding="0" Foreground="{DynamicResource BrandBrush}"
                                                 Background="Transparent" Command="{Binding OpenInBrowserCommand}" />
                                     </StackPanel>
-                                    <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="{DynamicResource FontSizeBody}" Cursor="Hand"
-                                               Foreground="{DynamicResource TextTertiaryBrush}" IsVisible="{Binding IsMutedHidden}" />
+                                    </DataTemplate>
+                                    </c:Lazy>
+                                    <c:Lazy When="{Binding IsMutedHidden}">
+                                        <DataTemplate DataType="vm:MessageItemViewModel">
+                                            <TextBlock Text="已屏蔽的消息（点击查看）" FontSize="{DynamicResource FontSizeBody}" Cursor="Hand"
+                                                       Foreground="{DynamicResource TextTertiaryBrush}" />
+                                        </DataTemplate>
+                                    </c:Lazy>
                                 </Panel>
                             </Border>
                         </StackPanel>
@@ -444,7 +469,9 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <!-- 插件附加的内容：与消息原文分开保存，点击插件名折叠 / 展开 -->
-                        <ItemsControl ItemsSource="{Binding Annotations}" IsVisible="{Binding HasAnnotations}" Margin="0,4,0,0"
+                        <c:Lazy When="{Binding HasAnnotations}">
+                        <DataTemplate DataType="vm:MessageItemViewModel">
+                        <ItemsControl ItemsSource="{Binding Annotations}" Margin="0,4,0,0"
                                       MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}"
                                       HorizontalAlignment="{Binding $parent[StackPanel].HorizontalAlignment}">
                             <ItemsControl.ItemTemplate>
@@ -500,6 +527,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        </DataTemplate>
+                        </c:Lazy>
                         <!-- 一对一私聊：自己最后一条消息的已读状态 -->
                         <TextBlock Classes="readState" Classes.unread="{Binding IsReadStateUnread}" Text="{Binding ReadStateText}"
                                    IsVisible="{Binding ReadStateText, Converter={x:Static ObjectConverters.IsNotNull}}" />
