@@ -42,11 +42,25 @@ public sealed partial class SystemNoticeStore(ZulipSession session)
         _notices.Values.Where(e => e.Id > ClearedBeforeId).OrderByDescending(e => e.Id).ToList();
 
     /// <summary>已到时间的消息提醒，新的在前。</summary>
-    public IReadOnlyList<SystemNoticeEntry> DeliveredReminders => _reminders.Values.OrderByDescending(e => e.Id).ToList();
+    public IReadOnlyList<SystemNoticeEntry> DeliveredReminders
+    {
+        get
+        {
+            var cleared = session.Settings.Local.ClearedReminderIds;
+            return _reminders.Values.Where(e => !cleared.Contains(e.Id)).OrderByDescending(e => e.Id).ToList();
+        }
+    }
 
     public int UnreadNoticeCount => _unread.Count(id => id > ClearedBeforeId && _notices.ContainsKey(id));
 
-    public int UnreadReminderCount => _unread.Count(_reminders.ContainsKey);
+    public int UnreadReminderCount
+    {
+        get
+        {
+            var cleared = session.Settings.Local.ClearedReminderIds;
+            return _unread.Count(id => _reminders.ContainsKey(id) && !cleared.Contains(id));
+        }
+    }
 
     public bool IsUnread(long id) => _unread.Contains(id);
 
@@ -163,6 +177,32 @@ public sealed partial class SystemNoticeStore(ZulipSession session)
             return;
         session.Settings.Local.SystemNoticesClearedBefore = max;
         Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// 清除一条已到时间的提醒：只在本地不再显示（机器人发来的私信不能删除）。
+    /// 保存的 id 只保留仍载入着的提醒，避免无限增长。
+    /// </summary>
+    public async Task ClearReminderAsync(long id)
+    {
+        if (!_reminders.ContainsKey(id))
+            return;
+        var cleared = session.Settings.Local.ClearedReminderIds.Where(_reminders.ContainsKey).ToHashSet();
+        cleared.Add(id);
+        session.Settings.Local.ClearedReminderIds = cleared;
+        Changed?.Invoke(this, EventArgs.Empty);
+        await MarkReadAsync([id]);
+    }
+
+    /// <summary>清除全部已到时间的提醒（只在本地不再显示）。</summary>
+    public async Task ClearAllRemindersAsync()
+    {
+        if (_reminders.Count == 0)
+            return;
+        var ids = _reminders.Keys.ToList();
+        session.Settings.Local.ClearedReminderIds = ids.ToHashSet();
+        Changed?.Invoke(this, EventArgs.Empty);
+        await MarkReadAsync(ids);
     }
 
     private async Task MarkReadAsync(IEnumerable<long> source)

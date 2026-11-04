@@ -23,9 +23,9 @@ public enum ReminderTab
     Delivered,
 }
 
-/// <summary>一条消息提醒：待提醒的可以删除；都可以查看被提醒的消息。</summary>
+/// <summary>一条消息提醒：待提醒的可以删除，已提醒的可以清除；都可以查看被提醒的消息。</summary>
 public sealed partial class ReminderItemViewModel(RemindersViewModel owner, long? reminderId, long? targetMessageId,
-    string timeText, string html, bool isFailed) : ViewModelBase
+    string timeText, string html, bool isFailed, long? noticeId = null) : ViewModelBase
 {
     public string TimeText { get; } = timeText;
 
@@ -38,11 +38,17 @@ public sealed partial class ReminderItemViewModel(RemindersViewModel owner, long
 
     public bool CanDelete => reminderId is not null;
 
+    /// <summary>已提醒的（Notification Bot 的提醒私信）可以清除。</summary>
+    public bool CanClear => noticeId is not null;
+
     [RelayCommand]
     private Task ViewAsync() => targetMessageId is { } id ? owner.ViewMessageAsync(id) : Task.CompletedTask;
 
     [RelayCommand]
     private Task DeleteAsync() => reminderId is { } id ? owner.DeleteAsync(id) : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task ClearAsync() => noticeId is { } id ? owner.ClearAsync(id) : Task.CompletedTask;
 }
 
 /// <summary>
@@ -151,6 +157,19 @@ public sealed partial class RemindersViewModel : ViewModelBase, IDialogHost
         }
     }
 
+    /// <summary>清除一条已到时间的提醒（只在本地不再显示）。</summary>
+    public Task ClearAsync(long noticeId) => _session.SystemNotices.ClearReminderAsync(noticeId);
+
+    /// <summary>“已提醒”标题右侧的“清除全部”。</summary>
+    public bool CanClearAll => IsDelivered && Items.Count > 0;
+
+    [RelayCommand]
+    private async Task ClearAllAsync()
+    {
+        if (await ConfirmAsync("清除全部已提醒的消息？", "清除", isDanger: true))
+            await _session.SystemNotices.ClearAllRemindersAsync();
+    }
+
     /// <summary>提醒内容中的点击：组织内的链接在客户端中打开，其它链接用浏览器打开。</summary>
     public async Task HandleLinkAsync(MessageLinkTarget target)
     {
@@ -210,17 +229,18 @@ public sealed partial class RemindersViewModel : ViewModelBase, IDialogHost
             foreach (var r in _session.Reminders.Pending)
                 Items.Add(new ReminderItemViewModel(this, r.ReminderId, r.ReminderTargetMessageId,
                     Core.TimeText.PreciseTime(Core.TimeText.FromUnix(r.ScheduledDeliveryTimestamp), now, use24h),
-                    r.RenderedContent.Length > 0 ? r.RenderedContent : r.Content, r.Failed));
+                    SystemNoticeText.LocalizeReminder(r.RenderedContent.Length > 0 ? r.RenderedContent : r.Content), r.Failed));
         }
         else
         {
             foreach (var e in _session.SystemNotices.DeliveredReminders)
                 Items.Add(new ReminderItemViewModel(this, null, TargetOf(e.Html),
                     Core.TimeText.PreciseTime(Core.TimeText.FromUnix(e.Timestamp), now, use24h),
-                    e.Html, isFailed: false));
+                    SystemNoticeText.LocalizeReminder(e.Html), isFailed: false, noticeId: e.Id));
         }
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(HasUnreadDelivered));
+        OnPropertyChanged(nameof(CanClearAll));
     }
 
     // 提醒私信中“sent”链接指向被提醒的消息：…/near/{id}
