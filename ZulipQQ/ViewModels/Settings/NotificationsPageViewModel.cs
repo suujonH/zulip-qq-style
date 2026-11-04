@@ -2,7 +2,7 @@ using ZulipQQ.Zulip.Dtos;
 
 namespace ZulipQQ.ViewModels.Settings;
 
-/// <summary>消息通知：Zulip 的桌面通知与提示音设置，以及本机的 @全体提醒（账号级）。通知类型是程序级，在“通用”中。</summary>
+/// <summary>消息通知：Zulip 的桌面通知与提示音设置，以及本机的 @全体提醒（账号级）。静音是程序级，在主窗口左下角的喇叭按钮。</summary>
 public sealed class NotificationsPageViewModel : SettingsPageViewModel
 {
     public NotificationsPageViewModel(SettingsViewModel owner) : base(owner)

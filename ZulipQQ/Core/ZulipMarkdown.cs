@@ -37,11 +37,11 @@ public enum MdPrefixKind { Quote, Heading, Bullet, Ordered }
 
 public readonly record struct MdPrefix(MdPrefixKind Kind, int Start, int End);
 
-public enum MdSpanKind { Code, StrongEm, Strong, Em, Del, Math, Link, Url, UserMention, GroupMention, ChannelLink, Time, Emoji, UploadImage, UploadPlaceholder }
+public enum MdSpanKind { Code, StrongEm, Strong, Em, Del, Math, Link, Url, UserMention, GroupMention, ChannelLink, Time, Emoji, UploadImage, UploadFile, UploadPlaceholder }
 
 /// <summary>
 /// 行内元素：[Start, End) 为整个元素，[ContentStart, ContentEnd) 为显示的内容；两侧为符号。
-/// Data：Link / Url / UploadImage 为地址；提及 / 频道为显示文字；Emoji 为名称；Time 为原始时间文字；
+/// Data：Link / Url / UploadImage / UploadFile 为地址；提及 / 频道为显示文字；Emoji 为名称；Time 为原始时间文字；
 /// UploadPlaceholder 为文件名；Code / Math 等为 null。
 /// </summary>
 public sealed record MdSpan(MdSpanKind Kind, int Start, int End, int ContentStart, int ContentEnd, string? Data);
@@ -124,7 +124,7 @@ public static partial class ZulipMarkdown
     /// <summary>在输入框中作为一个整体显示的元素（光标进入时也不展开符号）。</summary>
     public static bool IsAtomic(MdSpanKind kind) =>
         kind is MdSpanKind.UserMention or MdSpanKind.GroupMention or MdSpanKind.ChannelLink or MdSpanKind.Time
-            or MdSpanKind.Emoji or MdSpanKind.UploadImage or MdSpanKind.UploadPlaceholder;
+            or MdSpanKind.Emoji or MdSpanKind.UploadImage or MdSpanKind.UploadFile or MdSpanKind.UploadPlaceholder;
 
     // ───────────── 块 ─────────────
 
@@ -301,10 +301,24 @@ public static partial class ZulipMarkdown
         return rest;
     }
 
-    // 表格行按 | 切成单元格；行内代码中的 | 不切
+    // 表格行按 | 切成单元格
     private static IEnumerable<(int Start, int End)> TableCells(string text, int start, int end)
     {
         var cellStart = start;
+        foreach (var pipe in TablePipes(text, start, end))
+        {
+            if (pipe > cellStart)
+                yield return (cellStart, pipe);
+            cellStart = pipe + 1;
+        }
+        if (end > cellStart)
+            yield return (cellStart, end);
+    }
+
+    /// <summary>表格行中分隔单元格的 | 的位置；行内代码中的 | 不算。</summary>
+    public static IReadOnlyList<int> TablePipes(string text, int start, int end)
+    {
+        var pipes = new List<int>();
         var i = start;
         while (i < end)
         {
@@ -319,15 +333,10 @@ public static partial class ZulipMarkdown
                 continue;
             }
             if (c == '|')
-            {
-                if (i > cellStart)
-                    yield return (cellStart, i);
-                cellStart = i + 1;
-            }
+                pipes.Add(i);
             i++;
         }
-        if (end > cellStart)
-            yield return (cellStart, end);
+        return pipes;
     }
 
     private static int FindTickRun(string text, int from, int end, int run)
@@ -476,7 +485,8 @@ public static partial class ZulipMarkdown
 
     /// <summary>
     /// 链接 <c>[文字](地址)</c> 与图片 <c>![文字](地址)</c>：方括号可以嵌套，地址可以用 &lt;&gt; 包围或含配对的圆括号。
-    /// 上传的图片为 UploadImage，<c>[Uploading 名字…]()</c> 为 UploadPlaceholder。链接文字中不再识别其它格式。
+    /// 上传的图片为 UploadImage，其它上传文件（视频等，有文字且不是 <c>![…]</c>）为 UploadFile，
+    /// <c>[Uploading 名字…]()</c> 为 UploadPlaceholder。链接文字中不再识别其它格式。
     /// </summary>
     private static void ScanLinks(char[] masked, int offset, List<MdSpan> spans)
     {
@@ -554,6 +564,8 @@ public static partial class ZulipMarkdown
                 span = new MdSpan(MdSpanKind.UploadPlaceholder, start, end, start, end, label["Uploading ".Length..^1]);
             else if (ZulipHtml.NormalizeUploadPath(address) is { } path && ZulipHtml.IsImagePath(path))
                 span = new MdSpan(MdSpanKind.UploadImage, start, end, start, end, address);
+            else if (!isImage && !string.IsNullOrWhiteSpace(label) && ZulipHtml.NormalizeUploadPath(address) is not null)
+                span = new MdSpan(MdSpanKind.UploadFile, start, end, i + 1, close, address);
             else if (string.IsNullOrWhiteSpace(label))
                 span = new MdSpan(MdSpanKind.Link, start, end, i + 1, i + 1, address);
             else
@@ -721,7 +733,7 @@ public static partial class ZulipMarkdown
             MdSpanKind.Emoji => s.Data is { } name ? emojiText(name) ?? $":{name}:" : "",
             // 外链图片 ![…](…)
             MdSpanKind.Link when text[s.Start] == '!' => "[图片]",
-            MdSpanKind.Link when ZulipHtml.NormalizeUploadPath(s.Data) is { } path =>
+            MdSpanKind.Link or MdSpanKind.UploadFile when ZulipHtml.NormalizeUploadPath(s.Data) is { } path =>
                 preview ? ZulipHtml.IsVideoPath(path) ? "[视频]" : $"[文件]{label.Trim()}" : label,
             // [](地址) 显示地址
             MdSpanKind.Link when label.Length == 0 || label == s.Data => s.Data ?? "",

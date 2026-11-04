@@ -260,6 +260,18 @@
                 <Border Grid.Column="0" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
                     <DockPanel Margin="0,8">
                         <StackPanel DockPanel.Dock="Bottom">
+                            <!-- 静音：新消息只闪烁任务栏，不弹横幅、不响提示音 -->
+                            <Button Classes="nav" Theme="{StaticResource FlatButton}" ToolTip.Tip="{Binding MuteTip}"
+                                    Command="{Binding ToggleNotificationMutedCommand}">
+                                <Panel>
+                                    <c:TdIcon Icon="{StaticResource Icon.Sound}" IsVisible="{Binding !IsNotificationMuted}" />
+                                    <!-- 静音：小喇叭外面一圈，加一条左上到右下的斜线（禁止符号） -->
+                                    <Panel IsVisible="{Binding IsNotificationMuted}">
+                                        <c:TdIcon Icon="{StaticResource Icon.Forbid}" />
+                                        <c:TdIcon Icon="{StaticResource Icon.Sound}" Width="11" Height="11" />
+                                    </Panel>
+                                </Panel>
+                            </Button>
                             <Button x:Name="MainMenuButton" Classes="nav" Theme="{StaticResource FlatButton}"
                                     ToolTip.Tip="主菜单">
                                 <c:TdIcon Icon="{StaticResource Icon.ViewList}" />

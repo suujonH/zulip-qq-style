@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -10,7 +11,10 @@ using Avalonia.Input.Platform;
 using Avalonia.Input.TextInput;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
+using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
 using ZulipQQ.Controls.MarkdownEditing;
@@ -40,9 +44,27 @@ public class MarkdownEditor : TextEditor
     private bool _syncing;
     private int _revealLine = -1;
     private IReadOnlyList<MdSpan> _revealSpans = [];
+    private int _revealQuote = -1;
+    // 展开的引用消息：锚点在引用的开头，跟随前面的修改移动
+    private readonly List<TextAnchor> _expandedQuotes = [];
+    // 显示为面板的引用消息除第一行以外的行：TextView 要求被跨行元素盖住的行先折叠
+    private readonly List<CollapsedLineSection> _collapsedQuotes = [];
+    // 点编辑进入编辑的引用（锚点在引用的开头）；光标离开引用后清除。其它引用不能编辑
+    private TextAnchor? _editQuote;
+    private int _animateQuote = -1;
+    // 引用消息发送后的 HTML：按引用的原文缓存，正在获取为 null，获取失败为空字符串
+    private readonly Dictionary<string, string?> _renderedQuotes = [];
+    // 表格的排版（键为标题行）：文字或字号变化时重新计算
+    private readonly Dictionary<int, MarkdownTableLayout> _tableLayouts = [];
+    private double _tableLayoutFontSize;
+    private readonly MarkdownTableToolbarLayer? _tableToolbarLayer;
+    // 光标所在的表格（显示工具栏）的标题行；没有为 -1
+    private int _activeTableLine = -1;
+    // 工具栏的菜单打开时焦点不在编辑器上，工具栏仍然显示
+    private bool _tablePopupOpen;
     private MdSpan? _pressedAtom;
 
-    public MarkdownEditor()
+    public MarkdownEditor() : base(new GuardedTextArea())
     {
         WordWrap = true;
         ShowLineNumbers = false;
@@ -67,8 +89,23 @@ public class MarkdownEditor : TextEditor
         TextArea.SelectionForeground = Brushes.White;
         var textView = TextArea.TextView;
         textView.LineTransformers.Insert(0, new MarkdownColorizer(this));
+        // 标题栏是宽度为 0 的元素，要在同一位置的提及之前生成
+        textView.ElementGenerators.Add(new QuoteTitleGenerator(this));
         textView.ElementGenerators.Add(new MarkdownElementGenerator(this));
         textView.BackgroundRenderers.Add(new MarkdownBackgroundRenderer(this));
+        // 引用面板的宽度跟随输入框（第一次生成时输入框可能还没有宽度）；表格放不放得下也取决于宽度
+        textView.SizeChanged += (_, e) =>
+        {
+            if (e.WidthChanged && (Quotes.Count > 0 || Tables.Count > 0))
+                Dispatcher.UIThread.Post(() =>
+                {
+                    UpdateQuoteCollapse();
+                    textView.Redraw();
+                });
+        };
+        _tableToolbarLayer = new MarkdownTableToolbarLayer(this);
+        textView.InsertLayer(_tableToolbarLayer, KnownLayer.Caret, LayerInsertionPosition.Above);
+        textView.VisualLinesChanged += (_, _) => _tableToolbarLayer?.Update();
         _preeditLayer = new PreeditLayer(this);
         textView.InsertLayer(_preeditLayer, KnownLayer.Caret, LayerInsertionPosition.Above);
         _ime = new MarkdownImeClient(this);
@@ -124,8 +161,20 @@ public class MarkdownEditor : TextEditor
     /// <summary>按名称取表情（显示 Unicode 字符或组织表情的图片）。</summary>
     public Func<string, EmojiEntry?>? EmojiLookup { get; set; }
 
+    /// <summary>把 Markdown 渲染为发送后的 HTML（展开的引用显示发送后的样子）；为 null 时显示纯文字。</summary>
+    public Func<string, Task<string>>? RenderHtml { get; set; }
+
     /// <summary>最近一次解析结果，与文档内容一致。</summary>
     public MarkdownModel Model { get; private set; } = MarkdownModel.Empty;
+
+    /// <summary>正文中的引用消息（渲染模式下显示为收起的面板，见 <see cref="QuotePanel"/>）。</summary>
+    public IReadOnlyList<QuoteBlock> Quotes { get; private set; } = [];
+
+    /// <summary>文档中的表格（渲染模式下对齐显示，见 <see cref="TableAt"/>）。</summary>
+    public IReadOnlyList<MarkdownTable> Tables { get; private set; } = [];
+
+    /// <summary>点击引用面板的跳转：参数为被引用的消息 id。</summary>
+    public event EventHandler<long>? QuoteJumpRequested;
 
     /// <summary>光标位置；设置时清除选择。</summary>
     public int CaretIndex
@@ -190,9 +239,7 @@ public class MarkdownEditor : TextEditor
             return;
         var start = SelectionStart;
         var markdown = SelectedText;
-        var text = IsSourceMode
-            ? markdown
-            : ZulipMarkdown.ToPlainText(markdown, _resolver ?? NullResolver, name => EmojiLookup?.Invoke(name)?.Text);
+        var text = IsSourceMode ? markdown : PlainText(markdown);
         try
         {
             await MarkdownClipboard.SetAsync(clipboard, text, markdown);
@@ -223,7 +270,11 @@ public class MarkdownEditor : TextEditor
             return;
         }
         if (!string.IsNullOrEmpty(text) && !IsReadOnly)
-            InsertBlock(text.ReplaceLineEndings("\n"));
+        {
+            text = text.ReplaceLineEndings("\n");
+            if (!InsertBesideQuote(text))
+                InsertBlock(text);
+        }
     }
 
     /// <summary>格式按钮：一步修改，可以一次撤销。</summary>
@@ -266,7 +317,10 @@ public class MarkdownEditor : TextEditor
         if (change.Property == MarkdownProperty && !_syncing)
             SyncFromMarkdown(change.GetNewValue<string?>() ?? "");
         else if (change.Property == IsSourceModeProperty)
+        {
+            UpdateQuoteCollapse();
             TextArea.TextView.Redraw();
+        }
     }
 
     // ViewModel 改了文字（载入草稿、上传完成替换占位）：只替换不同的部分，光标与撤销不乱
@@ -317,11 +371,151 @@ public class MarkdownEditor : TextEditor
             }
         }
         RefreshReveal();
+        UpdateQuoteCollapse();
         TextArea.TextView.Redraw();
         base.OnTextChanged(e);
     }
 
-    private void Reparse() => Model = ZulipMarkdown.Parse(Document.Text, _resolver ?? NullResolver);
+    private void Reparse()
+    {
+        var text = Document.Text;
+        Model = ZulipMarkdown.Parse(text, _resolver ?? NullResolver);
+        Quotes = QuoteBlocks.Find(Model, text);
+        Tables = MarkdownTables.Find(Model);
+        _tableLayouts.Clear();
+    }
+
+    /// <summary>
+    /// <paramref name="lineIndex"/> 所在的、按表格显示的表格与它的排版。
+    /// 源码模式下，或表格比输入框宽（换行后无法对齐，按原文显示）时为 null。
+    /// </summary>
+    internal (MarkdownTable Table, MarkdownTableLayout Layout)? TableAt(int lineIndex)
+    {
+        if (IsSourceMode)
+            return null;
+        foreach (var table in Tables)
+        {
+            if (lineIndex < table.HeaderLine || lineIndex > table.LastLine)
+                continue;
+            return LayoutOf(table) is { } layout ? (table, layout) : null;
+        }
+        return null;
+    }
+
+    /// <summary>光标所在的、显示工具栏的表格。</summary>
+    internal (MarkdownTable Table, MarkdownTableLayout Layout)? ActiveTable =>
+        _activeTableLine < 0 ? null : TableAt(_activeTableLine);
+
+    /// <summary>当前列的对齐方式。</summary>
+    internal TableAlign ActiveTableAlign
+    {
+        get
+        {
+            if (ActiveTable is not { } active)
+                return TableAlign.Left;
+            var text = Document.Text;
+            var aligns = MarkdownTableEdit.Aligns(Model, text, active.Table);
+            var column = MarkdownTableEdit.CellAt(Model, text, active.Table, CaretOffset).Column;
+            return column < aligns.Count ? aligns[column] : TableAlign.Left;
+        }
+    }
+
+    /// <summary>当前表格的列数与行数（含标题行）。</summary>
+    internal (int Columns, int Rows) ActiveTableSize =>
+        ActiveTable is { } active
+            ? (MarkdownTableEdit.ColumnCount(Model, Document.Text, active.Table), MarkdownTableEdit.RowCount(active.Table))
+            : (MarkdownTableEdit.MinColumns, MarkdownTableEdit.MinRows);
+
+    /// <summary>修改当前表格（一步撤销）；操作不了（返回 null）时不改。之后焦点回到编辑器。</summary>
+    internal void EditActiveTable(Func<MarkdownModel, string, MarkdownTable, int, MarkdownEdit?> edit)
+    {
+        if (ActiveTable is { } active && !IsReadOnly && edit(Model, Document.Text, active.Table, CaretOffset) is { } change)
+            ApplyEdit(change);
+        TextArea.Focus();
+    }
+
+    /// <summary>复制当前表格的原文。</summary>
+    internal async Task CopyActiveTableAsync()
+    {
+        if (ActiveTable is not { } active || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+            return;
+        var source = MarkdownTableEdit.Source(Model, Document.Text, active.Table);
+        await MarkdownClipboard.SetAsync(clipboard, source, source);
+        TextArea.Focus();
+    }
+
+    internal void SetTablePopupOpen(bool open)
+    {
+        if (open)
+        {
+            _tablePopupOpen = true;
+            return;
+        }
+        // 菜单项的操作可能在关闭之后才执行：等它执行完
+        Dispatcher.UIThread.Post(() =>
+        {
+            _tablePopupOpen = false;
+            TextArea.Focus();
+            RefreshReveal();
+        });
+    }
+
+    /// <summary>插入空表格，光标放在第一个单元格。</summary>
+    public void InsertTable(int columns, int rows) =>
+        ApplyEdit(MarkdownFormat.InsertTable(Text, SelectionStart, SelectionEnd, columns, rows));
+
+    /// <summary>表格的快捷键（光标在表格中时）；处理了返回 true。</summary>
+    public bool HandleTableKey(KeyEventArgs e)
+    {
+        if (ActiveTable is null)
+            return false;
+        Func<MarkdownModel, string, MarkdownTable, int, MarkdownEdit?>? edit = (e.KeyModifiers, e.Key) switch
+        {
+            (KeyModifiers.Control, Key.Enter) => (m, t, table, c) => MarkdownTableEdit.InsertRow(m, t, table, c, below: true),
+            (KeyModifiers.Alt, Key.Up) => (m, t, table, c) => MarkdownTableEdit.MoveRow(m, t, table, c, -1),
+            (KeyModifiers.Alt, Key.Down) => (m, t, table, c) => MarkdownTableEdit.MoveRow(m, t, table, c, 1),
+            (KeyModifiers.Alt, Key.Left) => (m, t, table, c) => MarkdownTableEdit.MoveColumn(m, t, table, c, -1),
+            (KeyModifiers.Alt, Key.Right) => (m, t, table, c) => MarkdownTableEdit.MoveColumn(m, t, table, c, 1),
+            (KeyModifiers.Control | KeyModifiers.Shift, Key.Back) => MarkdownTableEdit.DeleteRow,
+            _ => null,
+        };
+        if (edit is null)
+            return false;
+        e.Handled = true;
+        EditActiveTable(edit);
+        return true;
+    }
+
+    private MarkdownTableLayout? LayoutOf(MarkdownTable table)
+    {
+        var view = TextArea.TextView;
+        if (_tableLayoutFontSize != FontSize)
+        {
+            _tableLayouts.Clear();
+            _tableLayoutFontSize = FontSize;
+        }
+        if (!_tableLayouts.TryGetValue(table.HeaderLine, out var layout))
+        {
+            layout = MarkdownTableLayout.Build(table, Model, Document.Text, MeasureTableCell, view.DefaultLineHeight, view.DefaultBaseline);
+            _tableLayouts[table.HeaderLine] = layout;
+        }
+        return layout.Width <= view.Bounds.Width ? layout : null;
+    }
+
+    // 单元格显示的宽度：符号隐藏、提及等换成显示文字；两端的空白照常占位
+    private double MeasureTableCell(string cell, bool bold)
+    {
+        var trimmed = cell.Trim();
+        var shown = trimmed.Length == 0 ? cell
+            : cell[..(cell.Length - cell.TrimStart().Length)] + PlainText(trimmed) + cell[(cell.TrimEnd().Length)..];
+        return new FormattedText(shown, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+            new Typeface(FontFamily, FontStyle.Normal, bold ? FontWeight.Bold : FontWeight.Normal), FontSize, null)
+            .WidthIncludingTrailingWhitespace;
+    }
+
+    /// <summary>Markdown 显示的文字（提及、表情等换成显示的样子）。</summary>
+    internal string PlainText(string markdown) =>
+        ZulipMarkdown.ToPlainText(markdown, _resolver ?? NullResolver, name => EmojiLookup?.Invoke(name)?.Text);
 
     private static string NormalizeNewLines(string text) =>
         text.Contains('\r') ? text.Replace("\r\n", "\n").Replace('\r', '\n') : text;
@@ -333,6 +527,148 @@ public class MarkdownEditor : TextEditor
 
     /// <summary>光标位于其中（含两端）的代码、链接、粗体、斜体显示符号。</summary>
     internal bool IsRevealed(MdSpan span) => _revealSpans.Contains(span);
+
+    /// <summary>光标在引用消息中间（不含两端）：显示原文，可以编辑；光标离开后收起为面板。</summary>
+    internal bool IsQuoteRevealed(QuoteBlock quote) => quote.Start == _revealQuote;
+
+    internal bool IsQuoteExpanded(QuoteBlock quote) => _expandedQuotes.Exists(a => !a.IsDeleted && a.Offset == quote.Start);
+
+    /// <summary>正在编辑（显示原文）的引用消息；没有为 null。</summary>
+    internal QuoteBlock? EditingQuote => _revealQuote < 0 ? null : Quotes.FirstOrDefault(q => q.Start == _revealQuote);
+
+    /// <summary>
+    /// 引用消息发送后的 HTML（整段，含引用行）。第一次取时开始获取，取到后重绘；
+    /// 正在获取、获取失败或没有 <see cref="RenderHtml"/> 时为 null。
+    /// </summary>
+    internal string? RenderedQuote(QuoteBlock quote)
+    {
+        if (RenderHtml is not { } render || quote.End > Document.TextLength)
+            return null;
+        var text = Document.GetText(quote.Start, quote.End - quote.Start);
+        if (_renderedQuotes.TryGetValue(text, out var html))
+            return string.IsNullOrEmpty(html) ? null : html;
+        // 只缓存最近的几段，修改过的旧内容不再需要
+        if (_renderedQuotes.Count >= 32)
+            _renderedQuotes.Clear();
+        _renderedQuotes[text] = null;
+        _ = RenderQuoteAsync(render, text);
+        return null;
+    }
+
+    private async Task RenderQuoteAsync(Func<string, Task<string>> render, string text)
+    {
+        string html;
+        try
+        {
+            html = await render(text);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("渲染引用失败", ex);
+            html = "";
+        }
+        _renderedQuotes[text] = html;
+        if (html.Length > 0)
+            TextArea.TextView.Redraw();
+    }
+
+    // 与 MarkdownElementGenerator 生成面板的条件一致：渲染模式下、没有在编辑的引用折叠第一行以外的行
+    private void UpdateQuoteCollapse()
+    {
+        foreach (var section in _collapsedQuotes)
+            section.Uncollapse();
+        _collapsedQuotes.Clear();
+        if (IsSourceMode)
+            return;
+        foreach (var quote in Quotes)
+        {
+            if (IsQuoteRevealed(quote) || quote.CloseLine + 1 > Document.LineCount)
+                continue;
+            _collapsedQuotes.Add(TextArea.TextView.CollapseLines(
+                Document.GetLineByNumber(quote.HeaderLine + 2), Document.GetLineByNumber(quote.CloseLine + 1)));
+        }
+        // 表格的分隔行不显示（在 MarkdownElementGenerator 中并入标题行）
+        foreach (var table in Tables)
+        {
+            if (table.SeparatorLine + 1 > Document.LineCount || LayoutOf(table) is null)
+                continue;
+            var separator = Document.GetLineByNumber(table.SeparatorLine + 1);
+            _collapsedQuotes.Add(TextArea.TextView.CollapseLines(separator, separator));
+        }
+    }
+
+    /// <summary>展开 / 收起引用面板。</summary>
+    internal void ToggleQuote(QuoteBlock quote)
+    {
+        SetQuoteExpanded(quote, !IsQuoteExpanded(quote));
+        _animateQuote = quote.Start;
+        TextArea.TextView.Redraw();
+    }
+
+    /// <summary>刚展开 / 收起的引用：面板重建时播放一次动画（其它原因的重绘不播放）。</summary>
+    internal bool TakeQuoteAnimation(QuoteBlock quote)
+    {
+        if (_animateQuote != quote.Start)
+            return false;
+        _animateQuote = -1;
+        return true;
+    }
+
+    /// <summary>删除整段引用（连同后面的换行，引用在最后时连同前面的换行），一步撤销。</summary>
+    internal void DeleteQuote(QuoteBlock quote)
+    {
+        if (quote.End > Document.TextLength)
+            return;
+        var start = quote.Start;
+        var end = quote.End;
+        if (end < Document.TextLength && Document.GetCharAt(end) == '\n')
+            end++;
+        else if (start > 0 && Document.GetCharAt(start - 1) == '\n')
+            start--;
+        SetQuoteExpanded(quote, false);
+        if (_editQuote?.Offset == quote.Start)
+            _editQuote = null;
+        Document.Remove(start, end - start);
+        CaretIndex = start;
+    }
+
+    private void SetQuoteExpanded(QuoteBlock quote, bool expanded)
+    {
+        _expandedQuotes.RemoveAll(a => a.IsDeleted || a.Offset == quote.Start);
+        if (!expanded)
+            return;
+        var anchor = Document.CreateAnchor(quote.Start);
+        // 在引用前面输入时锚点跟着引用移动
+        anchor.MovementType = AnchorMovementType.AfterInsertion;
+        _expandedQuotes.Add(anchor);
+    }
+
+    /// <summary>编辑中的引用点击标题：结束编辑并收起（光标移到引用之后）。</summary>
+    internal void CollapseQuote(QuoteBlock quote)
+    {
+        SetQuoteExpanded(quote, false);
+        _editQuote = null;
+        _animateQuote = quote.Start;
+        CaretIndex = quote.End;
+        TextArea.TextView.Redraw();
+    }
+
+    /// <summary>编辑引用：展开，光标移到被引用的内容开头，在面板中显示原文。</summary>
+    internal void EditQuote(QuoteBlock quote)
+    {
+        SetQuoteExpanded(quote, true);
+        _editQuote = Document.CreateAnchor(quote.Start);
+        _editQuote.MovementType = AnchorMovementType.AfterInsertion;
+        TextArea.Focus();
+        CaretIndex = quote.BodyStart;
+        TextArea.Caret.BringCaretToView();
+    }
+
+    internal void JumpToQuote(QuoteBlock quote)
+    {
+        if (quote.MessageId is { } id)
+            QuoteJumpRequested?.Invoke(this, id);
+    }
 
     // 只有代码、链接、粗体、斜体显示符号；标题、列表、引用的行首符号、删除线、公式、提及等始终是渲染后的样子
     private static bool Reveals(MdSpanKind kind) =>
@@ -351,6 +687,7 @@ public class MarkdownEditor : TextEditor
     {
         int line;
         IReadOnlyList<MdSpan> spans;
+        int quote;
         if (TextArea.IsKeyboardFocusWithin)
         {
             var caret = CaretOffset;
@@ -358,29 +695,106 @@ public class MarkdownEditor : TextEditor
             if (line >= 0 && !RevealsLine(Model.Lines[line]))
                 line = -1;
             spans = Model.Spans.Where(s => Reveals(s.Kind) && s.Start <= caret && caret <= s.End).ToList();
+            var inside = Quotes.FirstOrDefault(q => q.Start < caret && caret < q.End);
+            if (inside is null)
+            {
+                _editQuote = null;
+            }
+            else if (!IsSourceMode && (_editQuote is null || _editQuote.IsDeleted || _editQuote.Offset != inside.Start))
+            {
+                // 只有点编辑进入的引用可以编辑：光标以其它方式（方向键、撤销等）进入引用时移到较近的一端；选择时只保持面板
+                if (TextArea.Selection.IsEmpty)
+                {
+                    CaretOffset = caret - inside.Start <= inside.End - caret ? inside.Start : inside.End;
+                    return;
+                }
+                inside = null;
+            }
+            quote = inside?.Start ?? -1;
         }
         else
         {
             line = -1;
             spans = [];
+            quote = -1;
         }
-        if (line == _revealLine && spans.SequenceEqual(_revealSpans))
+        var activeTable = ActiveTableLine();
+        if (line == _revealLine && spans.SequenceEqual(_revealSpans) && quote == _revealQuote && activeTable == _activeTableLine)
+        {
+            // 同一个表格中换了一列：对齐按钮要更新
+            // 基类构造时就会触发 OnTextChanged，此时工具栏层还没有创建
+            _tableToolbarLayer?.Update();
             return;
+        }
         _revealLine = line;
         _revealSpans = spans;
+        _revealQuote = quote;
+        _activeTableLine = activeTable;
+        UpdateQuoteCollapse();
         TextArea.TextView.Redraw();
     }
+
+    // 有焦点（或工具栏的菜单开着）、可以编辑时光标所在的表格；按原文显示的表格没有工具栏
+    private int ActiveTableLine()
+    {
+        if (IsReadOnly || !TextArea.IsKeyboardFocusWithin && !_tablePopupOpen)
+            return -1;
+        var index = Model.LineIndexAt(CaretOffset);
+        return index >= 0 && TableAt(index) is { } found ? found.Table.HeaderLine : -1;
+    }
+
+    /// <summary>编辑中的表格：标题行上方留出工具栏的位置。</summary>
+    internal bool IsTableActive(MarkdownTable table) => table.HeaderLine == _activeTableLine;
 
     // ───────────── 输入 ─────────────
 
     // 换行由 TextArea 换成文档的换行符（文档只有一行时为系统换行符 \r\n），这里直接插入 \n
     private void OnTextEntering(object? sender, TextInputEventArgs e)
     {
-        if (e.Text is not ("\n" or "\r" or "\r\n"))
-            return;
-        e.Handled = true;
-        TextArea.Selection.ReplaceSelectionWithText("\n");
+        if (e.Text is "\n" or "\r" or "\r\n")
+        {
+            e.Handled = true;
+            // 表格的一行不能换行：跳到表格下面的新行
+            if (ActiveTable is { } table)
+            {
+                var end = Model.Lines[table.Table.LastLine].End;
+                TextArea.ClearSelection();
+                Document.Insert(end, "\n");
+                CaretIndex = end + 1;
+                TextArea.Caret.BringCaretToView();
+                return;
+            }
+            TextArea.Selection.ReplaceSelectionWithText("\n");
+            TextArea.Caret.BringCaretToView();
+        }
+        else if (!string.IsNullOrEmpty(e.Text) && InsertBesideQuote(e.Text))
+        {
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// 光标紧挨着显示为面板的引用（在它的开头或结尾）时插入 <paramref name="text"/>：另起一行，
+    /// 否则文字会接在引用行前面或结束的围栏后面，引用不再完整。没有紧挨着时返回 false，不插入。
+    /// </summary>
+    private bool InsertBesideQuote(string text)
+    {
+        var caret = CaretOffset;
+        if (IsSourceMode || !TextArea.Selection.IsEmpty
+            || Quotes.FirstOrDefault(q => !IsQuoteRevealed(q) && (q.Start == caret || q.End == caret)) is not { } quote)
+            return false;
+        if (caret == quote.End)
+        {
+            Document.Insert(caret, "\n" + text);
+            CaretIndex = caret + 1 + text.Length;
+        }
+        else
+        {
+            Document.Insert(caret, text + "\n");
+            CaretIndex = caret + text.Length;
+        }
         TextArea.Caret.BringCaretToView();
+        return true;
     }
 
     // 单击提及、频道链接、表情、图片等整体元素：松开后选中整个元素
@@ -390,11 +804,15 @@ public class MarkdownEditor : TextEditor
         var point = e.GetCurrentPoint(TextArea.TextView);
         if (!point.Properties.IsLeftButtonPressed || e.ClickCount != 1 || e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             return;
+        // 点在引用面板（或编辑中的引用的标题栏）上：由面板处理
+        if (e.Source is Visual source && source.FindAncestorOfType<QuotePanel>(includeSelf: true) is not null)
+            return;
         _pressedAtom = AtomAt(point.Position);
     }
 
     private void OnPointerReleasedAny(object? sender, PointerReleasedEventArgs e)
     {
+        PlaceCaretInClickedCell(e);
         if (_pressedAtom is not { } atom)
             return;
         _pressedAtom = null;
@@ -402,6 +820,27 @@ public class MarkdownEditor : TextEditor
             return;
         if (AtomAt(e.GetPosition(TextArea.TextView)) == atom)
             Select(atom.Start, atom.End - atom.Start);
+    }
+
+    // 点在表格单元格的空白处：| 显示成的空白属于两格之间，光标可能落到下一格，这里放回点到的那一格
+    private void PlaceCaretInClickedCell(PointerReleasedEventArgs e)
+    {
+        var textView = TextArea.TextView;
+        if (IsSourceMode || e.InitialPressMouseButton != MouseButton.Left || !TextArea.Selection.IsEmpty
+            || (e.Source as Visual)?.FindAncestorOfType<MarkdownTableToolbar>(includeSelf: true) is not null)
+            return;
+        var point = e.GetPosition(textView) + textView.ScrollOffset;
+        if (textView.GetPositionFloor(point) is not { } position)
+            return;
+        var index = position.Line - 1;
+        if (TableAt(index) is not { } found)
+            return;
+        var column = found.Layout.ColumnAt(point.X);
+        if (MarkdownTableEdit.CellAt(Model, Document.Text, found.Table, CaretOffset) is var cell
+            && Model.LineIndexAt(CaretOffset) == index && cell.Column == column)
+            return;
+        if (found.Layout.CaretInCell(index, column) is { } caret)
+            CaretOffset = caret;
     }
 
     private MdSpan? AtomAt(Point point)

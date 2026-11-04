@@ -47,24 +47,6 @@
             <Border Height="1" Background="{DynamicResource DividerBrush}" />
 
             <DockPanel Classes="row">
-                <TextBlock Classes="label" Text="频道备注" />
-                <Panel>
-                    <Button Classes="editable" Theme="{StaticResource FlatButton}"
-                            Command="{Binding BeginEditChannelRemarkCommand}" IsVisible="{Binding !IsEditingChannelRemark}">
-                        <Panel>
-                            <TextBlock Classes="value" Text="{Binding ChannelRemarkText}" />
-                            <TextBlock Classes="value" Text="设置备注" Foreground="{DynamicResource TextTertiaryBrush}"
-                                       IsVisible="{Binding ChannelRemarkText, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
-                        </Panel>
-                    </Button>
-                    <c:InlineEditBox Classes="input" MaxLength="32" Text="{Binding ChannelRemarkDraft}"
-                                     IsVisible="{Binding IsEditingChannelRemark}"
-                                     CommitCommand="{Binding CommitChannelRemarkCommand}"
-                                     CancelCommand="{Binding CancelChannelRemarkCommand}" />
-                </Panel>
-            </DockPanel>
-
-            <DockPanel Classes="row">
                 <TextBlock Classes="label" Text="话题备注" />
                 <Panel>
                     <Button Classes="editable" Theme="{StaticResource FlatButton}"

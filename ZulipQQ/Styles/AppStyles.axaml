@@ -54,6 +54,17 @@
         <Setter Property="BorderThickness" Value="0" />
     </Style>
 
+    <!-- 带焦点边框的搜索框（群成员搜索）：未选中时同上，选中时品牌色边框；边框一直占 1px，选中时文字不跳动 -->
+    <Style Selector="TextBox.search.ring /template/ Border#PART_BorderElement,
+                     TextBox.search.ring:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBox.search.ring:focus /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
     <!-- 普通输入框：白底灰边框，聚焦时品牌色边框 -->
     <Style Selector="TextBox.input">
         <Setter Property="MinHeight" Value="34" />
@@ -147,6 +158,76 @@
         <Setter Property="Foreground" Value="{DynamicResource OwnerBadgeBrush}" />
     </Style>
 
+    <!-- 菜单（右键菜单、下拉菜单、子菜单）：颜色和尺寸见 Theme.axaml 的 MenuFlyout* 资源；一级菜单的图标见 MenuIcons -->
+    <Style Selector="MenuItem">
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    </Style>
+    <!-- 鼠标移入菜单项时，图标弹跳两下（第二下的幅度和时长都是第一下的一半：0.25 秒 + 0.125 秒，只播放一次）。
+         用 TdIcon.Zoom 放大，线宽只变粗一半（RenderTransform 缩放会让线条同比变粗、看起来变黑） -->
+    <!-- 主菜单（Button.menuRow，见 MainWindow）的菜单项同样处理；顶部收藏、文件、调色盘不加 -->
+    <!-- 图标放大时会画出 16x16 的范围：图标容器（ContentControl）和它模板中的 Viewbox 默认都裁剪超出部分（铃铛等顶到边缘的图标会被切掉） -->
+    <Style Selector="MenuItem /template/ ContentControl#PART_IconPresenter, MenuItem /template/ ContentControl#PART_IconPresenter /template/ Viewbox">
+        <Setter Property="ClipToBounds" Value="False" />
+    </Style>
+    <Style Selector="MenuItem:pointerover c|TdIcon, Button.menuRow:pointerover c|TdIcon">
+        <Style.Animations>
+            <Animation Duration="0:0:0.375">
+                <KeyFrame Cue="0%">
+                    <Setter Property="Zoom" Value="1" />
+                </KeyFrame>
+                <KeyFrame Cue="27%">
+                    <Setter Property="Zoom" Value="1.2" />
+                </KeyFrame>
+                <KeyFrame Cue="67%">
+                    <Setter Property="Zoom" Value="1" />
+                </KeyFrame>
+                <KeyFrame Cue="80%">
+                    <Setter Property="Zoom" Value="1.1" />
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                    <Setter Property="Zoom" Value="1" />
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+    <!-- 子菜单箭头与勾选标记（仿 QQ）：1px 细线的小箭头和对勾，代替 Fluent 的实心大箭头、实心对勾和单选圆点。
+         箭头的尺寸和形状写在 Fluent 模板中，普通样式的优先级比模板低，所以选择器带上伪类（:not(:separator)）提高优先级 -->
+    <Style Selector="MenuItem:not(:separator) /template/ Path#PART_ChevronPath">
+        <Setter Property="Data" Value="M0.5,0.5 L5,5 L0.5,9.5" />
+        <Setter Property="Stretch" Value="None" />
+        <Setter Property="Width" Value="6" />
+        <Setter Property="Height" Value="10" />
+        <Setter Property="Fill" Value="Transparent" />
+        <Setter Property="Stroke" Value="{Binding $parent[MenuItem].Foreground}" />
+        <Setter Property="StrokeThickness" Value="1" />
+    </Style>
+    <!-- 勾选 / 单选项的对勾与图标放在同一位置（图标列），未选中时也占位：选中与否文字位置不变，与带图标的项对齐。
+         图标列在同一个菜单中共享宽度（Fluent 的 SharedSizeGroup），只要有一项有图标或勾选位，所有项都留出这一列。
+         模板中写死了 Grid.Column 和 IsVisible，选择器带伪类才能覆盖 -->
+    <Style Selector="MenuItem:toggle /template/ ContentControl#PART_ToggleIconPresenter, MenuItem:radio /template/ ContentControl#PART_ToggleIconPresenter">
+        <Setter Property="Grid.Column" Value="1" />
+        <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="MenuItem:checked:toggle /template/ ContentControl#PART_ToggleIconPresenter, MenuItem:checked:radio /template/ ContentControl#PART_ToggleIconPresenter">
+        <Setter Property="Content">
+            <Template>
+                <Path Data="M0.5,4 L4,7.5 L11.5,0.5" Stretch="None" Width="12" Height="8"
+                      Stroke="{Binding $parent[MenuItem].Foreground}" StrokeThickness="1.2" />
+            </Template>
+        </Setter>
+    </Style>
+    <!-- 子菜单上移外框到第一项的距离（边框 1 + 内边距 4 + 列表上边距 4），第一项与父菜单项在同一行 -->
+    <Style Selector="MenuItem /template/ Popup#PART_Popup">
+        <Setter Property="VerticalOffset" Value="-9" />
+    </Style>
+    <Style Selector="ContextMenu Separator, MenuFlyoutPresenter Separator, MenuItem Separator">
+        <Setter Property="Margin" Value="8,4" />
+        <Setter Property="Height" Value="1" />
+        <Setter Property="MinHeight" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource MenuFlyoutSeparatorBackground}" />
+    </Style>
+
     <Style Selector="ToolTip">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
         <Setter Property="Padding" Value="6,3" />
@@ -160,5 +241,14 @@
     <!-- 滚动条平时隐藏：鼠标在可滚动区域内时显示（直接属于该区域的滚动条） -->
     <Style Selector="ScrollViewer:pointerover /template/ ScrollBar /template/ Thumb">
         <Setter Property="Opacity" Value="1" />
+    </Style>
+    <!-- 带 fadeScrollBar 类的区域（聊天消息区）：鼠标离开后滚动条 0.3 秒渐隐；进入时立即显示（过渡只在离开状态下设置）。
+         其它区域离开后立即消失 -->
+    <Style Selector="ScrollViewer.fadeScrollBar:not(:pointerover) /template/ ScrollBar:not(:pointerover) /template/ Thumb:not(:pressed)">
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.3" />
+            </Transitions>
+        </Setter>
     </Style>
 </Styles>

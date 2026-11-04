@@ -9,6 +9,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using ZulipQQ.Controls;
 using ZulipQQ.Data;
 using ZulipQQ.Plugins;
 using ZulipQQ.Services;
@@ -30,6 +31,9 @@ public partial class App : Application
     private LoginWindow? _addWindow;
     private MainWindow? _main;
     private bool _exiting;
+
+    // 退出后启动新进程（RestartAsync）
+    private bool _restart;
     private int _ending;
     private TrayService? _tray;
 
@@ -64,33 +68,73 @@ public partial class App : Application
                     e.Handled = true;
                 }
             };
-            LocalDb.Instance = LocalDb.Open(AppPaths.DatabasePath);
-            ThemeService.Initialize(LocalDb.Instance);
-            RequestLog.Initialize(LocalDb.Instance);
-            ZulipClient.UserAgent = ZulipClient.UserAgentFor(LocalSettings.App.ClientName);
-            // 插件随程序启动（登录之前）加载
-            PluginHost.Instance.LoadAll(new PluginStateRepository(LocalDb.Instance), new SettingRepository(LocalDb.Instance, null));
-            // 插件菜单的键盘快捷键：在 ZulipQQ 的任意窗口中按下、且没有被焦点控件处理（例如输入框、快捷键录制框）时执行
-            InputElement.KeyDownEvent.AddClassHandler<Window>((_, e) =>
-            {
-                if (PluginShortcuts.KeyGestureOf(e.Key, e.KeyModifiers) is { } gesture && PluginHost.Instance.InvokeKeyShortcut(gesture))
-                    e.Handled = true;
-            });
             // 登录窗与主窗口会互相替换，由代码决定何时退出
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            // 字号、托盘图标是程序级设置，没有账号在线时也能在设置中修改
-            LocalSettings.App.Changed += OnAppSettingChanged;
-
-            // 有可登录的账号（列表中启用且保存了 key）时直接打开主窗口，在后台登录它们；
-            // 否则显示登录窗，预填列表中的第一个（没有时为最近登录的账号），也可以“稍后登录”先进入主窗口
-            var accounts = Accounts;
-            if (accounts.GetStartupAccounts().Count > 0)
-                EnterMain();
+            // 所有菜单的一级项按名称配图标
+            MenuIcons.Register();
+            // 重启（例如移动数据目录后）：等旧进程退出、释放数据库后再继续
+            WaitForPreviousInstance(desktop.Args);
+            // 设置中更改了数据目录：先在打开数据库之前搬迁，期间只显示进度窗口
+            if (DataLocation.PendingMove is { } target)
+                _ = StartAfterMoveAsync(target);
             else
-                ShowLogin(accounts.GetListed().FirstOrDefault() ?? accounts.GetAll().FirstOrDefault());
+                Start();
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private async Task StartAfterMoveAsync(string target)
+    {
+        await DataMoveWindow.RunAsync(target);
+        Start();
+    }
+
+    /// <summary>重启时新进程的参数：<c>--wait-pid 旧进程 id</c>。</summary>
+    private const string WaitPidArg = "--wait-pid";
+
+    private static void WaitForPreviousInstance(string[]? args)
+    {
+        var index = Array.IndexOf(args ?? [], WaitPidArg);
+        if (index < 0 || index + 1 >= args!.Length || !int.TryParse(args[index + 1], out var pid))
+            return;
+        try
+        {
+            using var previous = System.Diagnostics.Process.GetProcessById(pid);
+            if (!previous.WaitForExit(TimeSpan.FromSeconds(30)))
+                Log.Warn($"等待旧进程 {pid} 退出超时");
+        }
+        catch (ArgumentException)
+        {
+            // 旧进程已经退出
+        }
+    }
+
+    // 打开数据库、加载插件，然后进入主窗口或登录窗
+    private void Start()
+    {
+        LocalDb.Instance = LocalDb.Open(AppPaths.DatabasePath);
+        ThemeService.Initialize(LocalDb.Instance);
+        RequestLog.Initialize(LocalDb.Instance);
+        ZulipClient.UserAgent = ZulipClient.UserAgentFor(LocalSettings.App.ClientName);
+        // 插件随程序启动（登录之前）加载
+        PluginHost.Instance.LoadAll(new PluginStateRepository(LocalDb.Instance), new SettingRepository(LocalDb.Instance, null));
+        // 插件菜单的键盘快捷键：在 ZulipQQ 的任意窗口中按下、且没有被焦点控件处理（例如输入框、快捷键录制框）时执行
+        InputElement.KeyDownEvent.AddClassHandler<Window>((_, e) =>
+        {
+            if (PluginShortcuts.KeyGestureOf(e.Key, e.KeyModifiers) is { } gesture && PluginHost.Instance.InvokeKeyShortcut(gesture))
+                e.Handled = true;
+        });
+        // 字号、托盘图标是程序级设置，没有账号在线时也能在设置中修改
+        LocalSettings.App.Changed += OnAppSettingChanged;
+
+        // 有可登录的账号（列表中启用且保存了 key）时直接打开主窗口，在后台登录它们；
+        // 否则显示登录窗，预填列表中的第一个（没有时为最近登录的账号），也可以“稍后登录”先进入主窗口
+        var accounts = Accounts;
+        if (accounts.GetStartupAccounts().Count > 0)
+            EnterMain();
+        else
+            ShowLogin(accounts.GetListed().FirstOrDefault() ?? accounts.GetAll().FirstOrDefault());
     }
 
     /// <summary>
@@ -199,7 +243,35 @@ public partial class App : Application
             await entry.Session!.DisposeAsync();
         }
         PluginHost.Instance.Shutdown();
+        if (_restart)
+            StartNewInstance();
         Desktop.Shutdown();
+    }
+
+    /// <summary>
+    /// 重启程序（例如移动数据目录后）：与退出相同地结束所有会话，然后启动新进程。
+    /// 在线的账号仍在账号列表中，新进程启动时自动登录它们。
+    /// </summary>
+    public Task RestartAsync()
+    {
+        _restart = true;
+        return ExitAsync();
+    }
+
+    // 新进程等本进程退出（释放数据库）后再启动，见 WaitForPreviousInstance
+    private static void StartNewInstance()
+    {
+        try
+        {
+            var info = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false };
+            info.ArgumentList.Add(WaitPidArg);
+            info.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            System.Diagnostics.Process.Start(info)?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("重启失败", ex);
+        }
     }
 
     /// <summary>

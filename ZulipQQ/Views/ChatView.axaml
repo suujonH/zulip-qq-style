@@ -23,8 +23,29 @@
             </Setter>
         </Style>
         <!-- 多选模式中勾选的消息 -->
-        <Style Selector="Border.row.checked">
+        <!-- 多选（仿 QQ）：选中的消息整行灰色背景，上下各留 3px，相邻的选中消息之间有空隙 -->
+        <Style Selector="Border.checkedRow">
+            <Setter Property="Margin" Value="-20,-3" />
             <Setter Property="Background" Value="{DynamicResource CheckedRowBrush}" />
+        </Style>
+        <!-- 多选的圆形复选框：未选中为灰色圆圈，选中为蓝色圆底白色对勾；与头像垂直居中 -->
+        <Style Selector="Border.checkMark">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="Margin" Value="0,7,12,0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="Border.checkMark.checked">
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Border.checkMark c|TdIcon">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
+            <Setter Property="Foreground" Value="White" />
         </Style>
         <Style Selector="Border.row.flash">
             <Setter Property="Background" Value="{DynamicResource FlashBrush}" />
@@ -169,12 +190,16 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Padding" Value="0" />
         </Style>
-        <!-- 跨气泡选择：整条消息选中（只有图片的消息也显示底色） -->
-        <Style Selector="Border.bubble.rangeSelected">
-            <Setter Property="Background" Value="{DynamicResource OtherBubbleSelectedBrush}" />
+        <!-- 跨气泡选择：气泡底色只有按下的那条变为选中色（.selected），其它消息只显示文字选择。
+             只有图片的消息（.bare）与 QQ 相同：不加底色和边框，只显示圆角图片 -->
+        <Style Selector="Border.source">
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
         </Style>
-        <Style Selector="DockPanel.msg.own Border.bubble.rangeSelected">
-            <Setter Property="Background" Value="{DynamicResource OwnBubbleSelectedBrush}" />
+        <Style Selector="Border.source > SelectableTextBlock">
+            <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Microsoft YaHei UI" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
         </Style>
         <Style Selector="Border.bubble c|MessageContent">
             <Setter Property="TextElement.FontSize" Value="{DynamicResource FontSizeBody}" />
@@ -288,7 +313,7 @@
             <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
         </Style>
 
-        <!-- 多选操作栏：圆形图标 + 文字，不可用时变浅 -->
+        <!-- 多选操作栏（仿 QQ）：白色圆形图标 + 文字，最右侧为退出多选的 ×；不可用时变浅 -->
         <Style Selector="Button.multiAction">
             <Setter Property="Theme" Value="{StaticResource FlatButton}" />
             <Setter Property="Background" Value="Transparent" />
@@ -298,11 +323,11 @@
             <Setter Property="Opacity" Value="0.4" />
         </Style>
         <Style Selector="Button.multiAction Border">
-            <Setter Property="Width" Value="44" />
-            <Setter Property="Height" Value="44" />
-            <Setter Property="CornerRadius" Value="22" />
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="CornerRadius" Value="24" />
             <Setter Property="HorizontalAlignment" Value="Center" />
-            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
         </Style>
         <Style Selector="Button.multiAction:pointerover Border">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
@@ -316,6 +341,7 @@
         <Style Selector="Button.multiAction TextBlock">
             <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
             <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         </Style>
 
         <!-- 更多面板：从右侧滑入 -->
@@ -379,8 +405,9 @@
         </DataTemplate>
 
         <DataTemplate DataType="vm:MessageItemViewModel">
-            <Border Classes="row" Classes.flash="{Binding IsFlashing}" Classes.checked="{Binding IsChecked}">
+            <Border Classes="row" Classes.flash="{Binding IsFlashing}">
                 <Grid ColumnDefinitions="Auto,*">
+                <Border Grid.ColumnSpan="2" Classes="checkedRow" IsVisible="{Binding IsChecked}" />
                 <!-- 很少显示的部分放在 Lazy 中：第一次需要显示时才创建，创建气泡时不必创建、设置样式和绑定它们 -->
                 <DockPanel Grid.Column="1" Classes="msg" Classes.own="{Binding IsOwn}"
                            IsHitTestVisible="{Binding !$parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
@@ -422,7 +449,16 @@
                                     MaxWidth="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).BubbleMaxWidth}">
                                 <Panel>
                                     <StackPanel IsVisible="{Binding ShowsContent}">
-                                        <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" IsOwn="{Binding IsOwn}" />
+                                        <c:MessageContent Html="{Binding ContentHtml}" MeSender="{Binding MeSender}" IsOwn="{Binding IsOwn}"
+                                                          IsVisible="{Binding !IsSourceShown}" />
+                                        <!-- 源代码模式：显示 Markdown 原文（与代码块相同的样式，长行换行） -->
+                                        <c:Lazy When="{Binding IsSourceShown}">
+                                            <DataTemplate DataType="vm:MessageItemViewModel">
+                                                <Border Classes="source">
+                                                    <SelectableTextBlock Text="{Binding SourceText}" TextWrapping="Wrap" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </c:Lazy>
                                         <!-- 插件临时替换了显示内容（例如翻译）：只显示切换原文 / 插件内容的链接 -->
                                         <c:Lazy When="{Binding HasRender}">
                                             <DataTemplate DataType="vm:MessageItemViewModel">
@@ -634,16 +670,15 @@
                                    IsVisible="{Binding ReadStateText, Converter={x:Static ObjectConverters.IsNotNull}}" />
                     </StackPanel>
                 </DockPanel>
-                <!-- 多选模式：左侧复选框只显示状态，点击整行切换；消息内容不响应鼠标。
-                     复选框与气泡垂直居中（BubbleCheckSlot 在气泡之后排列，所以放在后面） -->
-                <c:BubbleCheckSlot Grid.Column="0">
-                    <c:Lazy When="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
-                        <DataTemplate DataType="vm:MessageItemViewModel">
-                            <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" Focusable="False"
-                                      IsHitTestVisible="False" Margin="0,0,8,0" MinWidth="0" Padding="0" />
-                        </DataTemplate>
-                    </c:Lazy>
-                </c:BubbleCheckSlot>
+                <!-- 多选模式：左侧复选框只显示状态，点击整行切换；消息内容不响应鼠标 -->
+                <c:Lazy Grid.Column="0" VerticalAlignment="Top"
+                        When="{Binding $parent[UserControl].((vm:ChatViewModel)DataContext).IsMultiSelect}">
+                    <DataTemplate DataType="vm:MessageItemViewModel">
+                        <Border Classes="checkMark" Classes.checked="{Binding IsChecked}" IsHitTestVisible="False">
+                            <c:TdIcon Icon="{StaticResource Icon.Check}" IsVisible="{Binding IsChecked}" />
+                        </Border>
+                    </DataTemplate>
+                </c:Lazy>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -652,7 +687,7 @@
     <Grid x:Name="RootGrid" RowDefinitions="56,*,Auto,190" ColumnDefinitions="*,Auto">
         <!-- 标题栏 -->
         <Border Grid.ColumnSpan="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="*,Auto,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                 <StackPanel Margin="20,0" HorizontalAlignment="Left" VerticalAlignment="Center">
                     <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="{DynamicResource FontSizeLarge}" FontWeight="SemiBold"
                                HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Cursor="Hand" Background="Transparent" />
@@ -661,11 +696,26 @@
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                IsVisible="{Binding TypingText, Converter={x:Static ObjectConverters.IsNotNull}}" />
                 </StackPanel>
-                <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,4,0"
-                        ToolTip.Tip="频道文件" IsVisible="{Binding IsTopic}" Click="OnGroupFilesClick">
-                    <c:TdIcon Icon="{StaticResource Icon.Folder}" Width="20" Height="20" />
+                <!-- 群应用（仿 QQ）：图标 + 下拉箭头，点击弹出菜单（频道文件等） -->
+                <Button Grid.Column="1" Theme="{StaticResource FlatButton}" Height="32" Padding="6,0" Margin="0,0,4,0"
+                        ToolTip.Tip="群应用" IsVisible="{Binding IsTopic}">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                        <c:TdIcon Icon="{StaticResource Icon.App}" Width="20" Height="20" />
+                        <c:TdIcon Icon="{StaticResource Icon.ChevronDown}" Width="12" Height="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                            <MenuItem Header="频道文件" Click="OnGroupFilesClick" />
+                            <MenuItem Header="投票" Click="OnPollClick" />
+                        </MenuFlyout>
+                    </Button.Flyout>
                 </Button>
-                <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,12,0"
+                <!-- 在 Zulip 网页端打开这个会话（话题、私聊都有） -->
+                <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,4,0"
+                        ToolTip.Tip="在网页中打开" Command="{Binding OpenInWebCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.OpenExternal}" Width="20" Height="20" />
+                </Button>
+                <Button Grid.Column="3" Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,0,12,0"
                         ToolTip.Tip="更多" Command="{Binding ToggleMorePanelCommand}">
                     <c:TdIcon Icon="{StaticResource Icon.More}" Width="20" Height="20" />
                 </Button>
@@ -677,7 +727,8 @@
              消息文字可以获得焦点：关闭右键菜单时焦点回到之前点过的文字（例如点击引用跳转后，焦点还在下方的引用里），
              不能因此把它滚动回视口 -->
         <Panel Grid.Row="1">
-            <ScrollViewer x:Name="MessageScroller" HorizontalScrollBarVisibility="Disabled" BringIntoViewOnFocusChange="False">
+            <!-- 透明背景：空白处也能右键（见 OnBlankContextRequested） -->
+            <ScrollViewer x:Name="MessageScroller" Classes="fadeScrollBar" Background="Transparent" HorizontalScrollBarVisibility="Disabled" BringIntoViewOnFocusChange="False">
                 <ItemsControl x:Name="MessageList" ItemsSource="{Binding Items}" Padding="0,8">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -702,6 +753,30 @@
                     <TextBlock Text="{Binding TopBannerText}" />
                 </StackPanel>
             </Button>
+            <!-- 复制成功、收藏成功等：消息区中间，淡入淡出 -->
+            <Border Width="108" Height="108" CornerRadius="12" Background="#E6555555" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" IsHitTestVisible="False"
+                    Classes="copiedTip" Classes.shown="{Binding IsCenterTipVisible}">
+                <!-- 透明度用样式设置（直接写在属性上时优先级高于样式，.shown 不生效） -->
+                <Border.Styles>
+                    <Style Selector="Border.copiedTip">
+                        <Setter Property="Opacity" Value="0" />
+                    </Style>
+                    <Style Selector="Border.copiedTip.shown">
+                        <Setter Property="Opacity" Value="1" />
+                    </Style>
+                </Border.Styles>
+                <Border.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                    </Transitions>
+                </Border.Transitions>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <c:TdIcon Icon="{StaticResource Icon.CheckCircle}" Width="34" Height="34" Foreground="White"
+                              HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding CenterTipText}" Foreground="White" FontSize="{DynamicResource FontSizeSub}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
             <Button Classes="banner" VerticalAlignment="Bottom" Margin="0,0,20,12"
                     IsVisible="{Binding IsBottomBannerVisible}" Command="{Binding BottomBannerClickCommand}">
                 <StackPanel Orientation="Horizontal" Spacing="4">
@@ -720,12 +795,7 @@
                 <Grid IsVisible="{Binding IsMultiSelect}">
                     <TextBlock Classes="sub" Text="{Binding CheckedCount, StringFormat='已选择{0}条消息'}" FontSize="{DynamicResource FontSizeSub}"
                                Margin="20,14,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" />
-                    <Button Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,8,12,0"
-                            HorizontalAlignment="Right" VerticalAlignment="Top" ToolTip.Tip="退出多选"
-                            Command="{Binding ExitMultiSelectCommand}">
-                        <c:TdIcon Icon="{StaticResource Icon.Close}" Width="16" Height="16" />
-                    </Button>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="36">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="48">
                         <Button Classes="multiAction" Command="{Binding ForwardEachCommand}">
                             <StackPanel Spacing="6">
                                 <Border><c:TdIcon Icon="{StaticResource Icon.Share}" /></Border>
@@ -743,6 +813,18 @@
                                 <Border><c:TdIcon Icon="{StaticResource Icon.Star}" /></Border>
                                 <TextBlock Text="收藏" />
                             </StackPanel>
+                        </Button>
+                        <Button Classes="multiAction" Command="{Binding CopyCheckedCommand}"
+                                CommandParameter="{Binding $parent[TopLevel]}">
+                            <StackPanel Spacing="6">
+                                <Border><c:TdIcon Icon="{StaticResource Icon.Copy}" /></Border>
+                                <TextBlock Text="复制" />
+                            </StackPanel>
+                        </Button>
+                        <!-- 与圆形图标垂直居中：(4 + 48 / 2) - 32 / 2 -->
+                        <Button Theme="{StaticResource FlatButton}" Width="32" Height="32" Margin="0,12,0,0"
+                                VerticalAlignment="Top" ToolTip.Tip="退出多选" Command="{Binding ExitMultiSelectCommand}">
+                            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="16" Height="16" />
                         </Button>
                     </StackPanel>
                 </Grid>

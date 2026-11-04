@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             x:Class="ZulipQQ.Views.InsertTableDialogView"
+             x:DataType="vm:InsertTableDialogViewModel">
+
+    <Border Classes="dialog" Width="420">
+        <StackPanel Margin="16,16,16,16" Spacing="24">
+            <TextBlock Text="插入表格" FontSize="{DynamicResource FontSizeBody}" />
+            <Grid ColumnDefinitions="Auto,*,Auto,*">
+                <TextBlock Text="列" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBox x:Name="ColumnsBox" Grid.Column="1" Classes="input" MaxLength="2" Text="{Binding Columns}" />
+                <TextBlock Grid.Column="2" Text="行" FontSize="{DynamicResource FontSizeSmall}" VerticalAlignment="Center" Margin="12,0,8,0" />
+                <TextBox Grid.Column="3" Classes="input" MaxLength="2" Text="{Binding Rows}" />
+            </Grid>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                        Command="{Binding CancelCommand}" />
+                <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="确定" IsDefault="True"
+                        Command="{Binding ConfirmCommand}" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

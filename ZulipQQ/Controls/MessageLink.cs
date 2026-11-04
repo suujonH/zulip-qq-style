@@ -27,7 +27,12 @@ public sealed record GroupMentionTarget(string Name) : AnyMentionTarget;
 
 public enum FileAction
 {
+    /// <summary>左键点击：与 <see cref="Open"/> 相同，以只读方式直接打开（见 <see cref="Services.FileService.OpenAsync"/>）。</summary>
+    Click,
     Open,
+
+    /// <summary>以原文件名保存到“接收或下载的文件保存到”的目录。</summary>
+    Save,
     SaveAs,
     RevealInFolder,
 }

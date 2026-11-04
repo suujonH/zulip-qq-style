@@ -47,6 +47,11 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
         {
             if (key == LocalSettings.ClassicModeKey)
                 OnClassicModeChanged();
+            else if (key == LocalSettings.NotificationMutedKey)
+            {
+                OnPropertyChanged(nameof(IsNotificationMuted));
+                OnPropertyChanged(nameof(MuteTip));
+            }
         };
         _toastTimer.Tick += (_, _) =>
         {
@@ -79,6 +84,11 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
     public bool IsClassicMode => Session.Settings.Local.ClassicMode;
 
     public string LayoutTip => IsClassicMode ? "切换为默认模式" : "切换为经典模式";
+
+    /// <summary>静音（左下角的喇叭按钮）：新消息只闪烁任务栏，不弹横幅、不响提示音。</summary>
+    public bool IsNotificationMuted => Session.Settings.Local.NotificationMuted;
+
+    public string MuteTip => IsNotificationMuted ? "取消静音" : "静音";
 
     /// <summary>聊天在独立窗口中打开（经典模式，或设置为在独立窗口中打开）。</summary>
     public bool UsesChatWindows => IsClassicMode || Session.Settings.Local.OpenChatInNewWindow;
@@ -251,6 +261,9 @@ public partial class MainViewModel : ViewModelBase, IDialogHost
 
     [RelayCommand]
     private void ToggleClassicMode() => Session.Settings.Local.ClassicMode = !IsClassicMode;
+
+    [RelayCommand]
+    private void ToggleNotificationMuted() => Session.Settings.Local.NotificationMuted = !IsNotificationMuted;
 
     // 进入经典模式：右侧的聊天移到独立窗口，资料面板关闭；主窗口布局由窗口根据 IsClassicMode 调整
     private void OnClassicModeChanged()

@@ -57,6 +57,26 @@ public sealed class ImageCache
         return task;
     }
 
+    /// <summary>图片原文件在磁盘缓存中的路径（没有缓存时先下载）；失败返回 null。缓存文件没有扩展名。</summary>
+    public async Task<string?> GetFileAsync(string url, ZulipClient? client)
+    {
+        if (Absolute(url, client) is not { } absolute)
+            return null;
+        try
+        {
+            await Task.Run(() => ReadOrDownloadAsync(absolute, client, CancellationToken.None));
+            return CachePath(absolute);
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"下载图片失败：{absolute}", ex);
+            return null;
+        }
+    }
+
+    private static string CachePath(Uri url) =>
+        Path.Combine(AppPaths.ImageCacheDir, Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(url.AbsoluteUri))));
+
     // 账号退出后客户端被释放，进行中的下载失败返回 null
     private async Task<Bitmap?> LoadAsync(Uri absolute, int? decodeWidth, ZulipClient? client)
     {
@@ -85,8 +105,7 @@ public sealed class ImageCache
 
     private static async Task<byte[]?> ReadOrDownloadAsync(Uri url, ZulipClient? client, CancellationToken ct)
     {
-        var path = Path.Combine(AppPaths.ImageCacheDir,
-            Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(url.AbsoluteUri))));
+        var path = CachePath(url);
         // 组织内上传的头像和图片地址带内容哈希，可以一直使用磁盘缓存
         var isRealm = client is not null && IsSameHost(url, client.RealmUrl);
         if (File.Exists(path) && (isRealm || DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < ExternalMaxAge))

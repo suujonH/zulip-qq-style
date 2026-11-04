@@ -24,7 +24,7 @@ public sealed record ClientNameOption(string? Name, string Text)
 }
 
 /// <summary>
-/// 通用（程序级，所有账号共用）：打开聊天的方式、话题标题模板、收起已解决话题、通知类型、
+/// 通用（程序级，所有账号共用）：打开聊天的方式、话题标题模板、收起已解决话题、
 /// 主界面（边缘隐藏、托盘、关闭行为、经典模式）、字体大小、报告给服务器的客户端名称。
 /// </summary>
 public sealed partial class GeneralPageViewModel : SettingsPageViewModel
@@ -105,13 +105,8 @@ public sealed partial class GeneralPageViewModel : SettingsPageViewModel
     [NotifyPropertyChangedFor(nameof(TitlePreview))]
     public partial string TitleDraft { get; set; } = "";
 
-    /// <summary>用主窗口显示的账号最近的一个话题会话预览输入框中的模板；没有在线的账号或还没有话题会话时为空。</summary>
-    public string TitlePreview =>
-        AccountHubViewModel.Instance.Active?.Session is { IsDisposed: false } session
-        && session.Conversations.Entries.Where(e => e.Key is TopicKey).MaxBy(e => e.LastMessageTime)?.Key is TopicKey latest
-            ? "预览：" + TopicTitleFormat.Format(TitleDraft, session.Channels.Get(latest.StreamId)?.Name ?? "",
-                session.Conversations.GetTitle(latest))
-            : "";
+    /// <summary>用示例的“频道名”“话题名”预览输入框中的模板。</summary>
+    public string TitlePreview => TopicTitleFormat.Format(TitleDraft, "频道名", "话题名");
 
     partial void OnTitleFormatChanged(string value)
     {
@@ -124,26 +119,6 @@ public sealed partial class GeneralPageViewModel : SettingsPageViewModel
     {
         get => Local.CollapseResolvedTopics;
         set => Local.CollapseResolvedTopics = value;
-    }
-
-    public bool IsBanner
-    {
-        get => Local.NotificationStyle == NotificationStyle.Banner;
-        set
-        {
-            if (value)
-                Local.NotificationStyle = NotificationStyle.Banner;
-        }
-    }
-
-    public bool IsTrayOnly
-    {
-        get => Local.NotificationStyle == NotificationStyle.TrayOnly;
-        set
-        {
-            if (value)
-                Local.NotificationStyle = NotificationStyle.TrayOnly;
-        }
     }
 
     public bool EdgeAutoHide

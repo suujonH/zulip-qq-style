@@ -31,11 +31,13 @@ public class PermissionEvaluatorTests
         public GroupSettingValue? CanMoveMessagesWithinChannelGroup { get; init; }
         public GroupSettingValue? CanResolveTopicsGroup { get; init; }
         public GroupSettingValue? CanCreateTopicGroup { get; init; }
+        public GroupSettingValue? CanDeleteAnyMessageGroup { get; init; }
+        public GroupSettingValue? CanDeleteOwnMessageGroup { get; init; }
     }
 
     private static PermissionEvaluator Create(long self, int role, Dictionary<string, GroupSettingValue>? realm = null,
-        Dictionary<(string, string), bool>? allowEveryone = null, int? editLimit = 600) =>
-        new(new PermissionInputs(self, role, Groups, realm ?? [], allowEveryone ?? [], true, editLimit));
+        Dictionary<(string, string), bool>? allowEveryone = null, int? editLimit = 600, int? deleteLimit = null) =>
+        new(new PermissionInputs(self, role, Groups, realm ?? [], allowEveryone ?? [], true, editLimit, deleteLimit));
 
     [Fact]
     public void IsMember_Recursive()
@@ -145,6 +147,41 @@ public class PermissionEvaluatorTests
         Assert.False(p.CanEditMessage(9, 1000, 1600));
         Assert.False(p.CanEditMessage(10, 1000, 1001));
         Assert.True(Create(9, 400, editLimit: null).CanEditMessage(9, 0, 999999));
+    }
+
+    [Fact]
+    public void CanDeleteMessage_FollowsWebappRules()
+    {
+        // 组织：管理员可以删除任何消息，成员可以删除自己的消息；删除时限 600 秒
+        var realm = new Dictionary<string, GroupSettingValue>
+        {
+            ["can_delete_any_message_group"] = GroupSettingValue.Group(11),
+            ["can_delete_own_message_group"] = GroupSettingValue.Group(14),
+        };
+        var channel = new Channel();
+        var member = Create(10, 400, realm, deleteLimit: 600);
+        Assert.True(member.CanDeleteMessage(channel, false, true, 1000, 1599));
+        Assert.False(member.CanDeleteMessage(channel, false, true, 1000, 1600));
+        Assert.False(member.CanDeleteMessage(channel, false, false, 1000, 1001));
+        Assert.True(member.CanDeleteMessage(null, false, true, 1000, 1001));
+        // 已归档频道中的消息谁都不能删除
+        Assert.False(member.CanDeleteMessage(channel, true, true, 1000, 1001));
+
+        // 可以删除任何消息：不看发送人和时限
+        var admin = Create(20, 200, realm, deleteLimit: 600);
+        Assert.True(admin.CanDeleteMessage(channel, false, false, 0, 999999));
+        Assert.False(admin.CanDeleteMessage(channel, true, false, 0, 1));
+
+        // 组织不允许删除自己的消息，频道允许
+        var strict = new Dictionary<string, GroupSettingValue>(realm) { ["can_delete_own_message_group"] = GroupSettingValue.Group(11) };
+        var limited = Create(10, 400, strict, deleteLimit: null);
+        Assert.False(limited.CanDeleteMessage(channel, false, true, 0, 999999));
+        Assert.False(limited.CanDeleteMessage(null, false, true, 0, 999999));
+        var ownInChannel = new Channel { CanDeleteOwnMessageGroup = GroupSettingValue.Group(14) };
+        Assert.True(limited.CanDeleteMessage(ownInChannel, false, true, 0, 999999));
+        // 频道允许删除任何消息
+        var anyInChannel = new Channel { CanDeleteAnyMessageGroup = GroupSettingValue.Group(14) };
+        Assert.True(limited.CanDeleteMessage(anyInChannel, false, false, 0, 999999));
     }
 
     [Fact]

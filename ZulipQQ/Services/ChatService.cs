@@ -206,6 +206,9 @@ public sealed class ChatService(ZulipSession session)
     public async Task<string> GetRawContentAsync(long messageId) =>
         (await session.Client.GetMessageAsync(messageId, applyMarkdown: false, session.Token)).Content;
 
+    /// <summary>Markdown 发送后的 HTML（输入框中引用的预览用）。</summary>
+    public Task<string> RenderAsync(string markdown) => session.Client.RenderMessageAsync(markdown, session.Token);
+
     /// <summary>发往会话的消息；<paramref name="localId"/> 为 null 时不带事件队列（例如定时消息）。</summary>
     internal OutgoingMessage ToOutgoing(ConversationKey key, string content, string? localId = null) => key switch
     {

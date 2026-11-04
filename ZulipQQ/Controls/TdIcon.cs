@@ -24,11 +24,18 @@ public class TdIcon : Control
     public static readonly StyledProperty<string?> IconKeyProperty =
         AvaloniaProperty.Register<TdIcon, string?>(nameof(IconKey));
 
+    /// <summary>
+    /// 以中心放大绘制的倍数（不影响布局，可超出自身范围）。线宽只按一半的幅度变化（放大 1.2 倍时线宽 1.1 倍），
+    /// 用于悬停弹跳动画：用 RenderTransform 缩放会让线条一起变粗，看起来像是变黑了；线宽完全不变时小图标又几乎看不出动。
+    /// </summary>
+    public static readonly StyledProperty<double> ZoomProperty =
+        AvaloniaProperty.Register<TdIcon, double>(nameof(Zoom), 1);
+
     private IDisposable? _iconKeyBinding;
 
     static TdIcon()
     {
-        AffectsRender<TdIcon>(IconProperty, ForegroundProperty);
+        AffectsRender<TdIcon>(IconProperty, ForegroundProperty, ZoomProperty);
     }
 
     public string? IconKey
@@ -58,6 +65,12 @@ public class TdIcon : Control
         set => SetValue(ForegroundProperty, value);
     }
 
+    public double Zoom
+    {
+        get => GetValue(ZoomProperty);
+        set => SetValue(ZoomProperty, value);
+    }
+
     protected override Size MeasureOverride(Size availableSize) => new(16, 16);
 
     public override void Render(DrawingContext context)
@@ -67,11 +80,12 @@ public class TdIcon : Control
         if (icon is null || brush is null)
             return;
 
-        var scale = Math.Min(Bounds.Width, Bounds.Height) / GridSize;
+        var zoom = Zoom > 0 ? Zoom : 1;
+        var scale = Math.Min(Bounds.Width, Bounds.Height) / GridSize * zoom;
         if (scale <= 0)
             return;
 
-        // 非正方形区域时居中绘制
+        // 非正方形区域时居中绘制（放大时也以中心为准）
         var offsetX = (Bounds.Width - GridSize * scale) / 2;
         var offsetY = (Bounds.Height - GridSize * scale) / 2;
 
@@ -81,7 +95,7 @@ public class TdIcon : Control
                 context.DrawGeometry(brush, null, icon.FillData);
 
             if (icon.StrokeData is not null)
-                context.DrawGeometry(null, new Pen(brush, StrokeThickness, lineCap: PenLineCap.Square), icon.StrokeData);
+                context.DrawGeometry(null, new Pen(brush, StrokeThickness * (1 + (zoom - 1) / 2) / zoom, lineCap: PenLineCap.Square), icon.StrokeData);
         }
     }
 }

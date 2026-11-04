@@ -98,7 +98,8 @@
                     <Button Classes="tool" Tag="Code" ToolTip.Tip="代码 (Ctrl+Shift+C)"><c:TdIcon Icon="{StaticResource Icon.Code}" /></Button>
                     <Button Classes="tool" Tag="Link" ToolTip.Tip="链接 (Ctrl+Shift+L)"><c:TdIcon Icon="{StaticResource Icon.Link}" /></Button>
                     <Button Classes="tool" Tag="Quote" ToolTip.Tip="引用"><c:TdIcon Icon="{StaticResource Icon.Quote}" /></Button>
-                    <Button Classes="tool" Tag="BulletedList" ToolTip.Tip="无序列表"><c:TdIcon Icon="{StaticResource Icon.ViewList}" /></Button>
+                    <Button Classes="tool" Tag="NumberedList" ToolTip.Tip="有序列表"><c:TdIcon Icon="{StaticResource Icon.ListNumbered}" /></Button>
+                    <Button Classes="tool" Tag="BulletedList" ToolTip.Tip="无序列表"><c:TdIcon Icon="{StaticResource Icon.ListBulleted}" /></Button>
                 </StackPanel>
                 <!-- 段落 ▸、插入 ▸：与输入框右键菜单中的相同 -->
                 <Button x:Name="ParagraphButton" Classes="tool" ToolTip.Tip="段落" IsEnabled="{Binding CanEdit}">
@@ -144,8 +145,8 @@
             </Button>
         </StackPanel>
 
-        <!-- 正在编辑的消息：Esc 或 ✕ 取消，原来的输入内容恢复 -->
-        <Border DockPanel.Dock="Top" IsVisible="{Binding IsEditingMessage}" Margin="20,4,20,0" Padding="10,4,4,4" CornerRadius="4"
+        <!-- 正在编辑的消息：点击跳转到这条消息；Esc 或 ✕ 取消，原来的输入内容恢复 -->
+        <Border DockPanel.Dock="Top" IsVisible="{Binding IsEditingMessage}" Margin="20,4,20,0" Padding="0,0,4,0" CornerRadius="4"
                 Background="{DynamicResource FillBrush}">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Theme="{StaticResource FlatButton}" Width="22" Height="22"
@@ -153,8 +154,12 @@
                     <c:TdIcon Icon="{StaticResource Icon.Close}" Width="12" Height="12"
                               Foreground="{DynamicResource TextSecondaryBrush}" />
                 </Button>
-                <TextBlock Text="{Binding EditPreviewText, StringFormat='编辑消息：{0}'}" FontSize="{DynamicResource FontSizeSub}"
-                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <Button Theme="{StaticResource FlatButton}" Padding="10,4" CornerRadius="4" Cursor="Hand"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Command="{Binding JumpToEditTargetCommand}" ToolTip.Tip="跳转到这条消息">
+                    <TextBlock Text="{Binding EditPreviewText, StringFormat='编辑消息：{0}'}" FontSize="{DynamicResource FontSizeSub}"
+                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Button>
             </DockPanel>
         </Border>
 

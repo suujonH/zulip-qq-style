@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
@@ -18,8 +19,8 @@ public enum DownloadState
 }
 
 /// <summary>
-/// 聊天文件的下载与打开。默认目录为 <c>{下载根目录}\{组织}\{账号}\{会话}\{文件名}</c>，
-/// 下载记录保存在 SQLite（<c>downloaded_file</c>）。只在 UI 线程上调用。
+/// 聊天文件的打开与保存。打开的文件下载到数据目录（见 <see cref="CacheFolder"/>），下载记录保存在 SQLite（<c>downloaded_file</c>）；
+/// 保存的文件直接存到“接收或下载的文件保存到”的目录，不记录。只在 UI 线程上调用。
 /// </summary>
 public sealed class FileService(ZulipSession session, DownloadRepository repo)
 {
@@ -42,40 +43,19 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
     /// <summary>某个附件的下载状态或进度变化，参数为上传路径。</summary>
     public event EventHandler<string>? StateChanged;
 
-    /// <summary>当前账号的下载目录。</summary>
-    public string AccountRoot
+    /// <summary>
+    /// 直接打开的文件所在的目录：<c>数据目录\files\服务器\path_id 的目录部分</c>。
+    /// path_id（<c>组织id/随机目录/随机串/文件名</c>）在服务器内唯一，不同文件即使同名也不会冲突，文件仍保留原名。
+    /// </summary>
+    public string CacheFolder(UploadLink link)
     {
-        get
-        {
-            var realm = session.Client.RealmUrl;
-            var host = realm.IsDefaultPort ? realm.Host : $"{realm.Host}_{realm.Port}";
-            return Path.Combine(session.Settings.Local.DownloadRoot,
-                FileNameDeduper.SanitizeDirectoryName(host),
-                FileNameDeduper.SanitizeDirectoryName(session.Account.Email));
-        }
-    }
-
-    /// <summary>会话对应的子目录（相对 <see cref="AccountRoot"/>）。</summary>
-    public string ConversationFolder(ConversationKey key)
-    {
-        switch (key)
-        {
-            case TopicKey t:
-                var channel = session.Channels.Get(t.StreamId)?.Name ?? t.StreamId.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                var topic = session.Conversations.GetTopicName(t);
-                if (topic.Length == 0)
-                    topic = session.Realm.EmptyTopicDisplayName;
-                return Path.Combine(FileNameDeduper.SanitizeDirectoryName(channel), FileNameDeduper.SanitizeDirectoryName(topic));
-            case DmKey { IsSelfDm: true }:
-                return FileNameDeduper.SanitizeDirectoryName(session.Account.Email);
-            case DmKey { OtherUserIds.Length: 1 } d:
-                var other = session.Users.Get(d.OtherUserIds[0])?.Email ?? d.OtherUserIds[0].ToString(System.Globalization.CultureInfo.InvariantCulture);
-                return FileNameDeduper.SanitizeDirectoryName(other);
-            case DmKey d:
-                return "私聊-" + string.Join("-", d.OtherUserIds);
-            default:
-                return "_";
-        }
+        var realm = session.Client.RealmUrl;
+        var host = realm.IsDefaultPort ? realm.Host : $"{realm.Host}_{realm.Port}";
+        const string prefix = "/user_uploads/";
+        var relative = link.Path.StartsWith(prefix, StringComparison.Ordinal) ? link.Path[prefix.Length..] : link.Path.TrimStart('/');
+        var segments = relative.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return Path.Combine([AppPaths.FilesDir, FileNameDeduper.SanitizeDirectoryName(host),
+            .. segments[..^1].Select(FileNameDeduper.SanitizeDirectoryName)]);
     }
 
     public DownloadState GetState(string uploadPath)
@@ -124,19 +104,16 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
         return task;
     }
 
+    /// <summary>“已保存为 文件名”：重名时文件名带序号，提示实际的名字。</summary>
+    public static string SavedToast(string path) => $"已保存为 {Path.GetFileName(path)}";
+
     /// <summary>
-    /// 打开文件：未下载时先下载（设置为仅下载时只下载不打开）。可执行文件不直接运行，只在资源管理器中定位。返回是否成功。
+    /// 打开文件（点击聊天中的文件也是这个）：未下载时先下载到数据目录（<see cref="CacheFolder"/>），以只读方式打开
+    /// （设置只读属性，编辑后只能另存，数据目录中的文件保持与收到的一致）。可执行文件不直接运行，只在资源管理器中定位。返回是否成功。
     /// </summary>
     public async Task<bool> OpenAsync(UploadLink link, ConversationKey key, long messageId)
     {
-        var path = LocalPath(link.Path);
-        if (path is null)
-        {
-            path = await DownloadAsync(link, key, messageId);
-            // 设置为“仅下载”时，未下载的文件只下载不打开
-            if (path is not null && session.Settings.Local.FileClickAction == FileClickAction.DownloadOnly)
-                return true;
-        }
+        var path = LocalPath(link.Path) ?? await DownloadAsync(link, key, messageId);
         if (path is null || session.IsDisposed)
             return false;
         if (ExecutableExtensions.Contains(Path.GetExtension(path)))
@@ -146,6 +123,7 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
         }
         try
         {
+            File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly);
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             repo.MarkOpened(link.Path, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
             return true;
@@ -154,6 +132,52 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
         {
             Log.Warn($"打开文件失败：{path}", ex);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// 保存：以原文件名直接存到“接收或下载的文件保存到”的目录（不分子目录），重名时加序号。已下载时复制，否则下载。
+    /// 不写下载记录。返回保存的路径；失败时返回 null。
+    /// </summary>
+    public async Task<string?> SaveAsync(UploadLink link)
+    {
+        string? path = null;
+        string? part = null;
+        try
+        {
+            var dir = session.Settings.Local.SaveRoot;
+            Directory.CreateDirectory(dir);
+            path = FileNameDeduper.NextFreePath(dir, link.FileName, p => _reservedPaths.Contains(p) || File.Exists(p + ".part"));
+            _reservedPaths.Add(path);
+            part = path + ".part";
+            await using (var target = new FileStream(part, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+            {
+                if (LocalPath(link.Path) is { } local)
+                {
+                    await using var source = File.OpenRead(local);
+                    await source.CopyToAsync(target, session.Token);
+                }
+                else
+                {
+                    await session.Client.DownloadAsync(link.Path, target, ct: session.Token);
+                }
+            }
+            File.Move(part, path);
+            MarkFromInternet(path);
+            return path;
+        }
+        catch (Exception ex)
+        {
+            if (!session.IsDisposed)
+                Log.Warn($"保存文件失败：{link.Path}", ex);
+            if (part is not null)
+                TryDelete(part);
+            return null;
+        }
+        finally
+        {
+            if (path is not null)
+                _reservedPaths.Remove(path);
         }
     }
 
@@ -222,7 +246,7 @@ public sealed class FileService(ZulipSession session, DownloadRepository repo)
         string? part = null;
         try
         {
-            var dir = Path.Combine(AccountRoot, ConversationFolder(key));
+            var dir = CacheFolder(link);
             Directory.CreateDirectory(dir);
             path = FileNameDeduper.NextFreePath(dir, link.FileName, p => _reservedPaths.Contains(p) || File.Exists(p + ".part"));
             _reservedPaths.Add(path);

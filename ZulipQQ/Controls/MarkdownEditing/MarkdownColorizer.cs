@@ -61,6 +61,9 @@ internal sealed class MarkdownColorizer(MarkdownEditor editor) : DocumentColoriz
             case MdLineKind.FenceClose or MdLineKind.Rule or MdLineKind.TableSeparator:
                 Foreground(line.Start, line.End, tertiary);
                 break;
+            case MdLineKind.TableRow when editor.TableAt(index)?.Table.HeaderLine == index:
+                Change(line.Start, line.End, e => SetWeight(e, FontWeight.Bold));
+                break;
         }
         if (line.QuoteDepth > 0 && line.Kind is not (MdLineKind.FenceOpen or MdLineKind.FenceClose))
             Foreground(line.ContentStart, line.End, editor.Brush("TextSecondaryBrush"));
@@ -117,7 +120,7 @@ internal sealed class MarkdownColorizer(MarkdownEditor editor) : DocumentColoriz
                 case MdSpanKind.UserMention or MdSpanKind.GroupMention or MdSpanKind.ChannelLink:
                     Foreground(span.Start, span.End, brand);
                     break;
-                case MdSpanKind.UploadImage or MdSpanKind.UploadPlaceholder or MdSpanKind.Time or MdSpanKind.Emoji when source:
+                case MdSpanKind.UploadImage or MdSpanKind.UploadFile or MdSpanKind.UploadPlaceholder or MdSpanKind.Time or MdSpanKind.Emoji when source:
                     Foreground(span.Start, span.End, tertiary);
                     break;
                 case MdSpanKind.Time:

@@ -52,14 +52,17 @@
         <Setter Property="Margin" Value="0,0,8,0" />
     </Style>
 
+    <!-- 页标题、分组标题：正文颜色、粗体 -->
     <Style Selector="TextBlock.pageTitle">
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeH2}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLarge}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="Margin" Value="2,0,0,4" />
     </Style>
     <Style Selector="TextBlock.section">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="Margin" Value="4,8,0,0" />
     </Style>
     <Style Selector="Border.card">
@@ -89,6 +92,13 @@
     <Style Selector="RadioButton">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
         <Setter Property="Margin" Value="0,0,20,0" />
+    </Style>
+    <!-- 未选中的圆圈：Fluent 默认是 1px 深色细线，边缘像素明显（看起来有锯齿），改为浅灰；悬停时为品牌色 -->
+    <Style Selector="RadioButton:unchecked /template/ Ellipse#OuterEllipse">
+        <Setter Property="Stroke" Value="{DynamicResource TextTertiaryBrush}" />
+    </Style>
+    <Style Selector="RadioButton:unchecked:pointerover /template/ Ellipse#OuterEllipse">
+        <Setter Property="Stroke" Value="{DynamicResource BrandBrush}" />
     </Style>
     <Style Selector="ComboBox">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />

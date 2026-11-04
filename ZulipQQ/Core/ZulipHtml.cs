@@ -108,10 +108,16 @@ public static partial class ZulipHtml
         && NormalizeUploadPath(e.QuerySelector("a[href]")?.GetAttribute("href")) is not null;
 
     /// <summary>段落中只有上传文件链接（以及空白和换行）。</summary>
-    public static bool IsUploadOnlyParagraph(IElement p)
+    public static bool IsUploadOnlyParagraph(IElement p) => IsUploadOnly(p.ChildNodes);
+
+    /// <summary>
+    /// 行内内容只有上传文件链接（以及空白和换行）：段落，或列表项等块中不在段落里的文字
+    /// （如“- [a.png](…)”的列表项中只有链接，图片预览在链接之后）。
+    /// </summary>
+    public static bool IsUploadOnly(IEnumerable<INode> nodes)
     {
         var any = false;
-        foreach (var node in p.ChildNodes)
+        foreach (var node in nodes)
         {
             switch (node)
             {

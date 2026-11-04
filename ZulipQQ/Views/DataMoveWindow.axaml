@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ZulipQQ.Views.DataMoveWindow"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="ZulipQQ"
+        Width="440" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <StackPanel Margin="24,20,24,20" Spacing="12">
+        <TextBlock x:Name="TitleText" Text="正在移动聊天信息" FontSize="{DynamicResource FontSizeH2}" FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+        <TextBlock x:Name="DetailText" Text="请稍候，完成后 ZulipQQ 将自动启动。" TextWrapping="Wrap"
+                   FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource TextSecondaryBrush}" />
+        <ProgressBar x:Name="Bar" Minimum="0" Maximum="1" Height="6" MinHeight="6" CornerRadius="3"
+                     Foreground="{DynamicResource BrandBrush}" Background="{DynamicResource FillBrush}" />
+        <TextBlock x:Name="ProgressText" FontSize="{DynamicResource FontSizeSub}"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+        <Button x:Name="ContinueButton" Classes="primary" Theme="{StaticResource FlatButton}" Content="继续"
+                HorizontalAlignment="Right" IsVisible="False" />
+    </StackPanel>
+</Window>

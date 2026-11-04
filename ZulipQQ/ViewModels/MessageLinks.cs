@@ -114,15 +114,21 @@ internal static class MessageLinks
         }
     }
 
-    /// <summary>文件卡片上的操作：打开（未下载时先下载）、另存为、打开所在文件夹。失败时提示。</summary>
+    /// <summary>文件卡片上的操作：点击与打开（未下载时先下载，以只读方式打开）、保存、另存为、打开所在文件夹。失败时提示。</summary>
     public static async Task HandleFileAsync(ZulipSession session, FileTarget file, ConversationKey key, long messageId,
         TopLevel? top, Action<string> showToast)
     {
         switch (file.Action)
         {
+            case FileAction.Click:
             case FileAction.Open:
                 if (!await session.Files.OpenAsync(file.Link, key, messageId) && !session.IsDisposed)
                     showToast("文件下载失败");
+                break;
+            case FileAction.Save:
+                if (session.IsDisposed)
+                    break;
+                showToast(await session.Files.SaveAsync(file.Link) is { } saved ? FileService.SavedToast(saved) : "文件保存失败");
                 break;
             case FileAction.SaveAs when top is not null:
                 if (!await session.Files.SaveAsAsync(file.Link, top) && !session.IsDisposed)
@@ -171,6 +177,23 @@ internal static class MessageLinks
             Log.Warn("保存图片失败", ex);
             showToast("保存失败");
         }
+    }
+
+    /// <summary>
+    /// 图片的“打开文件夹”：本组织上传的图片已经下载过时定位到下载的文件，
+    /// 否则把原图复制到临时目录（带文件名与扩展名）后定位。失败时提示。
+    /// </summary>
+    public static async Task RevealImageInFolderAsync(ZulipSession session, InlineImage image, Action<string> showToast)
+    {
+        var path = ZulipHtml.NormalizeUploadPath(image.Href) is { } upload ? session.Files.LocalPath(upload) : null;
+        path ??= await ImageViewerViewModel.CopyToTempAsync(session, image);
+        if (path is null)
+        {
+            if (!session.IsDisposed)
+                showToast("打开失败");
+            return;
+        }
+        FileService.RevealInFolder(path);
     }
 
     /// <summary>

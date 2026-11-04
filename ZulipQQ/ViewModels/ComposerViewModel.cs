@@ -84,8 +84,8 @@ public partial class ComposerViewModel : ViewModelBase
     // 最近一次草稿保存；关闭时等待它完成
     private Task _draftSave = Task.CompletedTask;
 
-    // 上传中的图片：正文中是它的占位，上传完成后换成图片链接
-    private readonly List<ImageUpload> _imageUploads = [];
+    // 插入到正文的上传（图片、视频、文件）：正文中是它的占位，上传完成后换成文件链接
+    private readonly List<InlineUpload> _inlineUploads = [];
 
     // 程序替换文字（上传完成替换占位）：照常保存草稿，但不发送“正在输入”
     private bool _programmaticEdit;
@@ -215,7 +215,7 @@ public partial class ComposerViewModel : ViewModelBase
         _typing.Stop();
         foreach (var a in Attachments)
             a.Cancellation.Cancel();
-        foreach (var u in _imageUploads)
+        foreach (var u in _inlineUploads)
             u.Cancellation.Cancel();
         _session.Settings.Changed -= OnSettingChanged;
         _session.Settings.Local.Changed -= OnLocalSettingChanged;
@@ -323,11 +323,11 @@ public partial class ComposerViewModel : ViewModelBase
         _session.Forget(_draftSave, "保存草稿");
     }
 
-    // 图片上传中、引用获取原文中不能发送：正文中还是占位
+    // 图片上传中、引用获取原文中不能发送：正文中还是占位。只有引用、没有写自己的内容时也不能发送（编辑消息时不限制）
     private bool CanSend() =>
-        HasSendPermission && !IsSending && _imageUploads.Count == 0 && _pendingQuotes == 0
+        HasSendPermission && !IsSending && _inlineUploads.Count == 0 && _pendingQuotes == 0
         && Attachments.All(a => a.State != AttachmentState.Uploading)
-        && !string.IsNullOrWhiteSpace(Text);
+        && !string.IsNullOrWhiteSpace(Text) && (IsEditingMessage || !QuoteBlocks.HasOnlyQuotes(Text));
 
     private bool CanSchedule() => CanSend() && !IsEditingMessage;
 
@@ -434,6 +434,17 @@ public partial class ComposerViewModel : ViewModelBase
 
     // ---- 在输入框中编辑消息 ----
 
+    /// <summary>点击输入框上方的“编辑消息”提示条：跳转到正在编辑的消息（短暂高亮），焦点回到输入框。</summary>
+    [RelayCommand]
+    private async Task JumpToEditTargetAsync()
+    {
+        if (EditTarget is not { } target)
+            return;
+        await _chat.JumpToMessageAsync(target.Id);
+        // 点击提示条时焦点离开了输入框，跳转后回到输入框继续编辑
+        FocusRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>
     /// 开始编辑一条消息：输入框中原来的内容暂存起来（草稿立即保存），换成消息的原文。
     /// 已在编辑另一条时先结束那一条。
@@ -500,7 +511,7 @@ public partial class ComposerViewModel : ViewModelBase
     /// <summary>保存编辑：内容为空或过长时提示；没有修改时直接结束编辑。新内容由 update_message 事件显示。</summary>
     private async Task SaveEditAsync()
     {
-        if (EditTarget is not { } target || IsSending || _imageUploads.Count > 0 || _pendingQuotes > 0
+        if (EditTarget is not { } target || IsSending || _inlineUploads.Count > 0 || _pendingQuotes > 0
             || _session.Mocks(_chat.IsEditAllowed(target), _showToast))
             return;
         var text = Text.TrimEnd();
@@ -626,12 +637,27 @@ public partial class ComposerViewModel : ViewModelBase
         }
     }
 
-    /// <summary>选择一个文件，上传完成后立即单独发送。</summary>
+    /// <summary>打开“插入表格”对话框，确定后由 <paramref name="insert"/> 按列数、行数插入。</summary>
+    public void ShowInsertTableDialog(Action<int, int> insert)
+    {
+        var host = _chat.Host;
+        InsertTableDialogViewModel dialog = null!;
+        dialog = new InsertTableDialogViewModel(insert, () => host.Dialogs.Remove(dialog));
+        host.Dialogs.Add(dialog);
+    }
+
+    /// <summary>选择一个文件，上传完成后立即单独发送（图片插入到输入框）。</summary>
     public async Task PickFileAsync(TopLevel top)
     {
         var files = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions { Title = "发送文件", AllowMultiple = false });
         if (!_closed && files.Count > 0 && files[0].TryGetLocalPath() is { } path)
-            AddFiles([path]);
+            AddFiles([path], file =>
+            {
+                if (ZulipHtml.IsImagePath(file))
+                    AddInline(file);
+                else
+                    _ = UploadAndSendFileAsync(file);
+            });
     }
 
     /// <summary>选择图片（可多选），立即上传并插入到输入框的光标处。</summary>
@@ -647,19 +673,17 @@ public partial class ComposerViewModel : ViewModelBase
             AddFiles(files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList());
     }
 
-    /// <summary>添加本地文件（选择、拖放、粘贴）：图片插入正文，其它文件上传后立即发送。</summary>
-    public void AddFiles(IReadOnlyList<string> paths)
+    /// <summary>拖拽、粘贴的文件与选择的图片：立即上传并插入到输入框的光标处（图片显示缩略图，视频与其它文件显示卡片）。</summary>
+    public void AddFiles(IReadOnlyList<string> paths) => AddFiles(paths, AddInline);
+
+    private void AddFiles(IReadOnlyList<string> paths, Action<string> add)
     {
         if (!HasSendPermission || _session.Mocks(_isSendAllowed, _showToast))
             return;
         foreach (var path in paths)
         {
-            if (!File.Exists(path) || !CheckSize(path))
-                continue;
-            if (ZulipHtml.IsImagePath(path))
-                AddImage(path);
-            else
-                _ = UploadAndSendFileAsync(path);
+            if (File.Exists(path) && CheckSize(path))
+                add(path);
         }
     }
 
@@ -674,7 +698,7 @@ public partial class ComposerViewModel : ViewModelBase
             Directory.CreateDirectory(dir);
             var path = FileNameDeduper.NextFreePath(dir, $"截图{DateTime.Now:yyyyMMddHHmmss}.png");
             bitmap.Save(path, PngBitmapEncoderOptions.Default);
-            AddImage(path);
+            AddInline(path);
         }
         catch (Exception ex)
         {
@@ -699,28 +723,28 @@ public partial class ComposerViewModel : ViewModelBase
         return false;
     }
 
-    // 在光标处插入上传占位 [Uploading 名字…]()（与网页版相同），上传完成后换成图片链接。
-    // 占位必须唯一：同名图片加上序号
-    private void AddImage(string path)
+    // 在光标处插入上传占位 [Uploading 名字…]()（与网页版相同），上传完成后换成文件链接（图片显示缩略图，其它显示卡片）。
+    // 占位必须唯一：同名文件加上序号
+    private void AddInline(string path)
     {
         // 发送中会清空输入框，占位会丢失
         if (IsSending)
             return;
         var name = Path.GetFileName(path).Replace("[", "", StringComparison.Ordinal).Replace("]", "", StringComparison.Ordinal);
         var placeholder = UploadPlaceholder(name);
-        for (var k = 2; Text.Contains(placeholder, StringComparison.Ordinal) || _imageUploads.Any(u => u.Placeholder == placeholder); k++)
+        for (var k = 2; Text.Contains(placeholder, StringComparison.Ordinal) || _inlineUploads.Any(u => u.Placeholder == placeholder); k++)
             placeholder = UploadPlaceholder($"{Path.GetFileNameWithoutExtension(name)} ({k}){Path.GetExtension(name)}");
-        var upload = new ImageUpload(path, placeholder);
-        _imageUploads.Add(upload);
+        var upload = new InlineUpload(path, placeholder);
+        _inlineUploads.Add(upload);
         InsertRequested?.Invoke(this, placeholder);
         SendCommand.NotifyCanExecuteChanged();
         ScheduleCommand.NotifyCanExecuteChanged();
-        _ = UploadImageAsync(upload);
+        _ = UploadInlineAsync(upload);
     }
 
     private static string UploadPlaceholder(string name) => $"[Uploading {name}…]()";
 
-    private async Task UploadImageAsync(ImageUpload upload)
+    private async Task UploadInlineAsync(InlineUpload upload)
     {
         try
         {
@@ -739,11 +763,11 @@ public partial class ComposerViewModel : ViewModelBase
                 return;
             Log.Warn($"上传失败：{upload.LocalPath}", ex);
             ReplacePlaceholder(upload.Placeholder, "");
-            _showToast("图片上传失败");
+            _showToast("上传失败");
         }
         finally
         {
-            _imageUploads.Remove(upload);
+            _inlineUploads.Remove(upload);
             SendCommand.NotifyCanExecuteChanged();
             ScheduleCommand.NotifyCanExecuteChanged();
         }
@@ -872,7 +896,7 @@ public partial class ComposerViewModel : ViewModelBase
     [GeneratedRegex(@"\[Uploading [^\]\n]*…\]\(\) ?")]
     private static partial Regex StaleUploadPattern();
 
-    private sealed class ImageUpload(string localPath, string placeholder)
+    private sealed class InlineUpload(string localPath, string placeholder)
     {
         public string LocalPath { get; } = localPath;
         public string Placeholder { get; } = placeholder;

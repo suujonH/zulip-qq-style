@@ -52,15 +52,6 @@ public partial class TopicCardViewModel : ViewModelBase
     [ObservableProperty]
     public partial string RemarkDraft { get; set; } = "";
 
-    [ObservableProperty]
-    public partial string ChannelRemarkText { get; private set; } = "";
-
-    [ObservableProperty]
-    public partial bool IsEditingChannelRemark { get; private set; }
-
-    [ObservableProperty]
-    public partial string ChannelRemarkDraft { get; set; } = "";
-
     public void Attach()
     {
         if (_attached)
@@ -110,7 +101,6 @@ public partial class TopicCardViewModel : ViewModelBase
         ChannelText = channel is null ? "" : $"#{_session.Channels.NameWithOriginal(Key.StreamId)}";
         IsPrivate = channel?.InviteOnly ?? false;
         RemarkText = _session.Conversations.Get(Key)?.Remark ?? "";
-        ChannelRemarkText = _session.Contacts.GetChannelRemark(Key.StreamId) ?? "";
     }
 
     [RelayCommand]
@@ -138,23 +128,4 @@ public partial class TopicCardViewModel : ViewModelBase
 
     [RelayCommand]
     private void CancelRemark() => IsEditingRemark = false;
-
-    [RelayCommand]
-    private void BeginEditChannelRemark()
-    {
-        ChannelRemarkDraft = ChannelRemarkText;
-        IsEditingChannelRemark = true;
-    }
-
-    [RelayCommand]
-    private void CommitChannelRemark()
-    {
-        if (!IsEditingChannelRemark)
-            return;
-        IsEditingChannelRemark = false;
-        _session.Channels.SetRemark(Key.StreamId, ChannelRemarkDraft);
-    }
-
-    [RelayCommand]
-    private void CancelChannelRemark() => IsEditingChannelRemark = false;
 }

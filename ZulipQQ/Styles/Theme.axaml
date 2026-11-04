@@ -20,6 +20,12 @@
             <SolidColorBrush x:Key="FillBrush" Color="#EBEBEB" />
             <SolidColorBrush x:Key="HoverBrush" Color="#E3E3E3" />
             <SolidColorBrush x:Key="PressedBrush" Color="#D9D9D9" />
+            <!-- 表格线：半透明，在蓝色、灰色气泡和输入框上都看得清 -->
+            <SolidColorBrush x:Key="TableBorderBrush" Color="#4D000000" />
+            <!-- 消息列表的会话背景（仿 QQ）：置顶或悬停 / 悬停的置顶或选中 / 选中的置顶 -->
+            <SolidColorBrush x:Key="ConversationShade1Brush" Color="#EBEBEB" />
+            <SolidColorBrush x:Key="ConversationShade2Brush" Color="#E2E2E2" />
+            <SolidColorBrush x:Key="ConversationShade3Brush" Color="#D9D9D9" />
 
             <SolidColorBrush x:Key="BrandBrush" Color="#0099FF" />
             <SolidColorBrush x:Key="BrandHoverBrush" Color="#1AA3FF" />
@@ -38,6 +44,12 @@
             <SolidColorBrush x:Key="HelperAvatarBrush" Color="#FA9D3B" />
             <SolidColorBrush x:Key="ResolvedAvatarBrush" Color="#2BA471" />
             <SolidColorBrush x:Key="CardBrush" Color="White" />
+            <!-- 菜单（Fluent 主题的资源）：白色卡片、细边框，悬停浅灰 -->
+            <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="White" />
+            <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush" Color="#E6E6E6" />
+            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="#F0F0F0" />
+            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="#E6E6E6" />
+            <SolidColorBrush x:Key="MenuFlyoutSeparatorBackground" Color="#EBEBEB" />
             <!-- 聊天气泡：自己浅蓝、别人白色；点击后的选中色；跳转高亮 -->
             <SolidColorBrush x:Key="OwnBubbleBrush" Color="#CCE4FF" />
             <SolidColorBrush x:Key="OwnBubbleSelectedBrush" Color="#B3D7FF" />
@@ -48,7 +60,8 @@
             <SolidColorBrush x:Key="OtherBubbleBrush" Color="White" />
             <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#E5E5E5" />
             <SolidColorBrush x:Key="FlashBrush" Color="#E3E3E3" />
-            <SolidColorBrush x:Key="CheckedRowBrush" Color="#1A0099FF" />
+            <SolidColorBrush x:Key="ScrollThumbBrush" Color="#D6D6D6" />
+            <SolidColorBrush x:Key="CheckedRowBrush" Color="#E0E0E0" />
             <!-- 消息中的引用卡片（半透明，叠在白色和蓝色气泡上都适用）；悬停；左侧竖线 -->
             <SolidColorBrush x:Key="QuoteCardBrush" Color="#0D000000" />
             <SolidColorBrush x:Key="QuoteCardHoverBrush" Color="#1A000000" />
@@ -76,6 +89,10 @@
             <SolidColorBrush x:Key="FillBrush" Color="#333333" />
             <SolidColorBrush x:Key="HoverBrush" Color="#3A3A3A" />
             <SolidColorBrush x:Key="PressedBrush" Color="#454545" />
+            <SolidColorBrush x:Key="TableBorderBrush" Color="#59FFFFFF" />
+            <SolidColorBrush x:Key="ConversationShade1Brush" Color="#333333" />
+            <SolidColorBrush x:Key="ConversationShade2Brush" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="ConversationShade3Brush" Color="#454545" />
 
             <SolidColorBrush x:Key="BrandBrush" Color="#0099FF" />
             <SolidColorBrush x:Key="BrandHoverBrush" Color="#33ADFF" />
@@ -94,6 +111,11 @@
             <SolidColorBrush x:Key="HelperAvatarBrush" Color="#FA9D3B" />
             <SolidColorBrush x:Key="ResolvedAvatarBrush" Color="#2BA471" />
             <SolidColorBrush x:Key="CardBrush" Color="#2B2B2B" />
+            <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="#2B2B2B" />
+            <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="#3A3A3A" />
+            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="#454545" />
+            <SolidColorBrush x:Key="MenuFlyoutSeparatorBackground" Color="#3A3A3A" />
             <SolidColorBrush x:Key="OwnBubbleBrush" Color="#1D4E7A" />
             <SolidColorBrush x:Key="OwnBubbleSelectedBrush" Color="#24609A" />
             <SolidColorBrush x:Key="OwnLinkBrush" Color="#A8D4FF" />
@@ -101,7 +123,8 @@
             <SolidColorBrush x:Key="OtherBubbleBrush" Color="#2E2E2E" />
             <SolidColorBrush x:Key="OtherBubbleSelectedBrush" Color="#3A3A3A" />
             <SolidColorBrush x:Key="FlashBrush" Color="#3A3A3A" />
-            <SolidColorBrush x:Key="CheckedRowBrush" Color="#290099FF" />
+            <SolidColorBrush x:Key="ScrollThumbBrush" Color="#4A4A4A" />
+            <SolidColorBrush x:Key="CheckedRowBrush" Color="#333333" />
             <SolidColorBrush x:Key="QuoteCardBrush" Color="#14FFFFFF" />
             <SolidColorBrush x:Key="QuoteCardHoverBrush" Color="#24FFFFFF" />
             <SolidColorBrush x:Key="QuoteBarBrush" Color="#555555" />
@@ -118,6 +141,15 @@
             <SolidColorBrush x:Key="TextTertiaryBrush" Color="#666666" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
+
+    <!-- 菜单的尺寸（Fluent 主题的资源，包括子菜单的弹出层）：圆角卡片、四周留白，菜单项为圆角块 -->
+    <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
+    <Thickness x:Key="MenuFlyoutPresenterThemePadding">4</Thickness>
+    <Thickness x:Key="MenuFlyoutPresenterBorderThemeThickness">1</Thickness>
+    <Thickness x:Key="MenuFlyoutItemThemePadding">10,7,16,7</Thickness>
+    <Thickness x:Key="MenuIconPresenterMargin">0,0,10,0</Thickness>
+    <!-- 子菜单与父菜单之间留出约 5px 间隙（Fluent 默认 -4，两层菜单重叠；实测 4 时间隙为 0）；上下对齐见 AppStyles 的 PART_Popup -->
+    <x:Double x:Key="MenuFlyoutSubItemPopupHorizontalOffset">9</x:Double>
 
     <!-- 只有内容和背景的按钮，悬停/按下变灰 -->
     <ControlTheme x:Key="FlatButton" TargetType="Button">
@@ -171,20 +203,10 @@
 
     <!--
         滚动条（替换 Fluent 默认的样式：悬停一段时间后展开成带箭头和轨道的宽滚动条）：平时隐藏，
-        鼠标在可滚动区域内时显示贴边的细滑块（见 AppStyles.axaml）；在滚动条所在的整条区域内即视为悬停，滑块立即加粗，
-        离开后立即恢复，没有延迟（粗细变化有很短的过渡动画）。
+        鼠标在可滚动区域内时显示紧贴边缘的 6px 浅灰色滑块（仿 QQ，见 AppStyles.axaml）；悬停、按下时粗细不变。
     -->
     <ControlTheme x:Key="ScrollBarThumb" TargetType="Thumb">
-        <Setter Property="Background" Value="{DynamicResource ScrollBarPanningThumbBackground}" />
-        <!-- 加粗、变细有过渡动画（显示、隐藏没有） -->
-        <Setter Property="Transitions">
-            <Transitions>
-                <DoubleTransition Property="Width" Duration="0:0:0.12" Easing="CubicEaseOut" />
-                <DoubleTransition Property="Height" Duration="0:0:0.12" Easing="CubicEaseOut" />
-                <ThicknessTransition Property="Margin" Duration="0:0:0.12" Easing="CubicEaseOut" />
-                <CornerRadiusTransition Property="CornerRadius" Duration="0:0:0.12" Easing="CubicEaseOut" />
-            </Transitions>
-        </Setter>
+        <Setter Property="Background" Value="{DynamicResource ScrollThumbBrush}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" />
@@ -227,7 +249,7 @@
                             <Track.IncreaseButton>
                                 <RepeatButton Name="PART_PageDownButton" Theme="{StaticResource ScrollBarPageButton}" />
                             </Track.IncreaseButton>
-                            <Thumb Theme="{StaticResource ScrollBarThumb}" Width="4" CornerRadius="2" Margin="0,0,4,0" Opacity="0"
+                            <Thumb Theme="{StaticResource ScrollBarThumb}" Width="6" CornerRadius="3" Opacity="0"
                                    HorizontalAlignment="Right" MinHeight="{DynamicResource ScrollBarSize}" />
                         </Track>
                     </Border>
@@ -251,7 +273,7 @@
                             <Track.IncreaseButton>
                                 <RepeatButton Name="PART_PageDownButton" Theme="{StaticResource ScrollBarPageButton}" />
                             </Track.IncreaseButton>
-                            <Thumb Theme="{StaticResource ScrollBarThumb}" Height="4" CornerRadius="2" Margin="0,0,0,4" Opacity="0"
+                            <Thumb Theme="{StaticResource ScrollBarThumb}" Height="6" CornerRadius="3" Opacity="0"
                                    VerticalAlignment="Bottom" MinWidth="{DynamicResource ScrollBarSize}" />
                         </Track>
                     </Border>
@@ -259,31 +281,9 @@
             </Setter>
         </Style>
 
-        <!-- 平时隐藏；悬停时显示并加粗，按下（拖动）滑块时再加粗一些；
-        各状态的中线都在距边缘 6px 处，加粗时向两边变宽（拖出滚动条区域也保持显示） -->
-        <Style Selector="^:vertical:pointerover /template/ Thumb">
+        <!-- 平时隐藏；鼠标在滚动条上、拖动滑块时（拖出滚动条区域也）显示，粗细不变 -->
+        <Style Selector="^:pointerover /template/ Thumb, ^ /template/ Thumb:pressed">
             <Setter Property="Opacity" Value="1" />
-            <Setter Property="Width" Value="8" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Margin" Value="0,0,2,0" />
-        </Style>
-        <Style Selector="^:horizontal:pointerover /template/ Thumb">
-            <Setter Property="Opacity" Value="1" />
-            <Setter Property="Height" Value="8" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Margin" Value="0,0,0,2" />
-        </Style>
-        <Style Selector="^:vertical /template/ Thumb:pressed">
-            <Setter Property="Opacity" Value="1" />
-            <Setter Property="Width" Value="10" />
-            <Setter Property="CornerRadius" Value="5" />
-            <Setter Property="Margin" Value="0,0,1,0" />
-        </Style>
-        <Style Selector="^:horizontal /template/ Thumb:pressed">
-            <Setter Property="Opacity" Value="1" />
-            <Setter Property="Height" Value="10" />
-            <Setter Property="CornerRadius" Value="5" />
-            <Setter Property="Margin" Value="0,0,0,1" />
         </Style>
     </ControlTheme>
 </ResourceDictionary>

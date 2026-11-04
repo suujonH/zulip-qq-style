@@ -42,6 +42,7 @@ public partial class ComposerView : UserControl
             UpdateFormatBar();
         };
         InputBox.PreeditChanged += (_, _) => UpdatePlaceholder();
+        InputBox.QuoteJumpRequested += (_, id) => _ = _vm?.Chat.JumpToMessageAsync(id);
         InputBox.LostFocus += (_, _) =>
         {
             _vm?.Mentions.Close();
@@ -69,11 +70,11 @@ public partial class ComposerView : UserControl
         };
         foreach (var button in FormatBar.Children.OfType<Button>())
             button.Click += OnFormatClick;
-        ParagraphButton.Click += (_, _) => OpenToolMenu(ParagraphButton, ParagraphMenu(enabled: true, fromToolbar: true));
+        ParagraphButton.Click += (_, _) => OpenToolMenu(ParagraphButton, ParagraphMenu());
         InsertButton.Click += (_, _) =>
         {
             if (_vm is { } vm)
-                OpenToolMenu(InsertButton, InsertMenu(vm, fromToolbar: true));
+                OpenToolMenu(InsertButton, InsertMenu(vm));
         };
     }
 
@@ -107,6 +108,7 @@ public partial class ComposerView : UserControl
             _vm.TextReset += OnTextReset;
             var session = _vm.Chat.Session;
             InputBox.EmojiLookup = name => session.Emoji.Catalog.TryGet(name);
+            InputBox.RenderHtml = session.Chat.RenderAsync;
             InputBox.Resolver = new ZulipMarkdownResolver(session);
             // 绑定把草稿放进输入框后再清空撤销记录
             Dispatcher.UIThread.Post(InputBox.ResetHistory);
@@ -165,6 +167,8 @@ public partial class ComposerView : UserControl
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
         if (_vm is null)
+            return;
+        if (InputBox.HandleTableKey(e))
             return;
         var languages = _vm.Languages;
         if (languages.IsOpen)
@@ -404,7 +408,7 @@ public partial class ComposerView : UserControl
         InputBox.Paste();
     }
 
-    /// <summary>输入框右键菜单：剪切、复制、粘贴、全选，“段落 ▸”“插入 ▸”，以及“常用语 ▸”（插入、新建、删除）。</summary>
+    /// <summary>输入框右键菜单：剪切、复制、粘贴、全选，以及“常用语 ▸”（插入、新建、删除）。段落、插入在工具栏上。</summary>
     private void OnInputContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         if (_vm is not { } vm)
@@ -416,9 +420,6 @@ public partial class ComposerView : UserControl
         menu.Items.Add(MenuItem("复制", () => _ = InputBox.CopyAsync(cut: false), InputBox.CanCopy));
         menu.Items.Add(MenuItem("粘贴", PasteAsync, vm.CanEdit));
         menu.Items.Add(MenuItem("全选", () => InputBox.SelectAll(), hasText));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ParagraphMenu(vm.CanEdit));
-        menu.Items.Add(InsertMenu(vm));
         menu.Items.Add(new Separator());
 
         var snippets = new MenuItem { Header = "常用语" };
@@ -453,24 +454,16 @@ public partial class ComposerView : UserControl
         return item;
     }
 
-    // 段落 ▸：标题级别（光标所在行的级别打勾）、列表、引用。
-    // 从工具栏打开时不重复工具栏上已有的按钮（无序列表、引用）
-    private MenuItem ParagraphMenu(bool enabled, bool fromToolbar = false)
+    // 工具栏“段落”：标题级别（光标所在行的级别打勾）。不重复工具栏上已有的按钮（有序列表、无序列表、引用）
+    private MenuItem ParagraphMenu()
     {
-        var menu = new MenuItem { Header = "段落", IsEnabled = enabled };
+        var menu = new MenuItem { Header = "段落" };
         var current = InputBox.HeadingLevel;
         string[] names = ["一级标题", "二级标题", "三级标题", "四级标题", "五级标题", "六级标题"];
         for (var level = 1; level <= 6; level++)
             menu.Items.Add(HeadingItem(names[level - 1], level, current));
         menu.Items.Add(new Separator());
         menu.Items.Add(HeadingItem("段落", 0, current));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(FormatItem("有序列表", MarkdownFormatKind.NumberedList));
-        if (!fromToolbar)
-        {
-            menu.Items.Add(FormatItem("无序列表", MarkdownFormatKind.BulletedList));
-            menu.Items.Add(FormatItem("引用", MarkdownFormatKind.Quote));
-        }
         return menu;
     }
 
@@ -495,34 +488,44 @@ public partial class ComposerView : UserControl
         return item;
     }
 
-    // 插入 ▸：块、图片 / 链接 / 时间、分隔线 / 表格、不在工具栏中的行内格式。
-    // 从工具栏打开时不重复工具栏上已有的按钮（代码、图片、链接）
-    private MenuItem InsertMenu(ComposerViewModel vm, bool fromToolbar = false)
+    // 工具栏“插入”：块、时间、分隔线 / 表格、不在工具栏中的行内格式。不重复工具栏上已有的按钮（代码、图片、链接）
+    private MenuItem InsertMenu(ComposerViewModel vm)
     {
         var menu = new MenuItem { Header = "插入", IsEnabled = vm.CanEdit };
-        if (!fromToolbar)
-            menu.Items.Add(MenuItem("代码块", () => Format(MarkdownFormatKind.CodeBlock), true));
         menu.Items.Add(MenuItem("公式块", () => Format(MarkdownFormatKind.MathBlock), true));
         menu.Items.Add(MenuItem("引用块", () => Format(MarkdownFormatKind.QuoteBlock), true));
         menu.Items.Add(MenuItem("折叠", () => Format(MarkdownFormatKind.Spoiler), true));
         menu.Items.Add(new Separator());
-        if (!fromToolbar)
-        {
-            menu.Items.Add(MenuItem("图片…", async () =>
-            {
-                if (TopLevel.GetTopLevel(this) is { } top)
-                    await vm.PickImagesAsync(top);
-            }, true));
-            menu.Items.Add(MenuItem("链接", () => Format(MarkdownFormatKind.Link), true));
-        }
         menu.Items.Add(MenuItem("全局时间…", InsertTimeAsync, true));
         menu.Items.Add(new Separator());
         menu.Items.Add(MenuItem("分隔线", () => Format(MarkdownFormatKind.Rule), true));
-        menu.Items.Add(MenuItem("表格", () => Format(MarkdownFormatKind.Table), true));
+        menu.Items.Add(MenuItem("表格…", InsertTable, true));
+        menu.Items.Add(MenuItem("任务列表", InsertTodo, true));
         menu.Items.Add(new Separator());
         menu.Items.Add(FormatItem("删除线", MarkdownFormatKind.Strikethrough));
         menu.Items.Add(FormatItem("行内公式", MarkdownFormatKind.Math));
         return menu;
+    }
+
+    // 弹出窗口填写行列数，确定后插入
+    private void InsertTable() => _vm?.ShowInsertTableDialog((columns, rows) =>
+    {
+        InputBox.InsertTable(columns, rows);
+        InputBox.Focus();
+    });
+
+    // 任务列表（Zulip 的 /todo 待办）：整条消息以 “/todo 标题” 开头才会成为待办，所以加在最前面，
+    // 下面每一行是一个任务（“任务: 说明”，原有的文字也各成一个任务）；光标停在标题处。已经是待办时光标移到标题末尾
+    private const string TodoPrefix = "/todo ";
+
+    private void InsertTodo()
+    {
+        var text = InputBox.Text;
+        if (!text.StartsWith(TodoPrefix.TrimEnd(), StringComparison.Ordinal))
+            InputBox.ApplyEdit(new MarkdownEdit(0, 0, TodoPrefix + "\n", TodoPrefix.Length, TodoPrefix.Length));
+        else
+            InputBox.CaretIndex = text.IndexOf('\n') is var end and >= 0 ? end : text.Length;
+        InputBox.TextArea.Focus();
     }
 
     private void OnEmojiFlyoutOpening(object? sender, EventArgs e)

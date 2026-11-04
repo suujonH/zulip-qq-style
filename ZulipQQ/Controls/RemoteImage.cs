@@ -60,7 +60,7 @@ public class RemoteImage : Control
         set => SetValue(HrefProperty, value);
     }
 
-    /// <summary>段落文字中的图片：单击与点在文字上相同，双击才打开 <see cref="Href"/>。</summary>
+    /// <summary>消息中的图片：单击与点在其它地方相同，双击才打开 <see cref="Href"/>。</summary>
     public bool OpenOnDoubleClick
     {
         get => _openOnDoubleClick;

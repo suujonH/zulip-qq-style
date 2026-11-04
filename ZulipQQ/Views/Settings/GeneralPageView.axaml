@@ -31,10 +31,13 @@
                 </Grid>
                 <c:SettingSource Local="App" />
                 <Border Classes="divider" />
-                <StackPanel Spacing="6" Margin="0,8">
-                    <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="4" Margin="0,4">
+                    <!-- 预览在输入框左边：用示例的“频道名”“话题名”套用模板 -->
+                    <Grid ColumnDefinitions="Auto,*,Auto">
                         <TextBlock Text="话题标题" VerticalAlignment="Center" />
-                        <TextBox x:Name="TitleBox" Grid.Column="1" Classes="input" Width="260" MaxLength="100" PlaceholderText="{}{Topic}"
+                        <TextBlock Grid.Column="1" Classes="hint" Margin="12,0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" Text="{Binding TitlePreview}" />
+                        <TextBox x:Name="TitleBox" Grid.Column="2" Classes="input" Width="260" MaxLength="100" PlaceholderText="{}{Topic}"
                                  Text="{Binding TitleDraft}" />
                     </Grid>
                     <!-- 变量：点击后插入到输入框的光标位置（按钮不取得焦点，输入框保留光标与选中） -->
@@ -42,27 +45,12 @@
                         <Button Classes="token" Tag="{}{Channel}" Content="频道名" />
                         <Button Classes="token" Tag="{}{Topic}" Content="话题名" />
                     </StackPanel>
-                    <TextBlock Classes="hint" Text="{Binding TitlePreview}" IsVisible="{Binding TitlePreview, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                     <c:SettingSource Local="App" />
                 </StackPanel>
                 <Border Classes="divider" />
                 <Grid Classes="item" ColumnDefinitions="*,Auto">
                     <TextBlock Text="收起已解决话题" />
                     <ToggleSwitch Grid.Column="1" IsChecked="{Binding CollapseResolvedTopics}" />
-                </Grid>
-                <c:SettingSource Local="App" />
-            </StackPanel>
-        </Border>
-
-        <TextBlock Classes="section" Text="通知" />
-        <Border Classes="card">
-            <StackPanel>
-                <Grid Classes="item" ColumnDefinitions="*,Auto">
-                    <TextBlock Text="通知类型" />
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <RadioButton GroupName="style" Content="横幅弹窗" IsChecked="{Binding IsBanner}" />
-                        <RadioButton GroupName="style" Content="仅闪烁任务栏" IsChecked="{Binding IsTrayOnly}" Margin="0" />
-                    </StackPanel>
                 </Grid>
                 <c:SettingSource Local="App" />
             </StackPanel>
@@ -104,15 +92,18 @@
         <Border Classes="card">
             <StackPanel>
                 <!-- 服务器据此记录消息的发送来源、用户的活动记录；修改后从下一个请求起生效 -->
-                <Grid Classes="item" ColumnDefinitions="*,Auto">
-                    <TextBlock Text="客户端标识" />
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <!-- 标题跨两行，与右侧的选择框和下方的 User-Agent 整体垂直居中 -->
+                <Grid Classes="item" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                    <TextBlock Grid.RowSpan="2" Text="客户端标识" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,6,0,4" HorizontalAlignment="Right">
                         <TextBox Classes="input" Width="160" MaxLength="60" PlaceholderText="客户端名称"
                                  Text="{Binding CustomClientName}" IsVisible="{Binding IsCustomClientName}" />
                         <ComboBox ItemsSource="{Binding ClientNameOptions}" SelectedItem="{Binding SelectedClientName}" />
                     </StackPanel>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Right" VerticalAlignment="Center"
+                               TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSmall}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" Text="{Binding UserAgentText}" />
                 </Grid>
-                <TextBlock Classes="hint" Margin="0,0,0,8" HorizontalAlignment="Right" Text="{Binding UserAgentText}" />
                 <c:SettingSource Local="App" />
             </StackPanel>
         </Border>
@@ -126,7 +117,8 @@
                             Minimum="{Binding MinFontSize}" Maximum="{Binding MaxFontSize}"
                             TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding FontSize}" />
                     <TextBlock Grid.Column="2" Text="A" FontSize="18" />
-                    <TextBlock Grid.Column="3" Classes="hint" HorizontalAlignment="Right" Text="{Binding FontSize}" />
+                    <TextBlock Grid.Column="3" Classes="hint" HorizontalAlignment="Right" Text="{Binding FontSize}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
                 </Grid>
                 <c:SettingSource Local="App" />
             </StackPanel>

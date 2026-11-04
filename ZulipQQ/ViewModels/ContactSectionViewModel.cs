@@ -45,6 +45,10 @@ public partial class ContactSectionViewModel(ContactSectionKind kind, long id) :
     [ObservableProperty]
     public partial bool IsLocked { get; private set; }
 
+    /// <summary>列表中有私有频道：没有锁的标题也预留锁图标的位置，名称对齐。</summary>
+    [ObservableProperty]
+    public partial bool ReservesLockSpace { get; set; }
+
     /// <summary>静音的频道：标题显示为灰色。</summary>
     [ObservableProperty]
     public partial bool IsDimmed { get; private set; }

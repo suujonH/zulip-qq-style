@@ -60,7 +60,7 @@ public partial class MessageItemViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowsBare), nameof(ShowsContent), nameof(ShowsWidget))]
     public partial bool IsMutedHidden { get; private set; }
 
-    public bool ShowsBare => IsBare && !IsMutedHidden && Widget is null;
+    public bool ShowsBare => IsBare && !IsMutedHidden && Widget is null && !IsSourceShown;
 
     /// <summary>显示消息内容（没有被屏蔽，也不是投票 / 待办）。</summary>
     public bool ShowsContent => !IsMutedHidden && Widget is null;
@@ -182,6 +182,52 @@ public partial class MessageItemViewModel : ViewModelBase
 
     /// <summary>跨气泡复制时这条消息的文字：第一行为“名字: 时间”，下一行为内容（已屏蔽的消息不复制内容）。</summary>
     public string RangeCopyText => $"{SenderName}: {PreciseTimeText}\n{(IsMutedHidden ? "" : ZulipHtml.ToPlainText(ContentHtml))}";
+
+    /// <summary>
+    /// 源代码模式（<see cref="ChatViewModel.IsSourceMode"/>）：气泡中显示 Markdown 原文。
+    /// 只改变聊天记录的显示，复制、引用、会话预览等不受影响。原文在第一次显示时从服务器获取。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsBare))]
+    public partial bool IsSourceShown { get; set; }
+
+    /// <summary>源代码模式显示的 Markdown 原文；获取中、获取失败时为提示文字。</summary>
+    [ObservableProperty]
+    public partial string SourceText { get; private set; } = "";
+
+    // 已经获取（或正在获取）原文；失败后下次显示时重试
+    private bool _sourceRequested;
+
+    partial void OnIsSourceShownChanged(bool value)
+    {
+        if (value && !_sourceRequested)
+            _ = LoadSourceAsync();
+    }
+
+    private async Task LoadSourceAsync()
+    {
+        _sourceRequested = true;
+        // 发送中的本地回显在服务器上还没有原文，显示它的文字
+        if (Id <= 0)
+        {
+            SourceText = ZulipHtml.ToPlainText(Message.ContentHtml);
+            _sourceRequested = false;
+            return;
+        }
+        SourceText = "正在获取原文…";
+        try
+        {
+            SourceText = await _session.Chat.GetRawContentAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            if (_session.IsDisposed)
+                return;
+            Log.Warn($"获取消息原文失败：{Id}", ex);
+            SourceText = "获取原文失败";
+            _sourceRequested = false;
+        }
+    }
 
     /// <summary>跳转到这条消息时短暂高亮。</summary>
     [ObservableProperty]

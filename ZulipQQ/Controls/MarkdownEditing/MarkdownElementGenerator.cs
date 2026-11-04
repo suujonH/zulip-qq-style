@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media;
 using AvaloniaEdit.Rendering;
 using ZulipQQ.Core;
@@ -9,13 +12,15 @@ using ZulipQQ.Core;
 namespace ZulipQQ.Controls.MarkdownEditing;
 
 /// <summary>
-/// 渲染模式下把一段原文换成其它显示：隐藏符号（宽度为 0 的元素）、提及等显示文字、表情、图片缩略图、
-/// 列表圆点、引用缩进、围栏的说明文字。颜色与字号由 <see cref="MarkdownColorizer"/> 设置。
+/// 渲染模式下把一段原文换成其它显示：隐藏符号（宽度为 0 的元素）、提及等显示文字、表情、图片缩略图、视频与文件的卡片、
+/// 列表圆点、引用缩进、围栏的说明文字、引用消息的面板、表格的 |。颜色与字号由 <see cref="MarkdownColorizer"/> 设置。
 /// </summary>
 internal sealed class MarkdownElementGenerator(MarkdownEditor editor) : VisualLineElementGenerator
 {
     private const double ImageSize = 80;
     private const double EmojiSize = 20;
+    private const double FileChipHeight = 26;
+    private const double FileChipMaxWidth = 220;
 
     private readonly List<(int Offset, int Length, Func<VisualLineElement> Create)> _items = [];
 
@@ -25,7 +30,7 @@ internal sealed class MarkdownElementGenerator(MarkdownEditor editor) : VisualLi
         _items.Clear();
         if (editor.IsSourceMode)
             return;
-        // 生成的元素都不跨行，一个可视行只对应一个文档行（LastDocumentLine 此时还没有确定）
+        // 只按可视行的第一个文档行生成（LastDocumentLine 此时还没有确定）：除引用消息的面板外，元素都不跨行
         var model = editor.Model;
         var index = context.VisualLine.FirstDocumentLine.LineNumber - 1;
         if (index < model.Lines.Count)
@@ -64,6 +69,20 @@ internal sealed class MarkdownElementGenerator(MarkdownEditor editor) : VisualLi
             return;
         var lineRevealed = editor.IsLineRevealed(index);
         var length = line.End - line.Start;
+
+        // 引用消息：从引用行到围栏结束的整段显示为一个面板（元素跨行，可视行包含这几行）
+        // 结束行与文档不一致（文档已修改、还没有重新解析）时不生成：元素不能在换行符中间结束
+        if (editor.Quotes.FirstOrDefault(q => q.HeaderLine == index) is { } quote && !editor.IsQuoteRevealed(quote)
+            && quote.CloseLine < CurrentContext.Document.LineCount
+            && CurrentContext.Document.GetLineByNumber(quote.CloseLine + 1).EndOffset == quote.End)
+        {
+            var quoteLength = quote.End - quote.Start;
+            var width = Math.Max(120, CurrentContext.TextView.Bounds.Width - 4);
+            Add(quote.Start, quoteLength, () => new InlineObjectElement(quoteLength, new QuotePanel(editor, quote, width)));
+            return;
+        }
+
+        AddTableRow(model, index, line);
 
         if (!lineRevealed && length > 0)
         {
@@ -121,6 +140,10 @@ internal sealed class MarkdownElementGenerator(MarkdownEditor editor) : VisualLi
                 case MdSpanKind.UploadImage:
                     Add(span.Start, len, () => Image(span.Data, len));
                     break;
+                case MdSpanKind.UploadFile:
+                    var fileName = CurrentContext.Document.GetText(span.ContentStart, span.ContentEnd - span.ContentStart);
+                    Add(span.Start, len, () => FileChip(span.Data, fileName, len));
+                    break;
                 case MdSpanKind.UploadPlaceholder:
                     Add(span.Start, len, () => Text($"上传中：{span.Data}…", len));
                     break;
@@ -143,6 +166,43 @@ internal sealed class MarkdownElementGenerator(MarkdownEditor editor) : VisualLi
         }
     }
 
+    // 表格的一行：每个 | 显示为对齐用的空白，行高也由它撑开。分隔行并入标题行最后的空白（可视行包含这两行，光标不会停在分隔行上）
+    private void AddTableRow(MarkdownModel model, int index, MdLine line)
+    {
+        if (editor.TableAt(index) is not { } found)
+            return;
+        var (table, layout) = found;
+        var pipes = layout.Pipes(index);
+        var end = line.End;
+        var top = index == table.HeaderLine && editor.IsTableActive(table) ? MarkdownTableLayout.ToolbarHeight : 0;
+        if (index == table.HeaderLine)
+        {
+            var separator = model.Lines[table.SeparatorLine];
+            if (table.SeparatorLine >= CurrentContext.Document.LineCount
+                || CurrentContext.Document.GetLineByNumber(table.SeparatorLine + 1).EndOffset != separator.End)
+                return;
+            end = separator.End;
+        }
+        for (var k = 0; k < pipes.Count; k++)
+        {
+            var (offset, width) = pipes[k];
+            var last = k == pipes.Count - 1;
+            // 结尾的 | 后面只有空白：一起并入
+            var len = last && index == table.HeaderLine
+                      && string.IsNullOrWhiteSpace(CurrentContext.Document.GetText(offset + 1, line.End - offset - 1))
+                ? end - offset
+                : 1;
+            Add(offset, len, () => TableGap(width, layout, len, top));
+        }
+        if (index == table.HeaderLine && (pipes.Count == 0 || pipes[^1].Offset + 1 < line.End
+                && !string.IsNullOrWhiteSpace(CurrentContext.Document.GetText(pipes[^1].Offset + 1, line.End - pipes[^1].Offset - 1))))
+            Add(line.End, end - line.End, () => TableGap(0, layout, end - line.End, top));
+    }
+
+    private static VisualLineElement TableGap(double width, MarkdownTableLayout layout, int length, double top) =>
+        new InlineObjectElement(length, ImageHost(
+            new Border { Width = width, Height = layout.RowHeight + top, IsHitTestVisible = false }, layout.Baseline + top));
+
     private void Add(int offset, int length, Func<VisualLineElement> create)
     {
         if (length > 0)
@@ -164,8 +224,37 @@ internal sealed class MarkdownElementGenerator(MarkdownEditor editor) : VisualLi
 
     private static VisualLineElement Image(string? url, int length)
     {
-        var image = new RemoteImage { Width = ImageSize, Height = ImageSize, Source = url, Margin = new Avalonia.Thickness(2, 2) };
+        var image = new RemoteImage { Width = ImageSize, Height = ImageSize, Source = url, Margin = new Thickness(2, 2) };
         return new InlineObjectElement(length, ImageHost(image, ImageSize + 2));
+    }
+
+    // 视频与文件：类型图标加文件名的卡片。不接收指针，点击时照常放置光标
+    private static VisualLineElement FileChip(string? url, string name, int length)
+    {
+        var icon = new TdIcon { Width = 16, Height = 16, VerticalAlignment = VerticalAlignment.Center };
+        icon.Bind(TdIcon.IconProperty, icon.GetResourceObservable(FileKinds.IconKey(url ?? "")));
+        icon.Bind(TdIcon.ForegroundProperty, icon.GetResourceObservable("BrandBrush"));
+        var label = new TextBlock
+        {
+            Text = name,
+            Margin = new Thickness(6, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        label.Bind(TextBlock.FontSizeProperty, label.GetResourceObservable("FontSizeSmall"));
+        DockPanel.SetDock(icon, Dock.Left);
+        var chip = new Border
+        {
+            Height = FileChipHeight,
+            MaxWidth = FileChipMaxWidth,
+            Margin = new Thickness(2),
+            Padding = new Thickness(8, 0),
+            CornerRadius = new CornerRadius(6),
+            IsHitTestVisible = false,
+            Child = new DockPanel { Children = { icon, label } },
+        };
+        chip.Bind(Border.BackgroundProperty, chip.GetResourceObservable("FillBrush"));
+        return new InlineObjectElement(length, ImageHost(chip, FileChipHeight - 6));
     }
 
     private VisualLineElement EmojiImage(string? name, int length)

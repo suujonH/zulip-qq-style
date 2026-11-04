@@ -86,8 +86,13 @@
             <Setter Property="Padding" Value="16,0" />
             <Setter Property="Background" Value="Transparent" />
         </Style>
+        <!-- 话题从频道名的位置开始：左边距 = 标题行左边距 16 + 箭头 14 + 名称左边距 6（预留锁的位置时再加 6 + 12） -->
         <Style Selector="Border.contact.topic">
             <Setter Property="Height" Value="48" />
+            <Setter Property="Padding" Value="36,0,16,0" />
+        </Style>
+        <Style Selector="StackPanel.lockSpace Border.contact.topic">
+            <Setter Property="Padding" Value="54,0,16,0" />
         </Style>
         <Style Selector="Border.contact:pointerover">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
@@ -197,9 +202,13 @@
                                                 <c:TdIcon Icon="{StaticResource Icon.Mention}" />
                                             </ToggleButton>
                                         </StackPanel>
-                                        <c:TdIcon DockPanel.Dock="Left" Icon="{StaticResource Icon.Lock}" Margin="6,0,0,0"
-                                                  Width="12" Height="12" IsVisible="{Binding IsLocked}"
-                                                  Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <!-- 列表中有私有频道时所有标题都预留锁的位置，名称对齐 -->
+                                        <Panel DockPanel.Dock="Left" Margin="6,0,0,0" Width="12"
+                                               IsVisible="{Binding ReservesLockSpace}">
+                                            <c:TdIcon Icon="{StaticResource Icon.Lock}" Width="12" Height="12"
+                                                      IsVisible="{Binding IsLocked}"
+                                                      Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </Panel>
                                         <StackPanel Margin="6,0" Spacing="2" VerticalAlignment="Center">
                                             <TextBlock Classes="name" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
                                                        IsVisible="{Binding !IsRenaming}" />
@@ -215,7 +224,7 @@
                                                  CancelCommand="{Binding CancelRenameCommand}" />
                             </Panel>
 
-                            <StackPanel IsVisible="{Binding IsExpanded}">
+                            <StackPanel IsVisible="{Binding IsExpanded}" Classes.lockSpace="{Binding ReservesLockSpace}">
                                 <TextBlock Classes="caption" Text="加载中…" Margin="40,8" IsVisible="{Binding IsLoading}" />
 
                                 <!-- 分组内容按条目类型选择模板 -->

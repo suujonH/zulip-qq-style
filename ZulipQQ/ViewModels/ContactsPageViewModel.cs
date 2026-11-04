@@ -185,13 +185,6 @@ public partial class ContactsPageViewModel : ViewModelBase
 
     // ---- 备注（只保存在本地）----
 
-    public void ShowUserRemarkDialog(long userId)
-    {
-        var name = Session.Users.Get(userId)?.FullName ?? "未知用户";
-        var contacts = Session.Contacts;
-        ShowRemarkDialog(contacts.GetRemark(userId), name, remark => contacts.SetRemark(userId, remark));
-    }
-
     public void ShowChannelRemarkDialog(long streamId)
     {
         var name = Session.Channels.Get(streamId)?.Name ?? "";
@@ -199,23 +192,13 @@ public partial class ContactsPageViewModel : ViewModelBase
             remark => Session.Channels.SetRemark(streamId, remark));
     }
 
-    public void ShowTopicRemarkDialog(TopicKey key)
-    {
-        var conversations = Session.Conversations;
-        ShowRemarkDialog(conversations.Get(key)?.Remark, conversations.GetOriginalTopicTitle(key),
-            remark => conversations.SetRemark(key, remark));
-    }
-
     private void ShowRemarkDialog(string? remark, string originalName, Action<string?> save)
     {
         RemarkDialogViewModel dialog = null!;
-        dialog = new RemarkDialogViewModel(RemarkMenuText(remark).TrimEnd('…'), originalName, remark, save,
+        dialog = new RemarkDialogViewModel(string.IsNullOrEmpty(remark) ? "设置备注" : "修改备注", originalName, remark, save,
             () => _main.Dialogs.Remove(dialog));
         _main.Dialogs.Add(dialog);
     }
-
-    /// <summary>右键菜单中的文字：没有备注时“设置备注…”，已有备注时“修改备注…”。</summary>
-    public static string RemarkMenuText(string? remark) => string.IsNullOrEmpty(remark) ? "设置备注…" : "修改备注…";
 
     public async Task DeleteGroupAsync(ContactSectionViewModel section)
     {
@@ -393,6 +376,10 @@ public partial class ContactsPageViewModel : ViewModelBase
             }
             desired.Add(section);
         }
+
+        var anyLocked = desired.Any(s => s.IsLocked);
+        foreach (var section in desired)
+            section.ReservesLockSpace = anyLocked;
 
         CollectionSync.SyncTo(GroupSections, desired);
         foreach (var key in _topicItems.Keys.Where(k => !used.Contains(k)).ToList())

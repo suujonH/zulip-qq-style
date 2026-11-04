@@ -10,7 +10,7 @@ public enum MarkdownFormatKind
 {
     Bold, Italic, Strikethrough, Link, Code, Math,
     Quote, BulletedList, NumberedList,
-    CodeBlock, MathBlock, QuoteBlock, Spoiler, Rule, Table,
+    CodeBlock, MathBlock, QuoteBlock, Spoiler, Rule,
 }
 
 /// <summary>一次修改：把 [Start, Start+Length) 换成 Replacement，之后选中 [SelectionStart, SelectionEnd)（文档绝对位置）。</summary>
@@ -19,14 +19,12 @@ public readonly record struct MarkdownEdit(int Start, int Length, string Replace
 /// <summary>
 /// 输入框的格式指令：
 /// 加粗、斜体等成对符号可以加上或取消（没有选中文字、光标在该格式中时取消光标所在的格式）；
-/// 引用、列表、标题按行加上、去掉或互换；代码块、引用块、剧透、公式块用围栏包住选中的文字；分隔线、表格插入模板。
+/// 引用、列表、标题按行加上、去掉或互换；代码块、引用块、剧透、公式块用围栏包住选中的文字；分隔线插入模板；表格见 <see cref="InsertTable"/>。
 /// </summary>
 public static partial class MarkdownFormat
 {
     private const string LinkPlaceholder = "url";
     private const string SpoilerHeader = "Header";
-    private const string TableTemplate = "| 标题 | 标题 |\n| --- | --- |\n| 内容 | 内容 |";
-
     /// <param name="model">文字的解析结果；给出时，没有选中文字且光标在该格式中会取消光标所在的格式。</param>
     public static MarkdownEdit Apply(string text, int selectionStart, int selectionEnd, MarkdownFormatKind kind,
         MarkdownModel? model = null)
@@ -48,8 +46,6 @@ public static partial class MarkdownFormat
                 return Block(text, s, e, kind);
             case MarkdownFormatKind.Rule:
                 return Rule(text, s, e);
-            case MarkdownFormatKind.Table:
-                return Table(text, s, e);
         }
 
         if (s == e && model is not null && ActiveSpan(model, s, kind) is { } span)
@@ -445,17 +441,19 @@ public static partial class MarkdownFormat
         return new MarkdownEdit(s, e - s, replacement, caret, caret);
     }
 
-    // 表格：前后与其它文字之间空一行，选中第一个“标题”
-    private static MarkdownEdit Table(string text, int s, int e)
+    /// <summary>插入空表格：前后与其它文字之间空一行，光标在第一个单元格。</summary>
+    public static MarkdownEdit InsertTable(string text, int selectionStart, int selectionEnd, int columns, int rows)
     {
+        var s = Math.Clamp(Math.Min(selectionStart, selectionEnd), 0, text.Length);
+        var e = Math.Clamp(Math.Max(selectionStart, selectionEnd), s, text.Length);
         var before = BlankLineBefore(text, s);
         var after = e >= text.Length ? ""
             : text[e] != '\n' ? "\n\n"
             : e + 1 < text.Length && text[e + 1] != '\n' ? "\n"
             : "";
-        var replacement = before + TableTemplate + after;
-        var start = s + before.Length + 2;
-        return new MarkdownEdit(s, e - s, replacement, start, start + 2);
+        var replacement = before + MarkdownTableEdit.Empty(columns, rows) + after;
+        var caret = s + before.Length + 2;
+        return new MarkdownEdit(s, e - s, replacement, caret, caret);
     }
 
     // 在 s 处开始新的块需要补的换行：s 前一行有文字时补到空一行

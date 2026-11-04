@@ -35,7 +35,8 @@ public partial class MainWindow : Window, ISessionWindow
         _classic = local.ClassicMode;
         ApplyLayout();
         RestoreBounds();
-        _edgeHide = new EdgeHideController(this, () => local.EdgeAutoHide);
+        // 贴边隐藏只在经典模式下生效（默认模式窗口太宽，不适合缩进边缘）
+        _edgeHide = new EdgeHideController(this, () => _classic && local.EdgeAutoHide);
         // 缩进边缘期间到达的消息保持未读，移回后与窗口被激活时一样标记已读
         _edgeHide.Revealed += (_, _) => _vm?.Session.Registry.OnWindowRevealed(this);
         ApplyEmpty();

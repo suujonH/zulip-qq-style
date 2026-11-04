@@ -9,13 +9,15 @@
              x:DataType="vm:MessagesPageViewModel">
 
     <UserControl.Styles>
+        <!-- 会话之间留 2px 间距 -->
         <Style Selector="Border.conv">
             <Setter Property="Height" Value="64" />
+            <Setter Property="Margin" Value="0,0,0,2" />
             <Setter Property="Padding" Value="12,0" />
             <Setter Property="Background" Value="Transparent" />
         </Style>
         <Style Selector="Border.conv.pinned">
-            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ConversationShade1Brush}" />
         </Style>
 
         <Style Selector="TextBlock.notice">
@@ -71,18 +73,16 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
-        <!-- 悬停 / 选中放在最后，覆盖上面的颜色 -->
+        <!-- 悬停 / 选中放在最后，覆盖上面的颜色（仿 QQ，选中不变色，只加深背景）：
+             置顶或悬停为 1 档，悬停的置顶或选中为 2 档，选中的置顶为 3 档；选中时悬停不再变化 -->
         <Style Selector="ListBoxItem:pointerover Border.conv">
-            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ConversationShade1Brush}" />
         </Style>
-        <Style Selector="ListBoxItem:selected Border.conv">
-            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        <Style Selector="ListBoxItem:pointerover Border.conv.pinned, ListBoxItem:selected Border.conv">
+            <Setter Property="Background" Value="{DynamicResource ConversationShade2Brush}" />
         </Style>
-        <Style Selector="ListBoxItem:selected TextBlock">
-            <Setter Property="Foreground" Value="White" />
-        </Style>
-        <Style Selector="ListBoxItem:selected c|TdIcon">
-            <Setter Property="Foreground" Value="White" />
+        <Style Selector="ListBoxItem:selected Border.conv.pinned">
+            <Setter Property="Background" Value="{DynamicResource ConversationShade3Brush}" />
         </Style>
 
         <!-- 会话夹子列表从右侧滑入，主列表向左退出并淡出 -->

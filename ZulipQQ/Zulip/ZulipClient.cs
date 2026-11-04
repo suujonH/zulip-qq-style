@@ -171,6 +171,14 @@ public sealed class ZulipClient : IDisposable
         return ZulipJson.Deserialize<MessageDto>(root.GetProperty("message"));
     }
 
+    /// <summary>按服务器的规则把 Markdown 渲染为消息的 HTML（不发送）。</summary>
+    public async Task<string> RenderMessageAsync(string content, CancellationToken ct = default)
+    {
+        var args = new FormBuilder().Add("content", content);
+        var root = await SendAsync(HttpMethod.Post, "api/v1/messages/render", args, DefaultTimeout, ct).ConfigureAwait(false);
+        return root.GetProperty("rendered").GetString() ?? "";
+    }
+
     public async Task<SendMessageResult> SendMessageAsync(OutgoingMessage m, CancellationToken ct = default)
     {
         var args = new FormBuilder();
@@ -508,6 +516,19 @@ public sealed class ZulipClient : IDisposable
 
     public Task UnmuteUserAsync(long userId, CancellationToken ct = default) =>
         SendAsync(HttpMethod.Delete, $"api/v1/users/me/muted_users/{Id(userId)}", null, DefaultTimeout, ct);
+
+    // ---- 上传的文件 ----
+
+    /// <summary>自己上传的文件，以及已使用的存储空间（字节）。</summary>
+    public async Task<(IReadOnlyList<AttachmentDto> Attachments, long UploadSpaceUsed)> GetAttachmentsAsync(CancellationToken ct = default)
+    {
+        var root = await SendAsync(HttpMethod.Get, "api/v1/attachments", null, DefaultTimeout, ct).ConfigureAwait(false);
+        return (ZulipJson.Deserialize<List<AttachmentDto>>(root.GetProperty("attachments")), root.GetProperty("upload_space_used").GetInt64());
+    }
+
+    /// <summary>从服务器删除上传的文件；引用它的消息中的链接随之失效。</summary>
+    public Task DeleteAttachmentAsync(long id, CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Delete, $"api/v1/attachments/{Id(id)}", null, DefaultTimeout, ct);
 
     // ---- 草稿 ----
 

@@ -159,6 +159,9 @@ public sealed class ZulipSession : IAsyncDisposable
 
     public event EventHandler? PermissionsChanged;
 
+    /// <summary>自己上传的文件有增删、引用它们的消息有变化（attachment 事件）。</summary>
+    public event EventHandler? AttachmentsChanged;
+
     /// <summary>
     /// 注册事件队列、加载各 Store、预取最近消息。任何一步失败都抛出异常（由登录窗显示）。
     /// </summary>
@@ -286,6 +289,9 @@ public sealed class ZulipSession : IAsyncDisposable
         RebuildPermissions();
     }
 
+    /// <summary>attachment 事件：只通知，打开的“资源”页重新载入。</summary>
+    internal void OnAttachmentEvent() => AttachmentsChanged?.Invoke(this, EventArgs.Empty);
+
     /// <summary>realm 事件：更新组织信息与组织级权限设置。</summary>
     internal void OnRealmEvent(JsonElement ev)
     {
@@ -328,7 +334,8 @@ public sealed class ZulipSession : IAsyncDisposable
     private void RebuildPermissions()
     {
         Permissions = new PermissionEvaluator(new PermissionInputs(
-            SelfId, _selfRole, _groups, _realmGroupSettings, _allowEveryone, Realm.AllowMessageEditing, Realm.EditLimitSeconds));
+            SelfId, _selfRole, _groups, _realmGroupSettings, _allowEveryone, Realm.AllowMessageEditing, Realm.EditLimitSeconds,
+            Realm.DeleteLimitSeconds));
         PermissionsChanged?.Invoke(this, EventArgs.Empty);
     }
 

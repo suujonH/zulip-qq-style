@@ -135,7 +135,7 @@ public partial class FilesWindow : Window, IAccountSwitchWindow
     private void OnRowTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as Control)?.DataContext is FileEntry entry)
-            _vm?.Open(entry);
+            _vm?.Click(entry);
     }
 
     private void CheckLoadMore()

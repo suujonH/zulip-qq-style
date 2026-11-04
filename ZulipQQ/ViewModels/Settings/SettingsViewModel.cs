@@ -36,6 +36,9 @@ public enum SettingsPage
     GroupMessages,
     Privacy,
     AlertWords,
+
+    /// <summary>自己上传的文件（Zulip 的“上传的文件”）。</summary>
+    Resources,
     Organization,
 
     /// <summary>服务器配置与信息。</summary>
@@ -316,6 +319,7 @@ public partial class SettingsViewModel : ViewModelBase
         SettingsPage.Server => new ServerPageViewModel(this),
         SettingsPage.Privacy => new PrivacyPageViewModel(this),
         SettingsPage.AlertWords => new AlertWordsPageViewModel(this),
+        SettingsPage.Resources => new ResourcesPageViewModel(this),
         SettingsPage.Organization => new OrganizationPageViewModel(this),
         SettingsPage.Plugins => new PluginsPageViewModel(this),
         SettingsPage.Developer => new DeveloperPageViewModel(this),
@@ -335,6 +339,7 @@ public partial class SettingsViewModel : ViewModelBase
             Nav.Add(new SettingsNavItem(SettingsPage.GroupMessages, "话题消息设置"));
             Nav.Add(new SettingsNavItem(SettingsPage.Privacy, "隐私"));
             Nav.Add(new SettingsNavItem(SettingsPage.AlertWords, "提醒词"));
+            Nav.Add(new SettingsNavItem(SettingsPage.Resources, "资源"));
             // 所有人可以查看，组织管理员可以修改
             Nav.Add(new SettingsNavItem(SettingsPage.Organization, "组织管理"));
             return;

@@ -101,6 +101,9 @@ public static class EventRouter
             case "reminders":
                 s.Reminders.OnEvent(ev);
                 break;
+            case "attachment":
+                s.OnAttachmentEvent();
+                break;
             default:
                 Log.Debug($"忽略事件：{ev.GetProperty("type").GetString()}");
                 break;

@@ -10,7 +10,11 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Media.Transformation;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -56,6 +60,7 @@ public partial class ChatView : UserControl
     // 鼠标在气泡上停留 1 秒后显示精确时间；显示后指针移出这条消息时隐藏
     private readonly DispatcherTimer _timeTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private MessageItemViewModel? _hoverItem;
+    private Popup? _reactionPopup;
     private MessageItemViewModel? _timeItem;
 
     // 右键按住的气泡
@@ -130,6 +135,8 @@ public partial class ChatView : UserControl
         // 隧道阶段处理：SelectableTextBlock 自带的“Copy”菜单会在冒泡阶段先处理
         MessageList.AddHandler(ContextRequestedEvent, OnMessageContextRequested, RoutingStrategies.Tunnel);
         MessageList.AddHandler(DoubleTappedEvent, OnMessageDoubleTapped);
+        // 气泡等没有处理的右键（冒泡到消息区）：空白处的菜单
+        MessageScroller.ContextRequested += OnBlankContextRequested;
         MessageList.ContainerPrepared += OnContainerPrepared;
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
@@ -185,6 +192,10 @@ public partial class ChatView : UserControl
     }
 
     // 标题栏“群文件”（仅话题）：打开文件窗口的群文件视图并选中这个话题
+    // 群应用下拉菜单中的“投票”：打开发起投票的对话框
+    private void OnPollClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => _vm?.ShowPollDialog();
+
+    // 群应用下拉菜单中的“频道文件”
     private void OnGroupFilesClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (_vm is { } vm)
@@ -547,7 +558,7 @@ public partial class ChatView : UserControl
         flyout.ShowAt(anchor);
     }
 
-    // 文件拖到聊天区：图片进入待发送列表，其它文件上传后直接发送
+    // 文件拖到聊天区：上传并插入到输入框（图片显示缩略图，视频与其它文件显示卡片）
     private void OnDragOver(object? sender, DragEventArgs e) =>
         e.DragEffects = _vm?.Composer.HasSendPermission == true && e.DataTransfer.Contains(DataFormat.File)
             ? DragDropEffects.Copy
@@ -565,6 +576,22 @@ public partial class ChatView : UserControl
     /// 以及编辑、编辑历史、已读成员、从这里标为未读、提醒我（编辑等没有权限时不显示）。
     /// 不提供删除和撤回。发送中的本地回显没有菜单；编辑框中使用输入框自己的菜单。
     /// </summary>
+    /// <summary>聊天记录空白处（不在气泡、发送人、输入框上）的右键菜单：源代码模式（开启时打勾）。</summary>
+    private void OnBlankContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (e.Handled || _vm is not { IsMultiSelect: false } vm
+            || (e.Source as Visual)?.FindAncestorOfType<TextBox>(includeSelf: true) is not null
+            || FindBubble(e.Source as Visual) is not null)
+            return;
+        e.Handled = true;
+        var source = ConversationMenus.Item("源代码模式", vm.ToggleSourceMode);
+        source.ToggleType = MenuItemToggleType.CheckBox;
+        source.IsChecked = vm.IsSourceMode;
+        var menu = new ContextMenu();
+        menu.Items.Add(source);
+        menu.Open(MessageScroller);
+    }
+
     private void OnMessageContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         // 右键手势绑定了插件的快捷操作：抬起时执行，不弹出菜单
@@ -584,9 +611,17 @@ public partial class ChatView : UserControl
             return;
         e.Handled = true;
         var vm = _vm;
-        var menu = new ContextMenu();
+        // 菜单比指针低一些，给上方的表情条留出位置
+        var menu = new ContextMenu { VerticalOffset = MessageMenuOffset };
 
+        // 贴表情与菜单分为两个弹出层：表情条在菜单上方，菜单打开后按它的位置摆放，见 ShowReactionBar
         var reactions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+        var popup = ReactionPopup();
+        void CloseAll()
+        {
+            popup.IsOpen = false;
+            menu.Close();
+        }
         foreach (var emoji in vm.Session.Emoji.QuickReactions)
         {
             Control content = emoji.ImageUrl is { } url
@@ -595,61 +630,106 @@ public partial class ChatView : UserControl
             var button = ReactionButton(content, $":{emoji.Name}:");
             button.Click += (_, _) =>
             {
-                menu.Close();
-                _ = vm.ReactAsync(item, emoji);
+                CloseAll();
+                _ = ReactAsync(vm, item, emoji, bubble);
             };
             reactions.Children.Add(button);
         }
         var more = ReactionButton(new TdIcon { Icon = this.FindResource("Icon.Add") as TdIconData, Width = 16, Height = 16 }, "更多表情");
         more.Click += (_, _) =>
         {
-            menu.Close();
+            CloseAll();
             ShowReactionPicker(vm, item, bubble);
         };
         reactions.Children.Add(more);
-        menu.Items.Add(new MenuItem { Header = reactions, StaysOpenOnClick = true });
-        menu.Items.Add(new Separator());
+        var bar = new Border { Padding = new Thickness(4), Margin = new Thickness(ReactionShadow), BorderThickness = new Thickness(1), Child = reactions };
+        // 与菜单相同的卡片：底色、圆角见 Border.dialog，细边框与菜单一致
+        bar.Bind(Border.BorderBrushProperty, bar.GetResourceObservable("MenuFlyoutPresenterBorderBrush"));
+        bar.Classes.Add("dialog");
+        popup.Child = bar;
+        menu.Opened += (_, _) => Dispatcher.UIThread.Post(() => ShowReactionBar(popup, menu), DispatcherPriority.Loaded);
+        // 点表情条时菜单可能先关闭：指针在表情条上时留给按钮处理，表情条自己点外面时关闭
+        menu.Closed += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            if (!bar.IsPointerOver)
+                popup.IsOpen = false;
+        });
 
+        // 一级：常用操作（带图标，见 MenuIcons）；其余放在“更多”中
         menu.Items.Add(MenuItem("复制", () => _ = CopyAsync(item, bubble)));
-        // 右键在图片上：另存为这张图片
+        // 右键在图片上：另存为这张图片、打开文件所在的文件夹
         if ((e.Source as Visual)?.FindAncestorOfType<RemoteImage>(includeSelf: true) is { Source: { } src, Href: { } href }
             && TopLevel.GetTopLevel(this) is { } top)
+        {
             menu.Items.Add(MenuItem("另存为", () => _ = vm.SaveImageAsAsync(new ImageTarget(src, href), top)));
-        menu.Items.Add(MenuItem(item.IsStarred ? "取消收藏" : "收藏", () => _ = vm.ToggleStarAsync(item)));
+            menu.Items.Add(MenuItem("打开文件夹", () => _ = vm.RevealImageInFolderAsync(new ImageTarget(src, href))));
+        }
+        menu.Items.Add(MenuItem(item.IsStarred ? "取消收藏" : "收藏", () => _ = ToggleStarAsync(vm, item, bubble)));
         menu.Items.Add(MenuItem("引用", () => vm.Composer.Quote(item)));
         menu.Items.Add(MenuItem("转发", () => vm.Forward(item)));
         menu.Items.Add(MenuItem("多选", () => vm.BeginMultiSelect(item)));
-        menu.Items.Add(MenuItem("复制链接", () => _ = ConversationMenus.CopyAsync(this, vm.MessageLink(item.Id), vm.Host)));
-
-        menu.Items.Add(new Separator());
         if (vm.CanEdit(item))
             menu.Items.Add(MenuItem("编辑", () => _ = vm.BeginEditAsync(item)));
+        menu.Items.Add(new Separator());
+
+        // 更多：上方是插件声明的消息菜单（例如翻译，插件之间用分隔线隔开），分隔线下方是其余操作
+        var moreMenu = new MenuItem { Header = "更多" };
+        foreach (var plugin in PluginHost.Instance.Plugins.Where(p => p.ActiveMessageMenus.Count > 0))
+        {
+            if (moreMenu.Items.Count > 0)
+                moreMenu.Items.Add(new Separator());
+            foreach (var pluginMenu in plugin.ActiveMessageMenus)
+                moreMenu.Items.Add(PluginMenuItem(plugin, pluginMenu, item, vm));
+        }
+        if (moreMenu.Items.Count > 0)
+            moreMenu.Items.Add(new Separator());
+        moreMenu.Items.Add(MenuItem("复制链接", () => _ = ConversationMenus.CopyAsync(this, vm.MessageLink(item.Id), vm.Host)));
         if (vm.CanShowEditHistory(item))
-            menu.Items.Add(MenuItem("编辑历史", () => vm.ShowEditHistory(item)));
+            moreMenu.Items.Add(MenuItem("编辑历史", () => vm.ShowEditHistory(item)));
         if (vm.CanShowReadReceipts)
-            menu.Items.Add(MenuItem("已读成员", () => vm.ShowReadReceipts(item)));
-        menu.Items.Add(MenuItem("从这里标为未读", () => _ = vm.MarkUnreadFromAsync(item)));
+            moreMenu.Items.Add(MenuItem("已读成员", () => vm.ShowReadReceipts(item)));
+        moreMenu.Items.Add(MenuItem("从这里标为未读", () => _ = vm.MarkUnreadFromAsync(item)));
         var remind = new MenuItem { Header = "提醒我" };
         remind.Items.Add(MenuItem("1 小时后", () => _ = vm.RemindAsync(item, DateTime.Now.AddHours(1))));
         remind.Items.Add(MenuItem("明天 9:00", () => _ = vm.RemindAsync(item, DateTime.Today.AddDays(1).AddHours(9))));
         remind.Items.Add(MenuItem("自定义…", () => _ = vm.RemindCustomAsync(item)));
-        menu.Items.Add(remind);
-        // 插件声明的消息菜单（例如翻译）：统一放在“插件”子菜单中，插件之间用分隔线隔开
-        var plugins = PluginHost.Instance.Plugins.Where(p => p.ActiveMessageMenus.Count > 0).ToList();
-        if (plugins.Count > 0)
-        {
-            var pluginGroup = new MenuItem { Header = "插件" };
-            foreach (var plugin in plugins)
-            {
-                if (pluginGroup.Items.Count > 0)
-                    pluginGroup.Items.Add(new Separator());
-                foreach (var pluginMenu in plugin.ActiveMessageMenus)
-                    pluginGroup.Items.Add(PluginMenuItem(plugin, pluginMenu, item, vm));
-            }
-            menu.Items.Add(new Separator());
-            menu.Items.Add(pluginGroup);
-        }
+        moreMenu.Items.Add(remind);
+        menu.Items.Add(moreMenu);
+        // 删除放在最后，红色（与网页端一样，没有权限时不显示）
+        if (vm.CanDelete(item))
+            menu.Items.Add(ConversationMenus.Item("删除", () => _ = vm.DeleteAsync(item), isDanger: true));
         menu.Open(bubble);
+    }
+
+    // 表情条四周留给阴影的空白：弹出层窗口不绘制超出自身的部分
+    private const double ReactionShadow = 8;
+
+    // 消息菜单相对指针下移的距离，以及表情条与菜单之间的间距
+    private const double MessageMenuOffset = 8;
+    private const double ReactionGap = 18;
+
+    // 表情条的弹出层：放在视图中（继承主题资源），每次右键时复用
+    private Popup ReactionPopup()
+    {
+        if (_reactionPopup is null)
+        {
+            _reactionPopup = new Popup { IsLightDismissEnabled = true, Placement = PlacementMode.TopEdgeAlignedLeft, PlacementTarget = this };
+            RootGrid.Children.Add(_reactionPopup);
+        }
+        _reactionPopup.IsOpen = false;
+        return _reactionPopup;
+    }
+
+    // 菜单已显示：表情条放在菜单上方，左边与菜单对齐，中间留 ReactionGap
+    private void ShowReactionBar(Popup popup, ContextMenu menu)
+    {
+        if (!menu.IsOpen || TopLevel.GetTopLevel(menu) is null)
+            return;
+        var topLeft = this.PointToClient(menu.PointToScreen(default));
+        popup.PlacementRect = new Rect(topLeft.X, topLeft.Y, Math.Max(1, menu.Bounds.Width), 1);
+        popup.HorizontalOffset = -ReactionShadow;
+        popup.VerticalOffset = ReactionShadow - ReactionGap;
+        popup.IsOpen = true;
     }
 
     private static Button ReactionButton(Control content, string tip)
@@ -671,6 +751,83 @@ public partial class ChatView : UserControl
         return group;
     }
 
+    /// <summary>
+    /// 收藏 / 取消收藏（仿 QQ）：取消收藏成功后直接提示；收藏时消息气泡缩小飞向左下角的主菜单按钮，
+    /// 动画结束且收藏成功后提示“收藏成功”。
+    /// </summary>
+    private async Task ToggleStarAsync(ChatViewModel vm, MessageItemViewModel item, Control bubble)
+    {
+        if (item.IsStarred)
+        {
+            if (await vm.ToggleStarAsync(item))
+                vm.ShowCenterTip("已取消收藏");
+            return;
+        }
+        var star = vm.ToggleStarAsync(item);
+        await FlyToMainMenuAsync(bubble);
+        if (await star)
+            vm.ShowCenterTip("收藏成功");
+    }
+
+    private static readonly TimeSpan FlyDuration = TimeSpan.FromMilliseconds(500);
+
+    // 气泡的截图从原位置缩小、变淡，飞到主窗口的主菜单按钮（独立聊天窗口没有时飞向窗口左下角）
+    private async Task FlyToMainMenuAsync(Control bubble)
+    {
+        if (TopLevel.GetTopLevel(bubble) is not { } top || OverlayLayer.GetOverlayLayer(bubble) is not { } layer
+            || bubble.Bounds.Width <= 0 || bubble.TranslatePoint(default, layer) is not { } start)
+            return;
+        var size = bubble.Bounds.Size;
+        var scaling = top.RenderScaling;
+        var bitmap = new RenderTargetBitmap(new PixelSize((int)Math.Ceiling(size.Width * scaling), (int)Math.Ceiling(size.Height * scaling)),
+            new Vector(96 * scaling, 96 * scaling));
+        bitmap.Render(bubble);
+        var target = top.FindControl<Control>("MainMenuButton") is { } button && button.TranslatePoint(
+            new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), layer) is { } center
+            ? center
+            : new Point(24, layer.Bounds.Height - 24);
+
+        // 平抛的抛物线：水平匀速，垂直从 0 开始越落越快；缩小、变淡逐渐加快
+        var linear = new LinearEasing();
+        var drop = new QuadraticEaseIn();
+        var easing = new CubicEaseIn();
+        var image = new Image
+        {
+            Source = bitmap,
+            Stretch = Stretch.Fill,
+            Width = size.Width,
+            Height = size.Height,
+            IsHitTestVisible = false,
+            Transitions =
+            [
+                new DoubleTransition { Property = Canvas.LeftProperty, Duration = FlyDuration, Easing = linear },
+                new DoubleTransition { Property = Canvas.TopProperty, Duration = FlyDuration, Easing = drop },
+                new TransformOperationsTransition { Property = RenderTransformProperty, Duration = FlyDuration, Easing = easing },
+                new DoubleTransition { Property = OpacityProperty, Duration = FlyDuration, Easing = easing },
+            ],
+        };
+        // 大小不变、以中心缩放：Left / Top 的变化就是中心的轨迹（改宽高时中心会被带着上移）
+        image.RenderTransform = TransformOperations.Parse("scale(1)");
+        Canvas.SetLeft(image, start.X);
+        Canvas.SetTop(image, start.Y);
+        layer.Children.Add(image);
+        try
+        {
+            // 先按原位置显示一帧，再设置终点，过渡才会生效
+            await Task.Delay(16);
+            Canvas.SetLeft(image, target.X - size.Width / 2);
+            Canvas.SetTop(image, target.Y - size.Height / 2);
+            image.RenderTransform = TransformOperations.Parse("scale(0.1)");
+            image.Opacity = 0.2;
+            await Task.Delay(FlyDuration);
+        }
+        finally
+        {
+            layer.Children.Remove(image);
+            bitmap.Dispose();
+        }
+    }
+
     private static MenuItem MenuItem(string header, Action action)
     {
         var item = new MenuItem { Header = header };
@@ -685,14 +842,99 @@ public partial class ChatView : UserControl
         picker.Picked += (_, emoji) =>
         {
             flyout.Hide();
-            _ = vm.ReactAsync(item, emoji);
+            _ = ReactAsync(vm, item, emoji, anchor);
         };
         flyout.ShowAt(anchor);
     }
 
+    private static readonly TimeSpan TraceDuration = TimeSpan.FromMilliseconds(350);
+    private static readonly TimeSpan TraceFadeDuration = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan PopDuration = TimeSpan.FromMilliseconds(130);
+    // 等新的回应出现（服务器事件到达）的最长时间
+    private static readonly TimeSpan PopWaitLimit = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// 贴表情（仿 QQ）：添加回应时，蓝色边框从气泡左下角快速绕一圈，然后把新出现的这个表情放大一下；
+    /// 取消自己的回应时没有动画。
+    /// </summary>
+    private async Task ReactAsync(ChatViewModel vm, MessageItemViewModel item, EmojiEntry emoji, Control bubble)
+    {
+        var adding = !item.Reactions.Any(r => r.Name == emoji.Name && r.IsMine);
+        var react = vm.ReactAsync(item, emoji);
+        if (!adding)
+            return;
+        await TraceAsync(bubble);
+        await react;
+        await PopReactionAsync(bubble, emoji.Name);
+    }
+
+    // 在气泡外围（各向外 2px）描一圈蓝色边框，描完后淡出
+    private async Task TraceAsync(Control bubble)
+    {
+        if (OverlayLayer.GetOverlayLayer(bubble) is not { } layer || bubble.Bounds.Width <= 0
+            || bubble.TranslatePoint(new Point(-2, -2), layer) is not { } origin)
+            return;
+        var trace = new TraceBorder
+        {
+            Width = bubble.Bounds.Width + 4,
+            Height = bubble.Bounds.Height + 4,
+            Radius = 10,
+            Transitions =
+            [
+                new DoubleTransition { Property = TraceBorder.ProgressProperty, Duration = TraceDuration, Easing = new CubicEaseOut() },
+                new DoubleTransition { Property = OpacityProperty, Duration = TraceFadeDuration },
+            ],
+        };
+        trace.Bind(TraceBorder.StrokeProperty, trace.GetResourceObservable("BrandBrush"));
+        Canvas.SetLeft(trace, origin.X);
+        Canvas.SetTop(trace, origin.Y);
+        layer.Children.Add(trace);
+        try
+        {
+            // 先显示一帧，再设置终值，过渡才会生效
+            await Task.Delay(16);
+            trace.Progress = 1;
+            await Task.Delay(TraceDuration);
+            trace.Opacity = 0;
+            await Task.Delay(TraceFadeDuration);
+        }
+        finally
+        {
+            layer.Children.Remove(trace);
+        }
+    }
+
+    // 气泡下方回应中的这个表情放大再恢复；还没出现时等一会儿（回应由服务器事件加入）
+    private async Task PopReactionAsync(Control bubble, string name)
+    {
+        var deadline = DateTime.UtcNow + PopWaitLimit;
+        Button? chip;
+        while ((chip = FindReactionChip(bubble, name)) is null)
+        {
+            if (DateTime.UtcNow > deadline)
+                return;
+            await Task.Delay(50);
+        }
+        chip.RenderTransform ??= TransformOperations.Parse("scale(1)");
+        chip.Transitions ??= [];
+        if (!chip.Transitions.OfType<TransformOperationsTransition>().Any())
+            chip.Transitions.Add(new TransformOperationsTransition
+                { Property = RenderTransformProperty, Duration = PopDuration, Easing = new CubicEaseOut() });
+        chip.RenderTransform = TransformOperations.Parse("scale(1.35)");
+        await Task.Delay(PopDuration);
+        chip.RenderTransform = TransformOperations.Parse("scale(1)");
+    }
+
+    private static Button? FindReactionChip(Control bubble, string name) =>
+        bubble.FindAncestorOfType<DockPanel>() is { } row
+            ? row.GetVisualDescendants().OfType<Button>()
+                .FirstOrDefault(b => b.Classes.Contains("reaction") && b.DataContext is ReactionViewModel r && r.Name == name)
+            : null;
+
     /// <summary>
     /// 复制：消息在跨气泡选择中时复制所有选中的消息（只有文字）；气泡中有选中的文字时复制选中部分（连同格式）；
     /// 否则复制整条消息：只有图片的消息为原图，其它为纯文本，并附上消息的 Markdown 原文（粘贴到输入框发送后与原消息相同）。
+    /// 复制成功后在消息区中间显示“复制成功”。
     /// </summary>
     private async Task CopyAsync(MessageItemViewModel item, Control bubble)
     {
@@ -700,36 +942,42 @@ public partial class ChatView : UserControl
             return;
         try
         {
-            if (_range.Contains(item))
-            {
-                await clipboard.SetTextAsync(RangeText());
-                return;
-            }
-            if (bubble.GetVisualDescendants().OfType<MessageContent>().Select(c => c.SelectedAcross()).FirstOrDefault(s => s is not null) is { } across)
-            {
-                await MarkdownClipboard.SetAsync(clipboard, across.Text, across.Markdown);
-                return;
-            }
-            if (bubble.GetVisualDescendants().OfType<MessageTextBlock>().FirstOrDefault(t => t.SelectionStart != t.SelectionEnd) is { } block)
-            {
-                await block.CopySelectionAsync(clipboard);
-                return;
-            }
-
-            var markdown = await RawContentAsync(item);
-            var images = bubble.GetVisualDescendants().OfType<RemoteImage>().ToList();
-            if (item.IsBare && images.Count == 1 && !bubble.GetVisualDescendants().OfType<FileCard>().Any()
-                && await ImageCache.Shared.GetAsync(images[0].Href ?? images[0].Source ?? "", null, RealmImage.GetClient(images[0])) is { } bitmap)
-            {
-                await MarkdownClipboard.SetAsync(clipboard, "", markdown, bitmap);
-                return;
-            }
-            await MarkdownClipboard.SetAsync(clipboard, ZulipHtml.ToPlainText(item.ContentHtml), markdown);
+            await CopyToAsync(clipboard, item, bubble);
+            _vm?.ShowCenterTip("复制成功");
         }
         catch (Exception ex)
         {
             Log.Warn("复制失败", ex);
         }
+    }
+
+    private async Task CopyToAsync(IClipboard clipboard, MessageItemViewModel item, Control bubble)
+    {
+        if (_range.Contains(item))
+        {
+            await clipboard.SetTextAsync(RangeText());
+            return;
+        }
+        if (bubble.GetVisualDescendants().OfType<MessageContent>().Select(c => c.SelectedAcross()).FirstOrDefault(s => s is not null) is { } across)
+        {
+            await MarkdownClipboard.SetAsync(clipboard, across.Text, across.Markdown);
+            return;
+        }
+        if (bubble.GetVisualDescendants().OfType<MessageTextBlock>().FirstOrDefault(t => t.SelectionStart != t.SelectionEnd) is { } block)
+        {
+            await block.CopySelectionAsync(clipboard);
+            return;
+        }
+
+        var markdown = await RawContentAsync(item);
+        var images = bubble.GetVisualDescendants().OfType<RemoteImage>().ToList();
+        if (item.IsBare && images.Count == 1 && !bubble.GetVisualDescendants().OfType<FileCard>().Any()
+            && await ImageCache.Shared.GetAsync(images[0].Href ?? images[0].Source ?? "", null, RealmImage.GetClient(images[0])) is { } bitmap)
+        {
+            await MarkdownClipboard.SetAsync(clipboard, "", markdown, bitmap);
+            return;
+        }
+        await MarkdownClipboard.SetAsync(clipboard, ZulipHtml.ToPlainText(item.ContentHtml), markdown);
     }
 
     // 消息的 Markdown 原文；本地回显（还没有 id）或获取失败时为 null，只复制文字
@@ -1032,13 +1280,12 @@ public partial class ChatView : UserControl
             item.IsPressed = true;
     }
 
-    // 指针进入另一个气泡时重新计时；显示的时间不改变气泡的位置，指针仍在这条消息中时保持显示
+    // 指针进入另一个气泡时重新计时；移出气泡（包括移到同一行气泡旁的空白处）时隐藏。时间文字不参与命中测试，不会挡住判断
     private void OnTimePointerMoved(object? sender, PointerEventArgs e)
     {
-        var source = e.Source as Visual;
-        if (_timeItem is not null && MessageItemAt(source) != _timeItem)
+        var item = FindBubble(e.Source as Visual)?.DataContext as MessageItemViewModel;
+        if (_timeItem is not null && item != _timeItem)
             HideTime();
-        var item = FindBubble(source)?.DataContext as MessageItemViewModel;
         if (item == _hoverItem)
             return;
         _hoverItem = item;

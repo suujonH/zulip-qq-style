@@ -74,7 +74,10 @@ internal static partial class ZulipHtmlRenderer
 
         void Flush()
         {
-            if (inline.Exists(n => n is not IText t || !string.IsNullOrWhiteSpace(t.Data)))
+            // 只有上传链接时与只有上传链接的段落相同：有预览的不重复显示（否则留下一行空文字）
+            if (ZulipHtml.IsUploadOnly(inline))
+                AddFileCards(inline.OfType<IElement>(), target, ctx);
+            else if (inline.Exists(n => n is not IText t || !string.IsNullOrWhiteSpace(t.Data)))
                 target.Children.Add(Paragraph(inline, ctx));
             inline.Clear();
         }
@@ -102,7 +105,7 @@ internal static partial class ZulipHtmlRenderer
                 if (IsQuoteHeader(e))
                     return;
                 if (ZulipHtml.IsUploadOnlyParagraph(e))
-                    AddFileCards(e, target, ctx);
+                    AddFileCards(e.Children, target, ctx);
                 else
                     target.Children.Add(Paragraph(e.ChildNodes, ctx));
                 return;
@@ -144,9 +147,9 @@ internal static partial class ZulipHtmlRenderer
 
     // 只有上传链接的段落：每个文件一张卡片；已有内联预览的图片 / 视频不重复显示。
     // 显示类型以服务器为准：没有预览的都是文件（即使扩展名是图片 / 视频）
-    private static void AddFileCards(IElement p, Panel target, Context ctx)
+    private static void AddFileCards(IEnumerable<IElement> nodes, Panel target, Context ctx)
     {
-        foreach (var a in p.Children.Where(c => c.LocalName == "a"))
+        foreach (var a in nodes.Where(c => c.LocalName == "a"))
         {
             var path = ZulipHtml.NormalizeUploadPath(a.GetAttribute("href"))!;
             if (ctx.Previews.Contains(path))
@@ -201,6 +204,8 @@ internal static partial class ZulipHtmlRenderer
             Height = height,
             Source = src,
             Href = href.Length > 0 ? href : null,
+            // 消息中的图片都是双击打开查看器（单击只选中消息）
+            OpenOnDoubleClick = true,
         };
     }
 
@@ -378,9 +383,9 @@ internal static partial class ZulipHtmlRenderer
                 {
                     BorderThickness = new Thickness(c == 0 ? 1 : 0, r == 0 ? 1 : 0, 1, 1),
                     Padding = new Thickness(6, 3),
-                    Child = Paragraph(cell.ChildNodes, ctx, bold: cell.LocalName == "th"),
+                    Child = TableCell(cell, ctx),
                 };
-                BindResource(border, Border.BorderBrushProperty, border, "PressedBrush");
+                BindResource(border, Border.BorderBrushProperty, border, "TableBorderBrush");
                 Grid.SetRow(border, r);
                 Grid.SetColumn(border, c++);
                 grid.Children.Add(border);
@@ -392,6 +397,18 @@ internal static partial class ZulipHtmlRenderer
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Content = grid,
         };
+    }
+
+    // 第一行（th）为粗体；对齐方式来自分隔行，服务器写在 style 或 align 中
+    private static MessageTextBlock TableCell(IElement cell, Context ctx)
+    {
+        var block = Paragraph(cell.ChildNodes, ctx, bold: cell.LocalName == "th");
+        var align = $"{cell.GetAttribute("style")} {cell.GetAttribute("align")}";
+        if (align.Contains("center", StringComparison.OrdinalIgnoreCase))
+            block.TextAlignment = TextAlignment.Center;
+        else if (align.Contains("right", StringComparison.OrdinalIgnoreCase))
+            block.TextAlignment = TextAlignment.Right;
+        return block;
     }
 
     // 剧透：标题行可点击，内容默认折叠
