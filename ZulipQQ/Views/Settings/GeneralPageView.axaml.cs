@@ -17,6 +17,8 @@ public partial class GeneralPageView : UserControl
         InitializeComponent();
         // 窗口本身不能获得焦点：输入框失去焦点时把焦点交给页面；点击页面空白处时 Avalonia 也会把焦点交给它
         Focusable = true;
+        // 页面比视口高，获得焦点时不滚动：否则 ScrollViewer 会把整个页面滚进视野，滚动位置发生跳动
+        AddHandler(RequestBringIntoViewEvent, OnRequestBringIntoView);
         TitleBox.AddHandler(KeyDownEvent, OnTitleBoxKeyDown, RoutingStrategies.Tunnel);
         TitleTokens.AddHandler(Button.ClickEvent, OnTokenClick);
     }
@@ -35,6 +37,12 @@ public partial class GeneralPageView : UserControl
         _top?.RemoveHandler(PointerPressedEvent, OnTopPointerPressed);
         _top = null;
         base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnRequestBringIntoView(object? sender, RequestBringIntoViewEventArgs e)
+    {
+        if (e.TargetObject == this)
+            e.Handled = true;
     }
 
     private void OnTitleBoxKeyDown(object? sender, KeyEventArgs e)
