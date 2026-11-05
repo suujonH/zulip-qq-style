@@ -12,6 +12,16 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
+  <!-- 开发者模式只在 Debug 中提供：其它配置不编译它的页面、请求详情窗口和请求记录 -->
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="ViewModels\Settings\DeveloperPageViewModel.cs" />
+    <Compile Remove="Views\Settings\DeveloperPageView.axaml.cs" />
+    <Compile Remove="Views\RequestDetailWindow.axaml.cs" />
+    <Compile Remove="Services\RequestLog.cs" />
+    <AvaloniaXaml Remove="Views\Settings\DeveloperPageView.axaml" />
+    <AvaloniaXaml Remove="Views\RequestDetailWindow.axaml" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.4" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />

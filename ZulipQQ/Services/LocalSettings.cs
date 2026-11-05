@@ -27,6 +27,7 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     public const string ShowTrayIconKey = "show_tray_icon";
     public const string NotificationMutedKey = "notification_muted";
     public const string CloseActionKey = "close_action";
+#if DEBUG
     public const string ShowUnavailableKey = "dev_show_unavailable";
     public const string LogRequestsKey = "dev_log_requests";
     public const string RequestLogLimitKey = "dev_request_log_limit";
@@ -37,6 +38,7 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
 
     /// <summary>请求记录保存的条数为此值时不限制条数。</summary>
     public const int UnlimitedRequestLogLimit = 0;
+#endif
     private const string BoundsNormalKey = "main_window_bounds_normal";
     private const string BoundsClassicKey = "main_window_bounds_classic";
 
@@ -139,6 +141,7 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
         set => Save(appRepository, CloseActionKey, value.ToString());
     }
 
+#if DEBUG
     /// <summary>
     /// 开发者模式（程序级）：没有权限或服务器不支持的设置和操作也显示，操作时只模拟，不发送到服务器。
     /// 见 <see cref="ZulipSession.Shows"/>、<see cref="ZulipSession.Mocks"/>。
@@ -173,6 +176,12 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
             : DefaultRequestLogLimit;
         set => Save(appRepository, RequestLogLimitKey, Math.Max(value, UnlimitedRequestLogLimit).ToString(CultureInfo.InvariantCulture));
     }
+#else
+    // 开发者模式只在 Debug 中提供：Release 没有关闭它们的界面，忽略 Debug 版本保存的值
+    public bool ShowUnavailable => false;
+
+    public bool ShowSettingSource => false;
+#endif
 
     /// <summary>实际的关闭行为：没有托盘图标时无法从托盘恢复，只能退出。</summary>
     public CloseAction EffectiveCloseAction => ShowTrayIcon ? CloseAction : CloseAction.Exit;

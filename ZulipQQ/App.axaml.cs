@@ -115,7 +115,9 @@ public partial class App : Application
     {
         LocalDb.Instance = LocalDb.Open(AppPaths.DatabasePath);
         ThemeService.Initialize(LocalDb.Instance);
+#if DEBUG
         RequestLog.Initialize(LocalDb.Instance);
+#endif
         ZulipClient.UserAgent = ZulipClient.UserAgentFor(LocalSettings.App.ClientName);
         // 插件随程序启动（登录之前）加载
         PluginHost.Instance.LoadAll(new PluginStateRepository(LocalDb.Instance), new SettingRepository(LocalDb.Instance, null));

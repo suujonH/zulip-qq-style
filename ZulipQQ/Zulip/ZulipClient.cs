@@ -72,8 +72,10 @@ public sealed class ZulipClient : IDisposable
         _sizeHttp.DefaultRequestHeaders.Authorization = auth;
     }
 
+#if DEBUG
     /// <summary>请求记录（开发者模式的“显示请求”）；为 null 或未开启时不记录。所有 ZulipClient 共用。</summary>
     public static IHttpTraceSink? TraceSink { get; set; }
+#endif
 
     /// <summary>组织地址，以 “/” 结尾。</summary>
     public Uri RealmUrl { get; }

@@ -73,6 +73,7 @@ public sealed class ZulipSession : IAsyncDisposable
 
         Messages.IsKeptOpen = Registry.IsOpen;
         Conversations.ConversationRekeyed += (_, e) => Registry.Rekey(e.Old, e.New);
+#if DEBUG
         // 开发者模式：切换“显示不可用的功能”后，按权限显示的界面与权限变化时一样刷新；请求记录的设置立即生效
         Settings.Local.Changed += (_, key) =>
         {
@@ -81,6 +82,7 @@ public sealed class ZulipSession : IAsyncDisposable
             else if (key is LocalSettings.LogRequestsKey or LocalSettings.RequestLogLimitKey)
                 RequestLog.Instance.Configure(Settings.Local.LogRequests, Settings.Local.RequestLogLimit);
         };
+#endif
     }
 
     /// <summary>开发者模式下模拟操作时的提示。</summary>

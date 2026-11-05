@@ -22,7 +22,9 @@ public enum SettingsPage
     /// <summary>Zulip 账号列表（添加、删除）。</summary>
     Accounts,
     Plugins,
+#if DEBUG
     Developer,
+#endif
     About,
 
     // 账号
@@ -301,8 +303,10 @@ public partial class SettingsViewModel : ViewModelBase
 
     private void OnLocalChanged(object? sender, string key)
     {
+#if DEBUG
         if (key == LocalSettings.ShowSettingSourceKey)
             OnPropertyChanged(nameof(ShowSettingSource));
+#endif
     }
 
     private SettingsPageViewModel Create(SettingsPage page) => page switch
@@ -322,7 +326,9 @@ public partial class SettingsViewModel : ViewModelBase
         SettingsPage.Resources => new ResourcesPageViewModel(this),
         SettingsPage.Organization => new OrganizationPageViewModel(this),
         SettingsPage.Plugins => new PluginsPageViewModel(this),
+#if DEBUG
         SettingsPage.Developer => new DeveloperPageViewModel(this),
+#endif
         _ => new AboutPageViewModel(this),
     };
 
@@ -349,7 +355,9 @@ public partial class SettingsViewModel : ViewModelBase
         Nav.Add(new SettingsNavItem(SettingsPage.Palette, "超级调色盘"));
         Nav.Add(new SettingsNavItem(SettingsPage.Accounts, "Zulip 账号"));
         Nav.Add(new SettingsNavItem(SettingsPage.Plugins, "插件"));
+#if DEBUG
         Nav.Add(new SettingsNavItem(SettingsPage.Developer, "开发者模式"));
+#endif
         Nav.Add(new SettingsNavItem(SettingsPage.About, "关于"));
     }
 }
