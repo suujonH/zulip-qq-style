@@ -15,12 +15,23 @@
         <Style Selector="Grid.resourceHeader.expandable">
             <Setter Property="Cursor" Value="Hand" />
         </Style>
-        <!-- 展开后的消息列表：带边框，行间分隔线，悬停高亮 -->
+        <!-- 展开后的引用表格：带边框和表头，行间分隔线，悬停高亮 -->
         <Style Selector="Border.refList">
             <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector="Border.refTableHeader">
+            <Setter Property="Padding" Value="12,0,6,0" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource RowDividerBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        </Style>
+        <Style Selector="Border.refTableHeader TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="Border.refRow">
             <Setter Property="Padding" Value="12,0,6,0" />
@@ -105,31 +116,40 @@
                                 <!-- 引用这个文件的消息：点击文件展开 -->
                                 <c:ExpandPanel IsExpanded="{Binding IsExpanded}">
                                     <Border Classes="refList" Margin="48,0,0,10">
-                                        <StackPanel>
+                                        <!-- 表头与各行的会话、时间列对齐 -->
+                                        <StackPanel Grid.IsSharedSizeScope="True">
                                             <TextBlock Classes="hint" Text="{Binding ReferencesStatus}" Margin="12,8"
                                                        IsVisible="{Binding ReferencesStatus, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                                            <!-- 各行的群名、发送人、时间列对齐 -->
-                                            <ItemsControl ItemsSource="{Binding References}" Grid.IsSharedSizeScope="True">
+                                            <Border Classes="refTableHeader" IsVisible="{Binding !!References.Count}">
+                                                <Grid Height="30">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Group" />
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Time" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="会话" />
+                                                    <TextBlock Grid.Column="1" Text="时间" Margin="16,0,0,0" />
+                                                    <TextBlock Grid.Column="2" Text="内容" Margin="16,0,0,0" />
+                                                </Grid>
+                                            </Border>
+                                            <ItemsControl ItemsSource="{Binding References}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:ResourceReference">
                                                         <Border Classes="refRow">
                                                             <Grid Height="34">
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="Group" />
-                                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Sender" />
                                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="Time" />
                                                                     <ColumnDefinition Width="*" />
                                                                     <ColumnDefinition Width="Auto" />
                                                                 </Grid.ColumnDefinitions>
                                                                 <TextBlock Text="{Binding GroupName}" MaxWidth="140" Classes="refCell"
                                                                            ToolTip.Tip="{Binding GroupName}" />
-                                                                <TextBlock Grid.Column="1" Text="{Binding SenderName}" MaxWidth="90"
-                                                                           Classes="refCell" Margin="16,0,0,0" />
-                                                                <TextBlock Grid.Column="2" Text="{Binding TimeText}" Classes="refCell"
+                                                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" Classes="refCell"
                                                                            Margin="16,0,0,0" />
-                                                                <TextBlock Grid.Column="3" Text="{Binding Preview}" Classes="refCell"
+                                                                <TextBlock Grid.Column="2" Text="{Binding Preview}" Classes="refCell"
                                                                            Margin="16,0,0,0" />
-                                                                <Button Grid.Column="4" Theme="{StaticResource FlatButton}" Padding="6"
+                                                                <Button Grid.Column="3" Theme="{StaticResource FlatButton}" Padding="6"
                                                                         ToolTip.Tip="跳转到消息" VerticalAlignment="Center" Margin="8,0,0,0"
                                                                         Command="{Binding JumpCommand}">
                                                                     <c:TdIcon Icon="{StaticResource Icon.ArrowRightUp}" Width="14" Height="14"

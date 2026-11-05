@@ -14,7 +14,7 @@ namespace ZulipQQ.ViewModels.Settings;
 
 /// <summary>引用上传文件的一条消息：展开文件后列出。</summary>
 public sealed partial class ResourceReference(ResourcesPageViewModel owner, ConversationKey key, long messageId,
-    string groupName, string senderName, string timeText, string preview) : ViewModelBase
+    string groupName, string timeText, string preview) : ViewModelBase
 {
     public ConversationKey Key { get; } = key;
 
@@ -22,9 +22,6 @@ public sealed partial class ResourceReference(ResourcesPageViewModel owner, Conv
 
     /// <summary>会话标题（与会话列表相同，有备注时只显示备注）。</summary>
     public string GroupName { get; } = groupName;
-
-    /// <summary>发送人：有备注时只显示备注。</summary>
-    public string SenderName { get; } = senderName;
 
     public string TimeText { get; } = timeText;
 
@@ -232,9 +229,8 @@ public sealed partial class ResourcesPageViewModel : SettingsPageViewModel
         {
             var key = ConversationKey.FromMessage(dto, Session.SelfId);
             _messageKeys[dto.Id] = key;
-            var sender = Session.Contacts.GetRemark(dto.SenderId) ?? Session.Users.Get(dto.SenderId)?.FullName ?? dto.SenderFullName;
             item.References.Add(new ResourceReference(this, key, dto.Id,
-                Session.Conversations.GetDisplayTitle(key), sender,
+                Session.Conversations.GetDisplayTitle(key),
                 TimeText.ListTime(TimeText.FromUnix(dto.Timestamp), now, use24h), ZulipHtml.ToPreview(dto.Content)));
         }
         item.ReferencesStatus = item.References.Count > 0 ? null : "引用它的消息已删除或无法查看";
