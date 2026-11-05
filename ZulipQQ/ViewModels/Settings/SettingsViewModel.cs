@@ -345,7 +345,7 @@ public partial class SettingsViewModel : ViewModelBase
             return;
         }
         Nav.Add(new SettingsNavItem(SettingsPage.General, "通用"));
-        Nav.Add(new SettingsNavItem(SettingsPage.Files, "聊天中的文件"));
+        Nav.Add(new SettingsNavItem(SettingsPage.Files, "数据目录"));
         Nav.Add(new SettingsNavItem(SettingsPage.Palette, "超级调色盘"));
         Nav.Add(new SettingsNavItem(SettingsPage.Accounts, "Zulip 账号"));
         Nav.Add(new SettingsNavItem(SettingsPage.Plugins, "插件"));

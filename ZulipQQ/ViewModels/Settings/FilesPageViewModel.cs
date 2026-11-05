@@ -8,7 +8,7 @@ using ZulipQQ.Services;
 
 namespace ZulipQQ.ViewModels.Settings;
 
-/// <summary>聊天中的文件：保存文件的位置、聊天信息（数据目录）的位置。</summary>
+/// <summary>数据目录：保存文件的位置、聊天信息（数据目录）的位置。</summary>
 public sealed partial class FilesPageViewModel : SettingsPageViewModel
 {
     public FilesPageViewModel(SettingsViewModel owner) : base(owner)
