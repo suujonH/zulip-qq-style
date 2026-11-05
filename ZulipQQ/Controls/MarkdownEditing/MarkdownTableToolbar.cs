@@ -14,7 +14,7 @@ namespace ZulipQQ.Controls.MarkdownEditing;
 /// <summary>
 /// 编辑中的表格上方的工具栏：左边是调整大小（网格选择，缩小时多出来的内容直接丢弃）与左、中、右对齐，
 /// 右边是“更多操作”下拉菜单与删除表格。按钮不取得焦点，光标留在表格中。
-/// 放在 <see cref="MarkdownTableToolbarLayer"/> 中，由它定位到标题行上方留出的空白处。
+/// 放在 <see cref="MarkdownTablePanel"/> 的上方。
 /// </summary>
 internal sealed class MarkdownTableToolbar : Border
 {
@@ -26,13 +26,18 @@ internal sealed class MarkdownTableToolbar : Border
 
     private readonly MarkdownEditor _editor;
     private readonly TdIcon[] _alignIcons = new TdIcon[3];
+    // 右边的“更多操作”和“删除表格”
+    private readonly StackPanel _actions;
+    private readonly TranslateTransform _actionsOffset = new();
 
     public MarkdownTableToolbar(MarkdownEditor editor)
     {
         _editor = editor;
-        Height = MarkdownTableLayout.ToolbarHeight;
+        Height = 30;
         // 点在工具栏空白处不移动光标
         Background = Brushes.Transparent;
+        // 文字区的 I 形光标不用在工具栏上
+        Cursor = Cursor.Default;
         PointerPressed += (_, e) => e.Handled = true;
 
         var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
@@ -43,13 +48,21 @@ internal sealed class MarkdownTableToolbar : Border
         left.Children.Add(AlignButton(1, "Icon.AlignCenter", "居中", TableAlign.Center));
         left.Children.Add(AlignButton(2, "Icon.AlignRight", "右对齐", TableAlign.Right));
 
-        var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        var right = _actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        right.RenderTransform = _actionsOffset;
         var more = IconButton("Icon.MoreVertical", "更多操作", null);
         more.Flyout = MoreFlyout();
         right.Children.Add(more);
         right.Children.Add(IconButton("Icon.Delete", "删除表格", () => _editor.EditActiveTable((m, t, table, _) => MarkdownTableEdit.DeleteTable(m, t, table))));
         DockPanel.SetDock(right, Dock.Right);
         Child = new DockPanel { Children = { right, left } };
+    }
+
+    /// <summary>工具栏滚出输入框上边时，右边的按钮向下移动 <paramref name="offset"/> 留在可视区的右上角（盖在表格上，要有底色）。</summary>
+    public void PinActions(double offset)
+    {
+        _actionsOffset.Y = offset;
+        _actions.Background = offset > 0 ? _editor.Brush("CardBrush") : null;
     }
 
     /// <summary>光标移动后更新：当前列的对齐方式。</summary>
@@ -223,49 +236,5 @@ internal sealed class MarkdownTableToolbar : Border
         var box = new TextBox { Width = 44, MaxLength = 2, Text = value.ToString(CultureInfo.InvariantCulture), HorizontalContentAlignment = HorizontalAlignment.Center };
         box.Classes.Add("input");
         return box;
-    }
-}
-
-/// <summary>放工具栏的层：盖在文字上方，只有工具栏接收指针。位置随滚动和编辑更新。</summary>
-internal sealed class MarkdownTableToolbarLayer : Canvas
-{
-    private readonly MarkdownEditor _editor;
-    private MarkdownTableToolbar? _toolbar;
-    private ThemeVariant? _toolbarTheme;
-
-    public MarkdownTableToolbarLayer(MarkdownEditor editor)
-    {
-        _editor = editor;
-    }
-
-    public void Update()
-    {
-        var textView = _editor.TextArea.TextView;
-        if (_editor.ActiveTable is not { } active || !textView.VisualLinesValid
-            || textView.GetVisualLine(active.Table.HeaderLine + 1) is not { } line)
-        {
-            if (_toolbar is not null)
-                _toolbar.IsVisible = false;
-            return;
-        }
-        var toolbar = Toolbar();
-        toolbar.Width = Math.Min(Math.Max(active.Layout.Width, 200), textView.Bounds.Width);
-        SetLeft(toolbar, 0);
-        SetTop(toolbar, line.VisualTop - textView.VerticalOffset);
-        toolbar.Refresh();
-        toolbar.IsVisible = true;
-    }
-
-    // 第一次用到时才创建（按钮样式、颜色要从资源中取，构造编辑器时还取不到）；切换主题后重新创建
-    private MarkdownTableToolbar Toolbar()
-    {
-        if (_toolbar is not null && _toolbarTheme == _editor.ActualThemeVariant)
-            return _toolbar;
-        if (_toolbar is not null)
-            Children.Remove(_toolbar);
-        _toolbar = new MarkdownTableToolbar(_editor);
-        _toolbarTheme = _editor.ActualThemeVariant;
-        Children.Add(_toolbar);
-        return _toolbar;
     }
 }

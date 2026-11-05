@@ -112,4 +112,19 @@ public sealed class MarkdownTableEditTests
     [Fact]
     public void Empty_ClampsToMinimum() =>
         Assert.Equal("|  |  |\n| --- | --- |", MarkdownTableEdit.Empty(1, 0));
+
+    [Fact]
+    public void FromCells_Compact() =>
+        Assert.Equal("| a | b |\n| --- | --: |\n| 1 |  |",
+            MarkdownTableEdit.FromCells([["a", "b"], ["1"]], [TableAlign.Left, TableAlign.Right], padded: false));
+
+    [Fact]
+    public void FromCells_Padded_AlignsColumnsCountingCjkAsTwo() =>
+        Assert.Equal("| 姓名      | 备注     |\n| --------- | :------: |\n| Alexander | 你好世界 |",
+            MarkdownTableEdit.FromCells([["姓名", "备注"], ["Alexander", "你好世界"]], [TableAlign.Left, TableAlign.Center], padded: true));
+
+    [Fact]
+    public void FromCells_EscapesPipesAndLineBreaks() =>
+        Assert.Equal(@"| a\|b | c<br />d |" + "\n| --- | --- |\n" + @"| e\|f |  |",
+            MarkdownTableEdit.FromCells([["a|b", "c\nd"], [@"e\|f", ""]], [], padded: false));
 }

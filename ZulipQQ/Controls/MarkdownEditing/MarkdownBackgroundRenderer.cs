@@ -9,7 +9,7 @@ namespace ZulipQQ.Controls.MarkdownEditing;
 
 /// <summary>
 /// 渲染模式下的块背景：引用为引用卡片底色，代码 / 公式 / 剧透为浅灰底色；连续的同类行合成一块。
-/// 隐藏了 "> " 的行在左侧画竖线（"> " 换成了缩进），隐藏的分隔线（---）画一条横线，表格画网格线。
+/// 隐藏了 "> " 的行在左侧画竖线（"> " 换成了缩进），隐藏的分隔线（---）画一条横线。
 /// </summary>
 internal sealed class MarkdownBackgroundRenderer(MarkdownEditor editor) : IBackgroundRenderer
 {
@@ -72,12 +72,6 @@ internal sealed class MarkdownBackgroundRenderer(MarkdownEditor editor) : IBackg
                 var middle = y + visualLine.Height / 2;
                 context.FillRectangle(editor.Brush("DividerBrush"), new Rect(0, middle, width, 1));
             }
-            if (editor.TableAt(index) is { } table)
-            {
-                // 编辑中的表格：标题行的上方是工具栏
-                var toolbar = index == table.Table.HeaderLine && editor.IsTableActive(table.Table) ? MarkdownTableLayout.ToolbarHeight : 0;
-                DrawTableRow(context, table.Layout, y + toolbar, visualLine.Height - toolbar, index == table.Table.LastLine);
-            }
         }
         DrawBlock(context, kind, top, bottom, width);
         if (bars.Count > 0)
@@ -86,17 +80,6 @@ internal sealed class MarkdownBackgroundRenderer(MarkdownEditor editor) : IBackg
             foreach (var bar in bars)
                 context.FillRectangle(barBrush, bar);
         }
-    }
-
-    // 一行的上边线与竖线；最后一行再画下边线
-    private void DrawTableRow(DrawingContext context, MarkdownTableLayout layout, double y, double height, bool last)
-    {
-        var brush = editor.Brush("TableBorderBrush");
-        context.FillRectangle(brush, new Rect(0, y, layout.Width + 1, 1));
-        if (last)
-            context.FillRectangle(brush, new Rect(0, y + height - 1, layout.Width + 1, 1));
-        foreach (var edge in layout.Edges)
-            context.FillRectangle(brush, new Rect(edge, y, 1, height));
     }
 
     private static BlockKind KindOf(MdLine line)

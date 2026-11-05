@@ -61,9 +61,6 @@ internal sealed class MarkdownColorizer(MarkdownEditor editor) : DocumentColoriz
             case MdLineKind.FenceClose or MdLineKind.Rule or MdLineKind.TableSeparator:
                 Foreground(line.Start, line.End, tertiary);
                 break;
-            case MdLineKind.TableRow when editor.TableAt(index)?.Table.HeaderLine == index:
-                Change(line.Start, line.End, e => SetWeight(e, FontWeight.Bold));
-                break;
         }
         if (line.QuoteDepth > 0 && line.Kind is not (MdLineKind.FenceOpen or MdLineKind.FenceClose))
             Foreground(line.ContentStart, line.End, editor.Brush("TextSecondaryBrush"));

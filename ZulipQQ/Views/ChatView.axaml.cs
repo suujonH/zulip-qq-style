@@ -47,6 +47,8 @@ public partial class ChatView : UserControl
     private ScrollRequest? _pendingScroll;
     private int _scrollAttempts;
     private (object Item, double Delta)? _anchor;
+    // 切换源代码模式时所有消息的高度都变（原文取回后再变一次）：顶部的消息留在原来的位置
+    private readonly ScrollPositionHold _sourceToggleHold;
 
     // 第一次滚动定位之前不报告可见范围
     private bool _firstScrollDone;
@@ -96,6 +98,7 @@ public partial class ChatView : UserControl
             _viewportTimer.Stop();
             ReportViewport();
         };
+        _sourceToggleHold = new ScrollPositionHold(MessageScroller, MessageList);
         MessageScroller.ScrollChanged += OnScrollChanged;
         MessageScroller.SizeChanged += (_, _) => UpdateSizes();
         SizeChanged += (_, _) => UpdateSizes();
@@ -227,6 +230,7 @@ public partial class ChatView : UserControl
         _acrossContent = null;
         _pendingScroll = null;
         _anchor = null;
+        _sourceToggleHold.Cancel();
         _firstScrollDone = false;
         _atBottom = false;
         _viewportTimer.Stop();
@@ -249,6 +253,7 @@ public partial class ChatView : UserControl
         _pendingScroll = request;
         _scrollAttempts = 0;
         _anchor = null;
+        _sourceToggleHold.Cancel();
         // 保证会有一次布局完成事件来执行滚动
         MessageList.InvalidateArrange();
     }
@@ -321,6 +326,7 @@ public partial class ChatView : UserControl
             if (MessageList.ContainerFromItem(anchor.Item) is { } container)
                 SetOffset(ContentY(container) - anchor.Delta);
         }
+        _sourceToggleHold.Apply();
     }
 
     /// <summary>
@@ -584,7 +590,13 @@ public partial class ChatView : UserControl
             || FindBubble(e.Source as Visual) is not null)
             return;
         e.Handled = true;
-        var source = ConversationMenus.Item("源代码模式", vm.ToggleSourceMode);
+        var source = ConversationMenus.Item("源代码模式", () =>
+        {
+            // 停在底部时由 OnScrollChanged 继续贴住底部
+            if (!_atBottom)
+                _sourceToggleHold.Begin();
+            vm.ToggleSourceMode();
+        });
         source.ToggleType = MenuItemToggleType.CheckBox;
         source.IsChecked = vm.IsSourceMode;
         var menu = new ContextMenu();

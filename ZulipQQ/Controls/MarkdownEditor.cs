@@ -54,15 +54,27 @@ public class MarkdownEditor : TextEditor
     private int _animateQuote = -1;
     // 引用消息发送后的 HTML：按引用的原文缓存，正在获取为 null，获取失败为空字符串
     private readonly Dictionary<string, string?> _renderedQuotes = [];
-    // 表格的排版（键为标题行）：文字或字号变化时重新计算
-    private readonly Dictionary<int, MarkdownTableLayout> _tableLayouts = [];
-    private double _tableLayoutFontSize;
-    private readonly MarkdownTableToolbarLayer? _tableToolbarLayer;
-    // 光标所在的表格（显示工具栏）的标题行；没有为 -1
-    private int _activeTableLine = -1;
-    // 工具栏的菜单打开时焦点不在编辑器上，工具栏仍然显示
+    // 文档中每个表格显示成的控件（与 Tables 一一对应）
+    private readonly List<MarkdownTablePanel> _tablePanels = [];
+    // Model 对应的文档版本：文档修改后、重新解析前（此时光标已经移动）Model 是旧的
+    private ITextSourceVersion? _modelVersion;
+    // 光标所在的单元格
+    private MarkdownTablePanel? _activePanel;
+    private MarkdownEditor? _activeCell;
+    private int _activeRow;
+    private int _activeColumn;
+    // 工具栏的菜单打开时焦点不在单元格中，工具栏仍然显示
     private bool _tablePopupOpen;
+    // 正在修改表格（光标在表格的范围内也不用进入单元格，修改完会处理）
+    private bool _editingTable;
+    private int _lastCaret;
+    // 这个编辑器是单元格时：自动换行的位置（键为文档行）
+    private Dictionary<int, IReadOnlyList<SoftBreak>> _softBreaks = [];
+    private object? _softBreaksVersion;
     private MdSpan? _pressedAtom;
+
+    /// <summary>这个编辑器是表格的一个单元格（其中的文字不再解析出表格）。</summary>
+    internal bool IsTableCell { get; init; }
 
     public MarkdownEditor() : base(new GuardedTextArea())
     {
@@ -93,7 +105,7 @@ public class MarkdownEditor : TextEditor
         textView.ElementGenerators.Add(new QuoteTitleGenerator(this));
         textView.ElementGenerators.Add(new MarkdownElementGenerator(this));
         textView.BackgroundRenderers.Add(new MarkdownBackgroundRenderer(this));
-        // 引用面板的宽度跟随输入框（第一次生成时输入框可能还没有宽度）；表格放不放得下也取决于宽度
+        // 引用面板的宽度跟随输入框（第一次生成时输入框可能还没有宽度）；表格的列宽也取决于宽度
         textView.SizeChanged += (_, e) =>
         {
             if (e.WidthChanged && (Quotes.Count > 0 || Tables.Count > 0))
@@ -103,21 +115,25 @@ public class MarkdownEditor : TextEditor
                     textView.Redraw();
                 });
         };
-        _tableToolbarLayer = new MarkdownTableToolbarLayer(this);
-        textView.InsertLayer(_tableToolbarLayer, KnownLayer.Caret, LayerInsertionPosition.Above);
-        textView.VisualLinesChanged += (_, _) => _tableToolbarLayer?.Update();
         _preeditLayer = new PreeditLayer(this);
         textView.InsertLayer(_preeditLayer, KnownLayer.Caret, LayerInsertionPosition.Above);
         _ime = new MarkdownImeClient(this);
 
         TextArea.Caret.PositionChanged += OnCaretPositionChanged;
-        TextArea.GotFocus += (_, _) =>
+        TextArea.SelectionChanged += (_, _) => UpdateTableSelection();
+        TextArea.GotFocus += (_, e) =>
         {
+            // 焦点事件会从单元格冒泡上来
+            if (IsInTablePanel(e.Source))
+                return;
+            ClearActiveCell();
             _ime.Attach(TextArea);
             RefreshReveal();
         };
-        TextArea.LostFocus += (_, _) =>
+        TextArea.LostFocus += (_, e) =>
         {
+            if (IsInTablePanel(e.Source))
+                return;
             _ime.Attach(null);
             SetPreedit(null);
             RefreshReveal();
@@ -128,7 +144,14 @@ public class MarkdownEditor : TextEditor
         TextArea.TextEntering += OnTextEntering;
         AddHandler(PointerPressedEvent, OnPointerPressedTunnel, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnPointerReleasedAny, RoutingStrategies.Bubble, handledEventsToo: true);
-        ActualThemeVariantChanged += (_, _) => TextArea.TextView.Redraw();
+        ActualThemeVariantChanged += (_, _) =>
+        {
+            // 表格的颜色是创建时取的：重新创建
+            ClearActiveCell();
+            _tablePanels.Clear();
+            UpdateQuoteCollapse();
+            TextArea.TextView.Redraw();
+        };
     }
 
     protected override Type StyleKeyOverride => typeof(TextEditor);
@@ -381,67 +404,146 @@ public class MarkdownEditor : TextEditor
         var text = Document.Text;
         Model = ZulipMarkdown.Parse(text, _resolver ?? NullResolver);
         Quotes = QuoteBlocks.Find(Model, text);
-        Tables = MarkdownTables.Find(Model);
-        _tableLayouts.Clear();
+        Tables = IsTableCell ? [] : MarkdownTables.Find(Model);
+        _modelVersion = Document.Version;
     }
 
-    /// <summary>
-    /// <paramref name="lineIndex"/> 所在的、按表格显示的表格与它的排版。
-    /// 源码模式下，或表格比输入框宽（换行后无法对齐，按原文显示）时为 null。
-    /// </summary>
-    internal (MarkdownTable Table, MarkdownTableLayout Layout)? TableAt(int lineIndex)
+    /// <summary>光标所在的单元格（失去焦点后仍然记得，例如打开了工具栏的菜单）；不在表格中为 null。</summary>
+    public MarkdownEditor? ActiveCell => _activeCell;
+
+    /// <summary>光标所在的编辑器：单元格，或者这个输入框。格式、粘贴、补全都作用于它。</summary>
+    public MarkdownEditor FocusedEditor => _activeCell ?? this;
+
+    /// <summary>光标所在单元格的表格。</summary>
+    internal MarkdownTable? ActiveTable => _activePanel?.Table;
+
+    internal bool IsActivePanel(MarkdownTablePanel panel) =>
+        _activePanel == panel && (panel.IsKeyboardFocusWithin || _tablePopupOpen);
+
+    internal (int Row, int Column)? ActiveCellPosition(MarkdownTablePanel panel) =>
+        _activePanel == panel ? (_activeRow, _activeColumn) : null;
+
+    internal void SetActiveCell(MarkdownTablePanel panel, int row, int column, MarkdownEditor cell)
     {
-        if (IsSourceMode)
-            return null;
-        foreach (var table in Tables)
-        {
-            if (lineIndex < table.HeaderLine || lineIndex > table.LastLine)
-                continue;
-            return LayoutOf(table) is { } layout ? (table, layout) : null;
-        }
-        return null;
+        var other = _activePanel != panel ? _activePanel : null;
+        (_activePanel, _activeRow, _activeColumn, _activeCell) = (panel, row, column, cell);
+        // 外层的光标不显示（焦点在它的子控件中时它也认为自己有焦点）
+        TextArea.Caret.CaretBrush = Brushes.Transparent;
+        _ime.Attach(null);
+        other?.UpdateToolbar();
+        panel.UpdateToolbar();
+        CaretMoved?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>光标所在的、显示工具栏的表格。</summary>
-    internal (MarkdownTable Table, MarkdownTableLayout Layout)? ActiveTable =>
-        _activeTableLine < 0 ? null : TableAt(_activeTableLine);
+    internal void RefocusActiveCell()
+    {
+        if (_activeCell is { IsKeyboardFocusWithin: false } cell && !_tablePopupOpen && _activePanel is { IsKeyboardFocusWithin: true })
+            cell.TextArea.Focus();
+    }
+
+    internal void OnCellCaretMoved()
+    {
+        _activePanel?.UpdateToolbar();
+        CaretMoved?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ClearActiveCell()
+    {
+        if (_activeCell is null)
+            return;
+        var panel = _activePanel;
+        (_activePanel, _activeCell) = (null, null);
+        TextArea.Caret.CaretBrush = null;
+        panel?.UpdateToolbar();
+    }
+
+    /// <summary>单元格的文字变了：写回文档（连续输入合并为一步撤销）。</summary>
+    internal void WriteCell(MarkdownTablePanel panel, int row, int column, string value)
+    {
+        var table = panel.Table;
+        if (!ReferenceEquals(Document.Version, _modelVersion) || IsReadOnly)
+            return;
+        var edit = MarkdownTableEdit.SetCell(Model, Document.Text, table, row, column, value);
+        _editingTable = true;
+        try
+        {
+            // 同一个单元格中连续的修改合并
+            var cell = panel.Cell(row, column);
+            if (cell is not null && ReferenceEquals(Document.UndoStack.LastGroupDescriptor, cell))
+                Document.UndoStack.StartContinuedUndoGroup(cell);
+            else
+                Document.UndoStack.StartUndoGroup(cell);
+            Document.Replace(edit.Start, edit.Length, edit.Replacement);
+            Document.UndoStack.EndUndoGroup();
+        }
+        finally
+        {
+            _editingTable = false;
+        }
+    }
 
     /// <summary>当前列的对齐方式。</summary>
     internal TableAlign ActiveTableAlign
     {
         get
         {
-            if (ActiveTable is not { } active)
+            if (ActiveTable is not { } table)
                 return TableAlign.Left;
-            var text = Document.Text;
-            var aligns = MarkdownTableEdit.Aligns(Model, text, active.Table);
-            var column = MarkdownTableEdit.CellAt(Model, text, active.Table, CaretOffset).Column;
-            return column < aligns.Count ? aligns[column] : TableAlign.Left;
+            var aligns = MarkdownTableEdit.Aligns(Model, Document.Text, table);
+            return _activeColumn < aligns.Count ? aligns[_activeColumn] : TableAlign.Left;
         }
     }
 
     /// <summary>当前表格的列数与行数（含标题行）。</summary>
     internal (int Columns, int Rows) ActiveTableSize =>
-        ActiveTable is { } active
-            ? (MarkdownTableEdit.ColumnCount(Model, Document.Text, active.Table), MarkdownTableEdit.RowCount(active.Table))
+        ActiveTable is { } table
+            ? (MarkdownTableEdit.ColumnCount(Model, Document.Text, table), MarkdownTableEdit.RowCount(table))
             : (MarkdownTableEdit.MinColumns, MarkdownTableEdit.MinRows);
 
-    /// <summary>修改当前表格（一步撤销）；操作不了（返回 null）时不改。之后焦点回到编辑器。</summary>
+    /// <summary>修改当前表格（一步撤销）；操作不了（返回 null）时不改。之后焦点回到目标单元格。</summary>
     internal void EditActiveTable(Func<MarkdownModel, string, MarkdownTable, int, MarkdownEdit?> edit)
     {
-        if (ActiveTable is { } active && !IsReadOnly && edit(Model, Document.Text, active.Table, CaretOffset) is { } change)
-            ApplyEdit(change);
-        TextArea.Focus();
+        if (ActiveTable is not { } table)
+            return;
+        var text = Document.Text;
+        var caret = MarkdownTableEdit.CaretOf(Model, text, table, _activeRow, _activeColumn);
+        if (!IsReadOnly && edit(Model, text, table, caret) is { } change)
+        {
+            _editingTable = true;
+            try
+            {
+                ApplyEdit(change);
+            }
+            finally
+            {
+                _editingTable = false;
+            }
+            var at = CaretOffset;
+            var index = Tables.ToList().FindIndex(t => Model.Lines[t.HeaderLine].Start <= at && at <= Model.Lines[t.LastLine].End);
+            if (index >= 0)
+            {
+                var (row, column) = MarkdownTableEdit.CellAt(Model, Document.Text, Tables[index], at);
+                var panel = _tablePanels[index];
+                (_activePanel, _activeRow, _activeColumn, _activeCell) = (panel, row, column, panel.Cell(row, column));
+                Dispatcher.UIThread.Post(() => panel.FocusCell(row, column));
+                return;
+            }
+            // 表格删除了
+            ClearActiveCell();
+            TextArea.Focus();
+            return;
+        }
+        _activeCell?.TextArea.Focus();
     }
 
     /// <summary>复制当前表格的原文。</summary>
     internal async Task CopyActiveTableAsync()
     {
-        if (ActiveTable is not { } active || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+        if (ActiveTable is not { } table || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
             return;
-        var source = MarkdownTableEdit.Source(Model, Document.Text, active.Table);
+        var source = MarkdownTableEdit.Source(Model, Document.Text, table);
         await MarkdownClipboard.SetAsync(clipboard, source, source);
-        TextArea.Focus();
+        _activeCell?.TextArea.Focus();
     }
 
     internal void SetTablePopupOpen(bool open)
@@ -455,8 +557,8 @@ public class MarkdownEditor : TextEditor
         Dispatcher.UIThread.Post(() =>
         {
             _tablePopupOpen = false;
-            TextArea.Focus();
-            RefreshReveal();
+            _activeCell?.TextArea.Focus();
+            _activePanel?.UpdateToolbar();
         });
     }
 
@@ -464,7 +566,59 @@ public class MarkdownEditor : TextEditor
     public void InsertTable(int columns, int rows) =>
         ApplyEdit(MarkdownFormat.InsertTable(Text, SelectionStart, SelectionEnd, columns, rows));
 
-    /// <summary>表格的快捷键（光标在表格中时）；处理了返回 true。</summary>
+    /// <summary>
+    /// 在当前表格的上方或下方插入一个空段落，光标移到那里。表格占满了宽度，表格紧挨文字或在文档两端时不方便把光标放到外面。
+    /// </summary>
+    public void InsertParagraphBesideTable(bool above)
+    {
+        if (ActiveTable is not { } table)
+            return;
+        var position = above ? Model.Lines[table.HeaderLine].Start : Model.Lines[table.LastLine].End;
+        ClearActiveCell();
+        _editingTable = true;
+        try
+        {
+            Document.Insert(position, "\n\n");
+            CaretIndex = above ? position : position + 2;
+        }
+        finally
+        {
+            _editingTable = false;
+        }
+        TextArea.Focus();
+    }
+
+    /// <summary>离开当前表格：到上一行的末尾或下一行的开头。那里没有行时：<paramref name="createLine"/> 为 true 则新建一行，否则不动。</summary>
+    internal void LeaveTable(bool above, bool createLine)
+    {
+        if (ActiveTable is not { } table)
+            return;
+        int target;
+        var hasLine = above ? table.HeaderLine > 0 : table.LastLine + 1 < Model.Lines.Count;
+        if (hasLine)
+        {
+            target = above ? Model.Lines[table.HeaderLine - 1].End : Model.Lines[table.LastLine + 1].Start;
+        }
+        else if (createLine && !above)
+        {
+            target = Model.Lines[table.LastLine].End + 1;
+            _editingTable = true;
+            Document.Insert(target - 1, "\n");
+            _editingTable = false;
+        }
+        else
+        {
+            return;
+        }
+        ClearActiveCell();
+        _editingTable = true;
+        CaretIndex = target;
+        _editingTable = false;
+        TextArea.Focus();
+        TextArea.Caret.BringCaretToView();
+    }
+
+    /// <summary>表格的快捷键（光标在单元格中时）；处理了返回 true。</summary>
     public bool HandleTableKey(KeyEventArgs e)
     {
         if (ActiveTable is null)
@@ -486,32 +640,203 @@ public class MarkdownEditor : TextEditor
         return true;
     }
 
-    private MarkdownTableLayout? LayoutOf(MarkdownTable table)
+    /// <summary>
+    /// 光标与表格有关的按键（在 @ 补全列表之后处理：列表打开时上下键选择列表项）。
+    /// 单元格中见 <see cref="MarkdownTablePanel.HandleKey"/>；表格外紧挨表格的退格和 Delete 不能把文字并进表格。处理了返回 true。
+    /// </summary>
+    public bool HandleTableCaretKey(KeyEventArgs e)
     {
-        var view = TextArea.TextView;
-        if (_tableLayoutFontSize != FontSize)
+        if (_activeCell is { HasPreedit: true } || HasPreedit)
+            return false;
+        if (HandleWrappedSpaceRight(e))
+            return true;
+        if (_activePanel is { } panel && _activeCell is { IsKeyboardFocusWithin: true })
+            return panel.HandleKey(e, _activeRow, _activeColumn);
+        if (e.Key is not (Key.Back or Key.Delete) || SelectionLength > 0 || IsSourceMode)
+            return false;
+        var caret = CaretOffset;
+        foreach (var table in Tables)
         {
-            _tableLayouts.Clear();
-            _tableLayoutFontSize = FontSize;
+            var besides = e.Key == Key.Back
+                ? caret == Model.Lines[table.LastLine].End + 1 && table.LastLine + 1 < Model.Lines.Count && Model.Lines[table.LastLine + 1].End > caret
+                : caret + 1 == Model.Lines[table.HeaderLine].Start && table.HeaderLine > 0 && Model.Lines[table.HeaderLine - 1].Start < caret;
+            if (!besides)
+                continue;
+            e.Handled = true;
+            return true;
         }
-        if (!_tableLayouts.TryGetValue(table.HeaderLine, out var layout))
-        {
-            layout = MarkdownTableLayout.Build(table, Model, Document.Text, MeasureTableCell, view.DefaultLineHeight, view.DefaultBaseline);
-            _tableLayouts[table.HeaderLine] = layout;
-        }
-        return layout.Width <= view.Bounds.Width ? layout : null;
+        return false;
     }
 
-    // 单元格显示的宽度：符号隐藏、提及等换成显示文字；两端的空白照常占位
-    private double MeasureTableCell(string cell, bool bold)
+    // 表格显示为控件（不重建，见 MarkdownTablePanel）。在文字解析和宽度变化后调用
+    private void UpdateTablePanels()
     {
-        var trimmed = cell.Trim();
-        var shown = trimmed.Length == 0 ? cell
-            : cell[..(cell.Length - cell.TrimStart().Length)] + PlainText(trimmed) + cell[(cell.TrimEnd().Length)..];
-        return new FormattedText(shown, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface(FontFamily, FontStyle.Normal, bold ? FontWeight.Bold : FontWeight.Normal), FontSize, null)
-            .WidthIncludingTrailingWhitespace;
+        var tables = IsSourceMode || IsTableCell ? [] : Tables;
+        if (_activePanel is not null && _tablePanels.IndexOf(_activePanel) >= tables.Count)
+        {
+            // 光标所在的表格没有了（撤销、发送、切换到源码模式）
+            ClearActiveCell();
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (IsKeyboardFocusWithin || TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is null)
+                    TextArea.Focus();
+            });
+        }
+        if (_tablePanels.Count > tables.Count)
+            _tablePanels.RemoveRange(tables.Count, _tablePanels.Count - tables.Count);
+        var text = Document.Text;
+        var width = Math.Max(120, TextArea.TextView.Bounds.Width - 2);
+        for (var i = 0; i < tables.Count; i++)
+        {
+            if (i == _tablePanels.Count)
+                _tablePanels.Add(new MarkdownTablePanel(this, tables[i]));
+            _tablePanels[i].Update(tables[i], MarkdownTableEdit.CellValues(Model, text, tables[i]),
+                MarkdownTableEdit.Aligns(Model, text, tables[i]), width);
+        }
     }
+
+    /// <summary>这个表格显示成的控件；源码模式下为 null。</summary>
+    internal MarkdownTablePanel? PanelOf(MarkdownTable table)
+    {
+        var index = Tables is List<MarkdownTable> list ? list.IndexOf(table) : Tables.ToList().IndexOf(table);
+        return index >= 0 && index < _tablePanels.Count ? _tablePanels[index] : null;
+    }
+
+    // 一段单元格文字显示的宽度
+    private double MeasureCellText(string text) =>
+        text.Length == 0 ? 0 : new FormattedText(PlainText(text), CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+            new Typeface(FontFamily, FontStyle.Normal, FontWeight), FontSize, null).WidthIncludingTrailingWhitespace;
+
+    // 这一行（文档行）可以断行的位置：代码、链接、提及等的内部不断开
+    private List<SoftBreak> SoftBreakCandidates(int index)
+    {
+        var line = Model.Lines[index];
+        var spans = Model.Spans.Where(s => s.Kind is not (MdSpanKind.Strong or MdSpanKind.Em or MdSpanKind.StrongEm or MdSpanKind.Del)
+                                           && s.End > line.Start && s.Start < line.End).ToList();
+        return MarkdownTableWrap.Candidates(Document.GetText(line.Start, line.End - line.Start),
+            i => spans.Exists(s => s.Start <= line.Start + i && line.Start + i < s.End));
+    }
+
+    /// <summary>单元格（的文字）最少需要的宽度（最长的不能断开的一段）和不换行时的宽度。</summary>
+    internal (double Minimum, double Required) MeasureCellWrap()
+    {
+        double minimum = 0, required = 0;
+        for (var index = 0; index < Model.Lines.Count; index++)
+        {
+            var line = Model.Lines[index];
+            var text = Document.GetText(line.Start, line.End - line.Start);
+            minimum = Math.Max(minimum, MarkdownTableWrap.Widest(text, SoftBreakCandidates(index), MeasureCellText));
+            required = Math.Max(required, MeasureCellText(text));
+        }
+        return (minimum, required);
+    }
+
+    /// <summary>按 <paramref name="width"/> 决定单元格在哪里自动换行，返回最宽的一行的宽度。</summary>
+    internal double ApplyCellWrap(double width)
+    {
+        var breaks = new Dictionary<int, IReadOnlyList<SoftBreak>>();
+        var widest = 0.0;
+        for (var index = 0; index < Model.Lines.Count; index++)
+        {
+            var line = Model.Lines[index];
+            var text = Document.GetText(line.Start, line.End - line.Start);
+            var chosen = MarkdownTableWrap.Choose(text, SoftBreakCandidates(index), MeasureCellText, width);
+            if (chosen.Count > 0)
+                breaks[index] = chosen;
+            widest = Math.Max(widest, MarkdownTableWrap.Widest(text, chosen, MeasureCellText));
+        }
+        // 文字改过时也重画：改完到这里之间生成的可视行没有断行
+        var changed = !ReferenceEquals(Document.Version, _softBreaksVersion)
+                      || breaks.Count != _softBreaks.Count
+                      || breaks.Any(b => !_softBreaks.TryGetValue(b.Key, out var old) || !old.SequenceEqual(b.Value));
+        _softBreaks = breaks;
+        _softBreaksVersion = Document.Version;
+        if (changed)
+            TextArea.TextView.Redraw();
+        return widest;
+    }
+
+    /// <summary>这一行（文档行）自动换行的位置（行内偏移）。文档改过、还没有重新计算时为空。</summary>
+    internal IReadOnlyList<SoftBreak> SoftBreaksOn(int index) =>
+        ReferenceEquals(Document.Version, _softBreaksVersion) && _softBreaks.TryGetValue(index, out var breaks) ? breaks : [];
+
+    /// <summary>光标在单元格显示的第一行或最后一行（算上自动换行）：再按上下键就离开这个单元格。</summary>
+    internal bool IsCaretOnEdgeLine(bool first)
+    {
+        var caret = TextArea.Caret;
+        if (caret.Line != (first ? 1 : Document.LineCount))
+            return false;
+        if (TextArea.TextView.GetVisualLine(caret.Line) is not { } line)
+            return true;
+        var textLine = line.GetTextLine(caret.VisualColumn, caret.Position.IsAtEndOfLine);
+        return ReferenceEquals(textLine, first ? line.TextLines[0] : line.TextLines[^1]);
+    }
+
+    // 代码模式下表格的一行被换行时，第一行末尾的空格之前按右方向键：到空格之后，仍然在第一行（默认会到第二行的开头）
+    private bool HandleWrappedSpaceRight(KeyEventArgs e)
+    {
+        var caret = TextArea.Caret;
+        if (!IsSourceMode || e.Key != Key.Right || e.KeyModifiers != KeyModifiers.None || SelectionLength > 0
+            || caret.Offset >= Document.TextLength || Document.GetCharAt(caret.Offset) is not (' ' or '　')
+            || !Tables.Any(t => t.HeaderLine <= caret.Line - 1 && caret.Line - 1 <= t.LastLine)
+            || TextArea.TextView.GetVisualLine(caret.Line) is not { } line)
+            return false;
+        var column = caret.VisualColumn;
+        var textLine = line.GetTextLine(column, caret.Position.IsAtEndOfLine);
+        var index = line.TextLines.ToList().IndexOf(textLine);
+        var end = line.TextLines.Take(index + 1).Sum(l => l.Length);
+        if (index + 1 >= line.TextLines.Count || column + 1 != end)
+            return false;
+        e.Handled = true;
+        caret.Position = new TextViewPosition(caret.Line, caret.Column + 1, column + 1) { IsAtEndOfLine = true };
+        return true;
+    }
+
+    // 光标落到了表格上（方向键、点在表格旁边、把光标放到文档末尾等）：表格是一个元素，光标要进入单元格
+    private void EnterTableAtCaret()
+    {
+        var previous = _lastCaret;
+        var caret = CaretOffset;
+        _lastCaret = caret;
+        if (IsSourceMode || IsTableCell || _editingTable || !TextArea.IsFocused
+            || !ReferenceEquals(Document.Version, _modelVersion) || !TextArea.Selection.IsEmpty)
+            return;
+        for (var i = 0; i < Tables.Count && i < _tablePanels.Count; i++)
+        {
+            var table = Tables[i];
+            var (start, end) = (Model.Lines[table.HeaderLine].Start, Model.Lines[table.LastLine].End);
+            if (caret < start || caret > end)
+                continue;
+            var panel = _tablePanels[i];
+            var (row, column) = caret > start && caret < end ? MarkdownTableEdit.CellAt(Model, Document.Text, table, caret)
+                : caret == end ? (MarkdownTableEdit.RowCount(table) - 1, int.MaxValue)
+                : previous > end ? (MarkdownTableEdit.RowCount(table) - 1, 0) : (0, 0);
+            // 光标没有动，只是焦点回到了输入框（切换窗口、关闭菜单）：回到原来的单元格，光标和滚动位置都不变
+            var focusReturned = previous == caret;
+            Dispatcher.UIThread.Post(() =>
+            {
+                // 等待期间全选了：表格作为整体被选中，不进入单元格。
+                // 点表格外时先得到焦点、然后光标才移走：此时已经离开了表格
+                if (TextArea.Selection.IsEmpty && CaretOffset == caret && TextArea.IsFocused && !(focusReturned && panel.RestoreFocus()))
+                    panel.FocusCell(row, column);
+            });
+            return;
+        }
+    }
+
+    // 外层全选时表格的文字变成白色
+    private void UpdateTableSelection()
+    {
+        for (var i = 0; i < Tables.Count && i < _tablePanels.Count; i++)
+        {
+            var selected = SelectionLength > 0 && SelectionStart <= Model.Lines[Tables[i].HeaderLine].Start
+                           && SelectionEnd >= Model.Lines[Tables[i].LastLine].End;
+            _tablePanels[i].SetSelected(selected);
+        }
+    }
+
+    private bool IsInTablePanel(object? source) =>
+        !IsTableCell && (source as Visual)?.FindAncestorOfType<MarkdownTablePanel>(includeSelf: true) is not null;
 
     /// <summary>Markdown 显示的文字（提及、表情等换成显示的样子）。</summary>
     internal string PlainText(string markdown) =>
@@ -575,6 +900,7 @@ public class MarkdownEditor : TextEditor
     // 与 MarkdownElementGenerator 生成面板的条件一致：渲染模式下、没有在编辑的引用折叠第一行以外的行
     private void UpdateQuoteCollapse()
     {
+        UpdateTablePanels();
         foreach (var section in _collapsedQuotes)
             section.Uncollapse();
         _collapsedQuotes.Clear();
@@ -587,13 +913,13 @@ public class MarkdownEditor : TextEditor
             _collapsedQuotes.Add(TextArea.TextView.CollapseLines(
                 Document.GetLineByNumber(quote.HeaderLine + 2), Document.GetLineByNumber(quote.CloseLine + 1)));
         }
-        // 表格的分隔行不显示（在 MarkdownElementGenerator 中并入标题行）
+        // 表格显示为一个控件（在 MarkdownElementGenerator 中），第一行以外的行折叠
         foreach (var table in Tables)
         {
-            if (table.SeparatorLine + 1 > Document.LineCount || LayoutOf(table) is null)
+            if (table.LastLine + 1 > Document.LineCount)
                 continue;
-            var separator = Document.GetLineByNumber(table.SeparatorLine + 1);
-            _collapsedQuotes.Add(TextArea.TextView.CollapseLines(separator, separator));
+            _collapsedQuotes.Add(TextArea.TextView.CollapseLines(
+                Document.GetLineByNumber(table.HeaderLine + 2), Document.GetLineByNumber(table.LastLine + 1)));
         }
     }
 
@@ -685,6 +1011,7 @@ public class MarkdownEditor : TextEditor
 
     private void RefreshReveal()
     {
+        EnterTableAtCaret();
         int line;
         IReadOnlyList<MdSpan> spans;
         int quote;
@@ -718,33 +1045,14 @@ public class MarkdownEditor : TextEditor
             spans = [];
             quote = -1;
         }
-        var activeTable = ActiveTableLine();
-        if (line == _revealLine && spans.SequenceEqual(_revealSpans) && quote == _revealQuote && activeTable == _activeTableLine)
-        {
-            // 同一个表格中换了一列：对齐按钮要更新
-            // 基类构造时就会触发 OnTextChanged，此时工具栏层还没有创建
-            _tableToolbarLayer?.Update();
+        if (line == _revealLine && spans.SequenceEqual(_revealSpans) && quote == _revealQuote)
             return;
-        }
         _revealLine = line;
         _revealSpans = spans;
         _revealQuote = quote;
-        _activeTableLine = activeTable;
         UpdateQuoteCollapse();
         TextArea.TextView.Redraw();
     }
-
-    // 有焦点（或工具栏的菜单开着）、可以编辑时光标所在的表格；按原文显示的表格没有工具栏
-    private int ActiveTableLine()
-    {
-        if (IsReadOnly || !TextArea.IsKeyboardFocusWithin && !_tablePopupOpen)
-            return -1;
-        var index = Model.LineIndexAt(CaretOffset);
-        return index >= 0 && TableAt(index) is { } found ? found.Table.HeaderLine : -1;
-    }
-
-    /// <summary>编辑中的表格：标题行上方留出工具栏的位置。</summary>
-    internal bool IsTableActive(MarkdownTable table) => table.HeaderLine == _activeTableLine;
 
     // ───────────── 输入 ─────────────
 
@@ -754,16 +1062,6 @@ public class MarkdownEditor : TextEditor
         if (e.Text is "\n" or "\r" or "\r\n")
         {
             e.Handled = true;
-            // 表格的一行不能换行：跳到表格下面的新行
-            if (ActiveTable is { } table)
-            {
-                var end = Model.Lines[table.Table.LastLine].End;
-                TextArea.ClearSelection();
-                Document.Insert(end, "\n");
-                CaretIndex = end + 1;
-                TextArea.Caret.BringCaretToView();
-                return;
-            }
             TextArea.Selection.ReplaceSelectionWithText("\n");
             TextArea.Caret.BringCaretToView();
         }
@@ -802,17 +1100,17 @@ public class MarkdownEditor : TextEditor
     {
         _pressedAtom = null;
         var point = e.GetCurrentPoint(TextArea.TextView);
+
         if (!point.Properties.IsLeftButtonPressed || e.ClickCount != 1 || e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             return;
         // 点在引用面板（或编辑中的引用的标题栏）上：由面板处理
-        if (e.Source is Visual source && source.FindAncestorOfType<QuotePanel>(includeSelf: true) is not null)
+        if (e.Source is Visual source && (source.FindAncestorOfType<QuotePanel>(includeSelf: true) is not null || IsInTablePanel(source)))
             return;
         _pressedAtom = AtomAt(point.Position);
     }
 
     private void OnPointerReleasedAny(object? sender, PointerReleasedEventArgs e)
     {
-        PlaceCaretInClickedCell(e);
         if (_pressedAtom is not { } atom)
             return;
         _pressedAtom = null;
@@ -820,27 +1118,6 @@ public class MarkdownEditor : TextEditor
             return;
         if (AtomAt(e.GetPosition(TextArea.TextView)) == atom)
             Select(atom.Start, atom.End - atom.Start);
-    }
-
-    // 点在表格单元格的空白处：| 显示成的空白属于两格之间，光标可能落到下一格，这里放回点到的那一格
-    private void PlaceCaretInClickedCell(PointerReleasedEventArgs e)
-    {
-        var textView = TextArea.TextView;
-        if (IsSourceMode || e.InitialPressMouseButton != MouseButton.Left || !TextArea.Selection.IsEmpty
-            || (e.Source as Visual)?.FindAncestorOfType<MarkdownTableToolbar>(includeSelf: true) is not null)
-            return;
-        var point = e.GetPosition(textView) + textView.ScrollOffset;
-        if (textView.GetPositionFloor(point) is not { } position)
-            return;
-        var index = position.Line - 1;
-        if (TableAt(index) is not { } found)
-            return;
-        var column = found.Layout.ColumnAt(point.X);
-        if (MarkdownTableEdit.CellAt(Model, Document.Text, found.Table, CaretOffset) is var cell
-            && Model.LineIndexAt(CaretOffset) == index && cell.Column == column)
-            return;
-        if (found.Layout.CaretInCell(index, column) is { } caret)
-            CaretOffset = caret;
     }
 
     private MdSpan? AtomAt(Point point)
@@ -854,7 +1131,10 @@ public class MarkdownEditor : TextEditor
 
     private void OnImeClientRequested(object? sender, TextInputMethodClientRequestedEventArgs e)
     {
-        if (!IsReadOnly && IsEnabled)
+        // 请求从单元格冒泡上来时，外层 TextArea 的类处理器已经把它换成了外层的客户端
+        if (IsInTablePanel(e.Source) && _activeCell is { } cell)
+            e.Client = cell._ime;
+        else if (!IsReadOnly && IsEnabled)
             e.Client = _ime;
     }
 

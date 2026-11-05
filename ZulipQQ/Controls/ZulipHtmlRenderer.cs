@@ -11,7 +11,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using ZulipQQ.Core;
+using ZulipQQ.Services;
 using HorizontalAlignment = Avalonia.Layout.HorizontalAlignment;
 using VerticalAlignment = Avalonia.Layout.VerticalAlignment;
 
@@ -337,13 +339,7 @@ internal static partial class ZulipHtmlRenderer
             CodeLanguage = language,
         };
         BindResource(block, TextBlock.FontSizeProperty, block, "FontSizeSmall");
-        var scroller = new ScrollViewer
-        {
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Content = block,
-        };
-        var border = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(8, 6), Child = scroller };
+        var border = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(8, 6), Child = new HorizontalScrollHost(block, reserveBar: false) };
         BindResource(border, Border.BackgroundProperty, border, "FillBrush");
         return border;
     }
@@ -371,19 +367,24 @@ internal static partial class ZulipHtmlRenderer
         var rows = table.QuerySelectorAll("tr").ToList();
         var columns = rows.Count == 0 ? 0 : rows.Max(r => r.Children.Count(c => c.LocalName is "td" or "th"));
         var grid = new Grid();
+        var blocks = new List<List<MessageTextBlock>>();
         for (var c = 0; c < columns; c++)
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         for (var r = 0; r < rows.Count; r++)
         {
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             var c = 0;
+            var rowBlocks = new List<MessageTextBlock>();
+            blocks.Add(rowBlocks);
             foreach (var cell in rows[r].Children.Where(x => x.LocalName is "td" or "th"))
             {
+                var block = TableCell(cell, ctx);
+                rowBlocks.Add(block);
                 var border = new Border
                 {
                     BorderThickness = new Thickness(c == 0 ? 1 : 0, r == 0 ? 1 : 0, 1, 1),
                     Padding = new Thickness(6, 3),
-                    Child = TableCell(cell, ctx),
+                    Child = block,
                 };
                 BindResource(border, Border.BorderBrushProperty, border, "TableBorderBrush");
                 Grid.SetRow(border, r);
@@ -391,17 +392,80 @@ internal static partial class ZulipHtmlRenderer
                 grid.Children.Add(border);
             }
         }
-        return new ScrollViewer
+        var scroll = new HorizontalScrollHost(grid, reserveBar: false);
+        return columns == 0 ? scroll : WithTableMenu(scroll, blocks);
+    }
+
+    // 表格上方靠右的“更多”，位置与输入框中编辑表格时的工具栏相同（高度也是 MarkdownTableToolbar 的 30）。
+    // 鼠标在表格上时显示（动画见 AppStyles.axaml 的 tableMenu），这一行常时占位：悬停时消息的高度不变。
+    // 已发送的消息不能修改，“格式化”复制排版整齐的原文
+    private static Control WithTableMenu(Control table, List<List<MessageTextBlock>> blocks)
+    {
+        string Source(bool padded) => MarkdownTableEdit.FromCells(
+            blocks.Select(row => (IReadOnlyList<string>)row.Select(b => b.FullMarkdown).ToList()).ToList(),
+            blocks[0].Select(b => b.TextAlignment switch
+            {
+                TextAlignment.Center => TableAlign.Center,
+                TextAlignment.Right => TableAlign.Right,
+                _ => TableAlign.Left,
+            }).ToList(),
+            padded);
+
+        var icon = new TdIcon { IconKey = "Icon.MoreVertical", Width = 16, Height = 16 };
+        BindResource(icon, TdIcon.ForegroundProperty, icon, "TextSecondaryBrush");
+        var button = new Button
         {
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Content = grid,
+            Focusable = false, Cursor = new Cursor(StandardCursorType.Hand), Width = 24, Height = 24, Padding = new Thickness(0), Content = icon,
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center,
+        };
+        if (Application.Current?.TryFindResource("FlatButton", out var theme) == true)
+            button.Theme = theme as ControlTheme;
+        ToolTip.SetTip(button, "更多操作");
+
+        var menu = new Border { Classes = { "tableMenu" }, Height = 30, Child = button };
+
+        MenuItem CopyItem(string header, bool padded)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += async (_, _) =>
+            {
+                if (TopLevel.GetTopLevel(button)?.Clipboard is not { } clipboard)
+                    return;
+                try
+                {
+                    var source = Source(padded);
+                    await MarkdownClipboard.SetAsync(clipboard, source, source);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn("复制表格失败", ex);
+                }
+            };
+            return item;
+        }
+        var flyout = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
+        flyout.Items.Add(CopyItem("复制表格", padded: false));
+        flyout.Items.Add(CopyItem("格式化表格源码", padded: true));
+        // 菜单打开时鼠标不在表格上，按钮要留着
+        flyout.Opening += (_, _) => menu.Classes.Add("open");
+        flyout.Closed += (_, _) => menu.Classes.Remove("open");
+        button.Flyout = flyout;
+
+        // 透明底色：鼠标在单元格之间的空隙、从表格移到按钮的路上都算在表格上
+        return new StackPanel
+        {
+            Classes = { "messageTable" },
+            Background = Brushes.Transparent,
+            Children = { menu, table },
         };
     }
 
     // 第一行（th）为粗体；对齐方式来自分隔行，服务器写在 style 或 align 中
     private static MessageTextBlock TableCell(IElement cell, Context ctx)
     {
+        // Markdown 表格的单元格不能换行，输入框写成 <br />；服务器把它转义成了文字，这里还原成换行
+        if (cell.InnerHtml.Contains("&lt;br /&gt;", StringComparison.Ordinal))
+            cell.InnerHtml = cell.InnerHtml.Replace("&lt;br /&gt;", "<br />");
         var block = Paragraph(cell.ChildNodes, ctx, bold: cell.LocalName == "th");
         var align = $"{cell.GetAttribute("style")} {cell.GetAttribute("align")}";
         if (align.Contains("center", StringComparison.OrdinalIgnoreCase))

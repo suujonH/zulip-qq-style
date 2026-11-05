@@ -21,6 +21,48 @@ public static class MarkdownTableEdit
     public const int MinRows = 1;
     public const int MaxRows = 50;
 
+    /// <summary>单元格中的换行（Markdown 表格的一行不能真的换行）。</summary>
+    public const string LineBreak = "<br />";
+
+    /// <summary>单元格的原文 → 编辑时的文字：<see cref="LineBreak"/> 是真的换行，\| 是 |。</summary>
+    public static string DecodeCell(string source) => source.Replace(LineBreak, "\n").Replace("\\|", "|");
+
+    /// <summary>编辑时的文字 → 单元格的原文（<see cref="DecodeCell"/> 的逆操作）。</summary>
+    public static string EncodeCell(string value) => value.Replace("|", "\\|").Replace("\n", LineBreak);
+
+    /// <summary>每个单元格编辑时的文字（行、列）；列数不够的行补空。</summary>
+    public static IReadOnlyList<IReadOnlyList<string>> CellValues(MarkdownModel model, string text, MarkdownTable table) =>
+        Parse(model, text, table).Rows.Select(cells => (IReadOnlyList<string>)cells.Select(DecodeCell).ToList()).ToList();
+
+    /// <summary>放在这个单元格中的光标位置（<see cref="CellAt"/> 的逆操作）：编辑表格的操作用它指定单元格。</summary>
+    public static int CaretOf(MarkdownModel model, string text, MarkdownTable table, int row, int column)
+    {
+        var line = model.Lines[row == 0 ? table.HeaderLine : table.SeparatorLine + row];
+        var pipes = ZulipMarkdown.TablePipes(text, line.ContentStart, line.End);
+        var hasLead = pipes.Count > 0 && !string.IsNullOrWhiteSpace(text[line.ContentStart..pipes[0]]);
+        var pipe = hasLead ? column - 1 : column;
+        return pipe < 0 || pipes.Count == 0 ? line.ContentStart : pipes[Math.Min(pipe, pipes.Count - 1)] + 1;
+    }
+
+    /// <summary>修改一个单元格：<paramref name="value"/> 是编辑时的文字，其它单元格的原文不变。</summary>
+    public static MarkdownEdit SetCell(MarkdownModel model, string text, MarkdownTable table, int row, int column, string value)
+    {
+        var encoded = EncodeCell(value);
+        var line = model.Lines[row == 0 ? table.HeaderLine : table.SeparatorLine + row];
+        var pipes = ZulipMarkdown.TablePipes(text, line.ContentStart, line.End);
+        var hasLead = pipes.Count > 0 && !string.IsNullOrWhiteSpace(text[line.ContentStart..pipes[0]]);
+        if (!hasLead && column + 1 < pipes.Count)
+        {
+            var start = pipes[column] + 1;
+            var replacement = $" {encoded} ";
+            return new MarkdownEdit(start, pipes[column + 1] - start, replacement, start + 1 + encoded.Length, start + 1 + encoded.Length);
+        }
+        // 这一行没有这一格，或者不是 | 开头结尾：整个表格重新写出
+        var data = Parse(model, text, table);
+        data.Rows[row][column] = encoded;
+        return Write(model, table, data, row, column);
+    }
+
     private sealed record Data(List<List<string>> Rows, List<TableAlign> Aligns)
     {
         public int Columns => Aligns.Count;
@@ -192,6 +234,34 @@ public static class MarkdownTableEdit
         rows = Math.Clamp(rows, MinRows, MaxRows);
         var cells = Enumerable.Range(0, rows).Select(_ => EmptyRow(columns)).ToList();
         return Serialize(new Data(cells, Enumerable.Repeat(TableAlign.Left, columns).ToList()), false, 0, 0).Text;
+    }
+
+    /// <summary>
+    /// 由单元格的 Markdown 写出表格（第一行为标题）。<paramref name="padded"/> 为 true 时同一列补空格对齐。
+    /// 单元格不能含竖线和换行：转义为 <c>\|</c> 和 <c>&lt;br /&gt;</c>。列数以最多的一行为准。
+    /// </summary>
+    public static string FromCells(IReadOnlyList<IReadOnlyList<string>> rows, IReadOnlyList<TableAlign> aligns, bool padded)
+    {
+        var columns = rows.Max(r => r.Count);
+        var cells = rows.Select(r =>
+        {
+            var row = r.Select(EscapeCell).ToList();
+            row.AddRange(Enumerable.Repeat("", columns - row.Count));
+            return row;
+        }).ToList();
+        var columnAligns = Enumerable.Range(0, columns).Select(c => c < aligns.Count ? aligns[c] : TableAlign.Left).ToList();
+        return Serialize(new Data(cells, columnAligns), padded, 0, 0).Text;
+    }
+
+    private static string EscapeCell(string cell)
+    {
+        var sb = new StringBuilder(cell.Trim().ReplaceLineEndings("<br />"));
+        for (var i = sb.Length - 1; i >= 0; i--)
+        {
+            if (sb[i] == '|' && (i == 0 || sb[i - 1] != '\\'))
+                sb.Insert(i, '\\');
+        }
+        return sb.ToString();
     }
 
     private static List<string> EmptyRow(int columns) => Enumerable.Repeat("", columns).ToList();

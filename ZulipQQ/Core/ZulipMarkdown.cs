@@ -332,6 +332,12 @@ public static partial class ZulipMarkdown
                 i = close >= 0 ? close + run : i + run;
                 continue;
             }
+            // \| 是单元格中的 | 字符
+            if (c == '\\' && i + 1 < end && text[i + 1] == '|')
+            {
+                i += 2;
+                continue;
+            }
             if (c == '|')
                 pipes.Add(i);
             i++;

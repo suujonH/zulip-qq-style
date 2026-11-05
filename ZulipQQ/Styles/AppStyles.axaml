@@ -238,6 +238,24 @@
     <Style Selector="ScrollViewer /template/ Panel#PART_ScrollBarsSeparator">
         <Setter Property="Opacity" Value="0" />
     </Style>
+    <!-- 表格、代码块的水平滚动条：常时显示 -->
+    <Style Selector="ScrollBar.alwaysVisible /template/ Thumb">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+    <!-- 消息中表格上方的“更多”：与聊天消息区的滚动条相同，进入时立即显示，离开后 0.3 秒渐隐（过渡只在离开状态下设置）。菜单打开时保留 -->
+    <Style Selector="StackPanel.messageTable Border.tableMenu">
+        <Setter Property="Opacity" Value="0" />
+    </Style>
+    <Style Selector="StackPanel.messageTable:pointerover Border.tableMenu, StackPanel.messageTable Border.tableMenu.open">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="StackPanel.messageTable:not(:pointerover) Border.tableMenu:not(.open)">
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.3" />
+            </Transitions>
+        </Setter>
+    </Style>
     <!-- 滚动条平时隐藏：鼠标在可滚动区域内时显示（直接属于该区域的滚动条） -->
     <Style Selector="ScrollViewer:pointerover /template/ ScrollBar /template/ Thumb">
         <Setter Property="Opacity" Value="1" />

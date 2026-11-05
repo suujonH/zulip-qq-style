@@ -82,7 +82,24 @@ internal sealed class MarkdownElementGenerator(MarkdownEditor editor) : VisualLi
             return;
         }
 
-        AddTableRow(model, index, line);
+        // 单元格的自动换行
+        foreach (var soft in editor.SoftBreaksOn(index))
+        {
+            var (start, softLength, kind) = (line.Start + soft.Start, soft.Length, soft.Kind);
+            var character = CurrentContext.Document.GetText(start, 1);
+            Add(start, softLength, () => new SoftBreakElement(kind, character, softLength));
+        }
+
+        // 表格：整段显示为一个控件（元素跨行，其它行已折叠）
+        if (editor.Tables.FirstOrDefault(t => t.HeaderLine == index) is { } table && !editor.IsSourceMode
+            && table.LastLine < CurrentContext.Document.LineCount
+            && CurrentContext.Document.GetLineByNumber(table.LastLine + 1).EndOffset == model.Lines[table.LastLine].End
+            && editor.PanelOf(table) is { } panel)
+        {
+            var tableLength = model.Lines[table.LastLine].End - line.Start;
+            Add(line.Start, tableLength, () => new InlineObjectElement(tableLength, panel));
+            return;
+        }
 
         if (!lineRevealed && length > 0)
         {
@@ -165,43 +182,6 @@ internal sealed class MarkdownElementGenerator(MarkdownEditor editor) : VisualLi
             }
         }
     }
-
-    // 表格的一行：每个 | 显示为对齐用的空白，行高也由它撑开。分隔行并入标题行最后的空白（可视行包含这两行，光标不会停在分隔行上）
-    private void AddTableRow(MarkdownModel model, int index, MdLine line)
-    {
-        if (editor.TableAt(index) is not { } found)
-            return;
-        var (table, layout) = found;
-        var pipes = layout.Pipes(index);
-        var end = line.End;
-        var top = index == table.HeaderLine && editor.IsTableActive(table) ? MarkdownTableLayout.ToolbarHeight : 0;
-        if (index == table.HeaderLine)
-        {
-            var separator = model.Lines[table.SeparatorLine];
-            if (table.SeparatorLine >= CurrentContext.Document.LineCount
-                || CurrentContext.Document.GetLineByNumber(table.SeparatorLine + 1).EndOffset != separator.End)
-                return;
-            end = separator.End;
-        }
-        for (var k = 0; k < pipes.Count; k++)
-        {
-            var (offset, width) = pipes[k];
-            var last = k == pipes.Count - 1;
-            // 结尾的 | 后面只有空白：一起并入
-            var len = last && index == table.HeaderLine
-                      && string.IsNullOrWhiteSpace(CurrentContext.Document.GetText(offset + 1, line.End - offset - 1))
-                ? end - offset
-                : 1;
-            Add(offset, len, () => TableGap(width, layout, len, top));
-        }
-        if (index == table.HeaderLine && (pipes.Count == 0 || pipes[^1].Offset + 1 < line.End
-                && !string.IsNullOrWhiteSpace(CurrentContext.Document.GetText(pipes[^1].Offset + 1, line.End - pipes[^1].Offset - 1))))
-            Add(line.End, end - line.End, () => TableGap(0, layout, end - line.End, top));
-    }
-
-    private static VisualLineElement TableGap(double width, MarkdownTableLayout layout, int length, double top) =>
-        new InlineObjectElement(length, ImageHost(
-            new Border { Width = width, Height = layout.RowHeight + top, IsHitTestVisible = false }, layout.Baseline + top));
 
     private void Add(int offset, int length, Func<VisualLineElement> create)
     {

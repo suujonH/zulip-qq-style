@@ -24,6 +24,23 @@
             <Setter Property="Focusable" Value="False" />
         </Style>
 
+        <!-- 格式、段落、插入：源码模式下收起（内容不变形，只是被裁掉），回到渲染模式时展开 -->
+        <Style Selector="Border#FormatGroup">
+            <Setter Property="Width" Value="320" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border#FormatGroup.collapsed">
+            <Setter Property="Width" Value="0" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+
         <Style Selector="ToggleButton.tool:checked, Button.tool.active">
             <Setter Property="Background" Value="{DynamicResource PressedBrush}" />
         </Style>
@@ -91,6 +108,8 @@
                 </Button>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <Border x:Name="FormatGroup" Classes.collapsed="{Binding IsSourceMode}">
+                <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
                 <!-- 格式：有选中文字时作用于选中部分，没有时作用于光标处（光标在该格式中时取消）；光标处已有的格式显示为按下 -->
                 <StackPanel x:Name="FormatBar" Orientation="Horizontal" Spacing="4" IsEnabled="{Binding CanEdit}">
                     <Button Classes="tool" Tag="Bold" ToolTip.Tip="加粗 (Ctrl+B)"><c:TdIcon Icon="{StaticResource Icon.Bold}" /></Button>
@@ -108,6 +127,8 @@
                 <Button x:Name="InsertButton" Classes="tool" ToolTip.Tip="插入" IsEnabled="{Binding CanEdit}">
                     <c:TdIcon Icon="{StaticResource Icon.Add}" />
                 </Button>
+                </StackPanel>
+                </Border>
                 <ToggleButton Classes="tool" IsChecked="{Binding IsSourceMode, Mode=OneWay}" Command="{Binding ToggleSourceModeCommand}"
                               ToolTip.Tip="{Binding SourceModeToolTip}">
                     <c:TdIcon Icon="{StaticResource Icon.SourceCode}" />
