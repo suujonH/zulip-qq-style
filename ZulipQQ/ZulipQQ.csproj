@@ -6,6 +6,8 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>0.1.0</Version>
+    <!-- 自动更新的本地验证（-p:UpdateE2E=true）：更新源和数据目录改由环境变量指定，不碰真实数据。发布的程序不定义它 -->
+    <DefineConstants Condition="'$(UpdateE2E)' == 'true'">$(DefineConstants);UPDATE_E2E</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +22,10 @@
     <Compile Remove="Services\RequestLog.cs" />
     <AvaloniaXaml Remove="Views\Settings\DeveloperPageView.axaml" />
     <AvaloniaXaml Remove="Views\RequestDetailWindow.axaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZulipQQ.Update\ZulipQQ.Update.csproj" />
   </ItemGroup>
 
   <ItemGroup>

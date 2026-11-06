@@ -1,6 +1,7 @@
 name: Release
 
-# 推送 v* tag 时编译并发布 zip；手动运行只生成构建产物，不创建 Release
+# 推送 v* tag 时编译并发布 zip 与自动更新清单；手动运行只生成构建产物，不创建 Release。
+# 已安装的程序从 releases/latest/download/ZulipQQ-update.json 检查更新，所以只有正式版（tag 不含 -）会推送给用户。
 on:
   push:
     tags: ['v*']
@@ -40,6 +41,14 @@ jobs:
           # DebugType=none 只影响本项目；SkiaSharp 等 NuGet 包自带的原生 pdb 仍会复制过来，这里一并删除
           Get-ChildItem publish/ZulipQQ -Filter *.pdb -File | ForEach-Object { Remove-Item -LiteralPath $_.FullName }
 
+      - name: Publish updater
+        run: |
+          # 独立更新器（NativeAOT 单文件）；vcvars 可能找不到 vswhere，它用来定位链接器（同 tools/build-plugins.ps1）
+          $installer = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'
+          if (Test-Path $installer) { $env:PATH = "$installer;$env:PATH" }
+          dotnet publish ZulipQQ.Updater/ZulipQQ.Updater.csproj -c Release -r win-x64 -p:Version=$env:VERSION -p:DebugType=none -o publish/updater
+          Copy-Item publish/updater/ZulipQQ.Updater.exe publish/ZulipQQ/
+
       - name: Build plugins
         run: |
           if (Test-Path tools/build-plugins.ps1) {
@@ -48,8 +57,9 @@ jobs:
             Write-Host 'tools/build-plugins.ps1 不存在，跳过插件编译'
           }
 
-      - name: Zip
-        run: Compress-Archive -Path publish/ZulipQQ/* -DestinationPath "$env:PKG.zip"
+      # 生成文件清单、zip 和 ZulipQQ-update.json；版本号不合法或与程序不一致时失败
+      - name: Pack
+        run: ./tools/pack-release.ps1 -Version $env:VERSION -PublishDir publish/ZulipQQ -OutDir release-out
 
       - name: Create release
         if: github.event_name == 'push'
@@ -57,7 +67,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = '${{ github.ref_name }}'
-          $ghArgs = @('release', 'create', $tag, "$env:PKG.zip", '--title', $tag, '--generate-notes')
+          $ghArgs = @('release', 'create', $tag, "release-out/$env:PKG.zip", 'release-out/ZulipQQ-update.json', '--title', $tag, '--generate-notes')
           if ($tag.Contains('-')) { $ghArgs += '--prerelease' }
           gh @ghArgs
 
@@ -66,4 +76,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.PKG }}
-          path: ${{ env.PKG }}.zip
+          path: |
+            release-out/${{ env.PKG }}.zip
+            release-out/ZulipQQ-update.json

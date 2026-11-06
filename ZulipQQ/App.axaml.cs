@@ -34,6 +34,8 @@ public partial class App : Application
 
     // 退出后启动新进程（RestartAsync）
     private bool _restart;
+    // 退出后启动更新器（ApplyUpdateWhenIdleAsync）
+    private bool _updateOnExit;
     private int _ending;
     private TrayService? _tray;
 
@@ -76,18 +78,69 @@ public partial class App : Application
             WaitForPreviousInstance(desktop.Args);
             // 设置中更改了数据目录：先在打开数据库之前搬迁，期间只显示进度窗口
             if (DataLocation.PendingMove is { } target)
-                _ = StartAfterMoveAsync(target);
+                _ = StartAfterMoveAsync(target, desktop.Args ?? []);
             else
+            {
                 Start();
+                ReportStarted(desktop.Args ?? []);
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private async Task StartAfterMoveAsync(string target)
+    private async Task StartAfterMoveAsync(string target, string[] args)
     {
+        // 搬迁可能很久：显示了进度窗口就算启动成功，不等它完成
+        ReportStarted(args);
         await DataMoveWindow.RunAsync(target);
         Start();
+    }
+
+    // 启动的窗口完成首次布局后：告诉更新器新版本启动成功（如果是更新器启动的），然后开始检查更新
+    private void ReportStarted(string[] args)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            var updates = UpdateService.Instance;
+            updates.OnStarted(args);
+            updates.UpdateReady += (_, _) => Dispatcher.UIThread.Post(() => _ = ApplyUpdateWhenIdleAsync());
+            // 刚被更新器启动时不用检查；启动后稍等再检查，不和登录、加载抢资源
+            if (!args.Contains(ZulipQQ.Update.UpdateLayout.ProbeArg))
+                _ = CheckUpdateAfterStartupAsync(updates);
+        }, DispatcherPriority.Background);
+    }
+
+    private async Task CheckUpdateAfterStartupAsync(UpdateService updates)
+    {
+        await Task.Delay(UpdateCheckDelay);
+        if (!_exiting)
+            await updates.CheckAsync(manual: false, _restoreCts.Token);
+    }
+
+    private static readonly TimeSpan UpdateCheckDelay = TimeSpan.FromSeconds(5);
+
+    /// <summary>用户这么久没有操作才重启更新，不打断正在进行的输入；一直没有空闲时，下次启动时应用。</summary>
+    private static readonly TimeSpan UpdateIdleTime = TimeSpan.FromSeconds(60);
+
+    private bool _waitingToUpdate;
+
+    // 新版本已准备好：等用户空闲后退出（与重启相同地结束会话、保存草稿），由更新器替换并启动新版本
+    private async Task ApplyUpdateWhenIdleAsync()
+    {
+        if (_waitingToUpdate)
+            return;
+        _waitingToUpdate = true;
+        var idle = UpdateIdleTime;
+#if UPDATE_E2E
+        idle = TimeSpan.Zero;
+#endif
+        while (!_exiting && UpdateService.UserIdleTime() < idle)
+            await Task.Delay(TimeSpan.FromSeconds(15));
+        if (_exiting)
+            return;
+        _updateOnExit = true;
+        await ExitAsync();
     }
 
     /// <summary>重启时新进程的参数：<c>--wait-pid 旧进程 id</c>。</summary>
@@ -245,7 +298,8 @@ public partial class App : Application
             await entry.Session!.DisposeAsync();
         }
         PluginHost.Instance.Shutdown();
-        if (_restart)
+        // 启动更新器失败时重启自己：用户没有要求退出，不能让程序就此消失
+        if (_restart || (_updateOnExit && !UpdateService.Instance.StartUpdater()))
             StartNewInstance();
         Desktop.Shutdown();
     }

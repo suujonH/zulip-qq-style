@@ -25,7 +25,11 @@ public static class DataLocation
 {
     /// <summary>默认的数据目录，同时也是 location.json 所在的目录（数据目录移走后它仍保留在这里）。</summary>
     public static string DefaultRoot { get; } =
+#if UPDATE_E2E
+        Path.Combine(Environment.GetEnvironmentVariable("ZULIPQQ_E2E_ROOT")!, "data");
+#else
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ZulipQQ");
+#endif
 
     /// <summary>选择的文件夹中创建的子目录名：数据目录总是 <c>所选文件夹\ZulipQQ</c>。</summary>
     public const string FolderName = "ZulipQQ";

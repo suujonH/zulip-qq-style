@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 自动更新的核心逻辑（版本比较、更新包校验、文件替换与回滚），主程序和独立更新器共用。更新器用 NativeAOT 编译，这里不能依赖反射。 -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+</Project>
