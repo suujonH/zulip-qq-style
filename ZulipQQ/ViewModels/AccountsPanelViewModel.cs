@@ -65,6 +65,9 @@ public sealed partial class AccountsPanelViewModel : ViewModelBase
     /// <summary>选中某个账号并打开它的“服务器”（当前页有未保存的修改时先确认）。</summary>
     public void Show(AccountEntryViewModel entry) => _ = SwitchAsync(entry, SettingsPage.Server);
 
+    /// <summary>选中某个账号并打开它的某一页（当前页有未保存的修改时先确认）。</summary>
+    public Task ShowAsync(AccountEntryViewModel entry, SettingsPage page) => SwitchAsync(entry, page);
+
     public bool HasUnsavedChanges => Host?.CurrentPage?.HasUnsavedChanges == true;
 
     // 在左侧列表中点击了其他账号：当前页有未保存的修改时先选回原账号，确认放弃后再切换

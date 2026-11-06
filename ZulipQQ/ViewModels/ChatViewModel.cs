@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -661,12 +663,54 @@ public partial class ChatViewModel : ViewModelBase
     public Task SaveImageAsAsync(ImageTarget image, TopLevel top) =>
         MessageLinks.SaveImageAsAsync(_session, new InlineImage(image.Src, image.Href), top, _showToast);
 
+    /// <summary>消息中的图片在资源管理器中定位（右键菜单的“打开文件夹”）。</summary>
+    public Task RevealImageInFolderAsync(ImageTarget image) =>
+        MessageLinks.RevealImageInFolderAsync(_session, new InlineImage(image.Src, image.Href), _showToast);
+
+    /// <summary>在浏览器中打开 Zulip 网页端的这个会话（话题或私聊）。</summary>
+    [RelayCommand]
+    private void OpenInWeb()
+    {
+        var url = Key switch
+        {
+            TopicKey t => ZulipLinks.TopicLink(_session.Client.RealmUrl, t.StreamId, _session.Channels.Get(t.StreamId)?.Name ?? "",
+                _session.Conversations.GetTopicName(t)),
+            DmKey dm => ZulipLinks.DmLink(_session.Client.RealmUrl, dm, _session.SelfId),
+            _ => null,
+        };
+        if (url is null)
+            return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("打开网页失败", ex);
+            _showToast("打开网页失败");
+        }
+    }
+
     /// <summary>消息链接（复制链接用）。</summary>
     public string MessageLink(long messageId)
     {
         var channel = Key is TopicKey t ? _session.Channels.Get(t.StreamId)?.Name ?? "" : "";
         var topic = Key is TopicKey tk ? _session.Conversations.GetTopicName(tk) : "";
         return ZulipLinks.MessageLink(_session.Client.RealmUrl, Key, _session.SelfId, messageId, channel, topic);
+    }
+
+    // ---- 源代码模式 ----
+
+    /// <summary>源代码模式：气泡中显示消息的 Markdown 原文（聊天记录空白处的右键菜单切换，只在本次打开期间有效）。</summary>
+    [ObservableProperty]
+    public partial bool IsSourceMode { get; private set; }
+
+    public void ToggleSourceMode() => IsSourceMode = !IsSourceMode;
+
+    partial void OnIsSourceModeChanged(bool value)
+    {
+        foreach (var vm in _vms.Values)
+            vm.IsSourceShown = value;
     }
 
     // ---- 多选 ----
@@ -679,7 +723,7 @@ public partial class ChatViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasChecked))]
-    [NotifyCanExecuteChangedFor(nameof(ForwardEachCommand), nameof(ForwardMergedCommand), nameof(StarCheckedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ForwardEachCommand), nameof(ForwardMergedCommand), nameof(StarCheckedCommand), nameof(CopyCheckedCommand))]
     public partial int CheckedCount { get; private set; }
 
     public bool HasChecked => CheckedCount > 0;
@@ -736,7 +780,7 @@ public partial class ChatViewModel : ViewModelBase
         try
         {
             await _session.Chat.SetStarredAsync(ids, true);
-            _showToast("已收藏");
+            ShowCenterTip("收藏成功");
         }
         catch (Exception ex)
         {
@@ -745,6 +789,47 @@ public partial class ChatViewModel : ViewModelBase
             Log.Warn("收藏失败", ex);
             _showToast("收藏失败");
         }
+    }
+
+    /// <summary>复制勾选的消息（与跨气泡选择复制的格式相同：每条为“昵称: 时间”加纯文本，消息之间空一行），然后退出多选。</summary>
+    [RelayCommand(CanExecute = nameof(HasChecked))]
+    private async Task CopyCheckedAsync(TopLevel? top)
+    {
+        if (top?.Clipboard is not { } clipboard)
+            return;
+        var text = string.Join("\n\n", CheckedMessages().Select(m => _vms.GetValueOrDefault(m.Id)?.RangeCopyText).OfType<string>());
+        ExitMultiSelect();
+        try
+        {
+            await clipboard.SetTextAsync(text);
+            ShowCenterTip("复制成功");
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("复制失败", ex);
+            _showToast("复制失败");
+        }
+    }
+
+    /// <summary>消息区中间带对勾的提示（仿 QQ：复制成功、收藏成功、已取消收藏），1.5 秒后淡出。</summary>
+    [ObservableProperty]
+    public partial bool IsCenterTipVisible { get; private set; }
+
+    [ObservableProperty]
+    public partial string CenterTipText { get; private set; } = "";
+
+    private int _centerTipVersion;
+
+    internal void ShowCenterTip(string text)
+    {
+        var version = ++_centerTipVersion;
+        CenterTipText = text;
+        IsCenterTipVisible = true;
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (version == _centerTipVersion)
+                IsCenterTipVisible = false;
+        }, TimeSpan.FromSeconds(1.5));
     }
 
     private void ForwardChecked(bool merge)
@@ -782,7 +867,7 @@ public partial class ChatViewModel : ViewModelBase
             return ForwardFormatter.Merge(forwarded, session.Realm.MaxMessageLength);
         }
 
-        ForwardDialogViewModel.Show(Main, Host, preview, BuildAsync);
+        ForwardDialogViewModel.Show(_session, Host, preview, BuildAsync);
     }
 
     internal Task ToggleReactionAsync(MessageItemViewModel item, ReactionViewModel reaction) =>
@@ -795,21 +880,32 @@ public partial class ChatViewModel : ViewModelBase
         return ToggleReactionAsync(item, emoji.Name, emoji.Code, emoji.Type);
     }
 
-    /// <summary>收藏 / 取消收藏（星标）。</summary>
-    public async Task ToggleStarAsync(MessageItemViewModel item)
+    /// <summary>打开“发起投票”对话框，确定后在当前会话发送投票（Zulip 的 /poll）。</summary>
+    public void ShowPollDialog()
+    {
+        PollDialogViewModel dialog = null!;
+        dialog = new PollDialogViewModel(content => _ = _session.Chat.SendAsync(Key, content, _showToast),
+            () => Host.Dialogs.Remove(dialog));
+        Host.Dialogs.Add(dialog);
+    }
+
+    /// <summary>收藏 / 取消收藏（星标），返回是否成功。提示由调用方显示（收藏时等飞向主菜单的动画结束后再显示）。</summary>
+    public async Task<bool> ToggleStarAsync(MessageItemViewModel item)
     {
         if (item.Id <= 0)
-            return;
+            return false;
         try
         {
             await _session.Chat.SetStarredAsync([item.Id], !item.Message.IsStarred);
+            return true;
         }
         catch (Exception ex)
         {
             if (_session.IsDisposed)
-                return;
+                return false;
             Log.Warn("收藏失败", ex);
             _showToast("操作失败");
+            return false;
         }
     }
 
@@ -824,6 +920,37 @@ public partial class ChatViewModel : ViewModelBase
     /// <summary>实际是否可以编辑（组织允许编辑且在编辑时限内）。</summary>
     public bool IsEditAllowed(MessageItemViewModel item) =>
         _session.Permissions.CanEditMessage(item.Message.SenderId, item.Message.Timestamp, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+    /// <summary>可以删除：已发送的消息，且有删除权限（见 <see cref="IsDeleteAllowed"/>）。开发者模式下没有权限时也显示，删除时只模拟。</summary>
+    public bool CanDelete(MessageItemViewModel item) => item.Id > 0 && _session.Shows(IsDeleteAllowed(item));
+
+    /// <summary>实际是否可以删除，判断与 Zulip 网页端相同，见 <see cref="PermissionEvaluator.CanDeleteMessage"/>。</summary>
+    public bool IsDeleteAllowed(MessageItemViewModel item)
+    {
+        var message = item.Message;
+        var channel = message.Key is TopicKey t ? _session.Channels.Get(t.StreamId) : null;
+        var sentByMeOrMyBot = message.SenderId == _session.SelfId
+            || _session.Users.Get(message.SenderId) is { IsBot: true, BotOwnerId: { } owner } && owner == _session.SelfId;
+        return _session.Permissions.CanDeleteMessage(channel, channel?.IsArchived ?? false, sentByMeOrMyBot,
+            message.Timestamp, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+    }
+
+    /// <summary>删除消息（先确认，与 QQ 的删除确认相同为蓝色“确定”）。删除成功后由 delete_message 事件移除。</summary>
+    public async Task DeleteAsync(MessageItemViewModel item)
+    {
+        if (!await Host.ConfirmAsync("永久删除后此消息将对所有人不可见。")
+            || _session.Mocks(IsDeleteAllowed(item), _showToast))
+            return;
+        try
+        {
+            await _session.Client.DeleteMessageAsync(item.Id, _session.Token);
+        }
+        catch (Exception ex) when (!_session.IsDisposed)
+        {
+            Log.Warn($"删除消息失败：{item.Id}", ex);
+            _showToast(ex is ZulipApiException api ? $"删除失败：{api.Message}" : "删除失败");
+        }
+    }
 
     /// <summary>编辑：取 Markdown 原文后放到下方的输入框中编辑（输入框原来的内容暂存）。同一时间只编辑一条。</summary>
     public async Task BeginEditAsync(MessageItemViewModel item)
@@ -1143,6 +1270,7 @@ public partial class ChatViewModel : ViewModelBase
                     shown.Add(m.Id);
             }
             vm.IsSelected = m.Id == _selectedMessageId;
+            vm.IsSourceShown = IsSourceMode;
             vm.IsChecked = _checked.Contains(m.Id);
             vm.IsEditing = m.Id == Composer.EditTarget?.Id;
             vm.ReadStateText = m.Id == _readStateId ? _readState : null;

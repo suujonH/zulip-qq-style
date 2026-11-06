@@ -73,6 +73,9 @@ public class MessageTextBlock : SelectableTextBlock
         }
     }
 
+    /// <summary>整个段落的 Markdown（代码块除外）。</summary>
+    internal string FullMarkdown => InlineMarkdown.FromPieces(_source.ToString(), _pieces, 0, _source.Length);
+
     /// <summary>登记 [start, end) 区间的文字为链接。</summary>
     internal void AddLink(int start, int end, MessageLinkTarget target)
     {

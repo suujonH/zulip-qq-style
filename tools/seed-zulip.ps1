@@ -14,7 +14,7 @@
 #>
 param(
     [string]$Realm = 'https://localhost.localdomain:8443',
-    [string]$OwnerEmail = 'owner@zulipqq.test',
+    [string]$OwnerEmail = 'owner@zulip.test',
     [Parameter(Mandatory)][string]$OwnerPassword,
     [Parameter(Mandatory)][string]$UserPassword,
     [Parameter(Mandatory)][string]$OutFile
@@ -77,7 +77,7 @@ $names = '阿杰', '小雨', '老王', '晓晓', '大熊', '米粒', '阿飞', '
 $existing = (Invoke-Zulip $owner GET 'users').members
 $users = @()
 for ($i = 1; $i -le $names.Count; $i++) {
-    $email = 'u{0:d2}@zulipqq.test' -f $i
+    $email = 'u{0:d2}@zulip.test' -f $i
     $name = $names[$i - 1]
     if (-not ($existing | Where-Object { $_.email -eq $email -or $_.delivery_email -eq $email })) {
         Invoke-Zulip $owner POST 'users' @{ email = $email; password = $UserPassword; full_name = $name } | Out-Null
@@ -154,7 +154,7 @@ function New-Png([int]$Seed) {
     $g = [Drawing.Graphics]::FromImage($bmp)
     $rnd = [Random]::new($Seed)
     $g.Clear([Drawing.Color]::FromArgb($rnd.Next(80, 255), $rnd.Next(80, 255), $rnd.Next(80, 255)))
-    $g.DrawString("ZulipQQ #$Seed", [Drawing.Font]::new('Arial', 24), [Drawing.Brushes]::Black, 20, 80)
+    $g.DrawString("ZulipRust #$Seed", [Drawing.Font]::new('Arial', 24), [Drawing.Brushes]::Black, 20, 80)
     $ms = [IO.MemoryStream]::new()
     $bmp.Save($ms, [Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose(); $bmp.Dispose()

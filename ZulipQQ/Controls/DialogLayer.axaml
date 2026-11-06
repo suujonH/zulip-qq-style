@@ -13,9 +13,13 @@
         <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:ViewModelBase">
                 <Panel>
-                    <Border Background="{DynamicResource DialogMaskBrush}" />
+                    <!-- 点击遮罩（对话框外的空白处）与按 Esc 相同 -->
+                    <Border Background="{DynamicResource DialogMaskBrush}" Tapped="OnMaskTapped" />
                     <!-- 窗口比对话框窄（经典模式）时缩小显示 -->
                     <c:FitWidthDecorator Margin="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <c:FitWidthDecorator.RenderTransform>
+                            <TranslateTransform />
+                        </c:FitWidthDecorator.RenderTransform>
                         <ContentControl Content="{Binding}" />
                     </c:FitWidthDecorator>
                 </Panel>

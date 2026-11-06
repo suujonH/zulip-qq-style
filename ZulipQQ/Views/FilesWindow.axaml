@@ -110,7 +110,7 @@
                                 CommandParameter="{x:Static vm:FilesView.Group}">
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <c:TdIcon Icon="{StaticResource Icon.Folder}" />
-                                <TextBlock Text="群文件" />
+                                <TextBlock Text="频道文件" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -181,6 +181,7 @@
                                                                 <Grid.ContextMenu>
                                                                     <ContextMenu>
                                                                         <MenuItem Header="打开" Command="{Binding OpenCommand}" />
+                                                                        <MenuItem Header="保存" Command="{Binding SaveCommand}" />
                                                                         <MenuItem Header="另存为" Command="{Binding SaveAsCommand}" />
                                                                         <MenuItem Header="打开所在文件夹" Command="{Binding RevealCommand}"
                                                                                   IsVisible="{Binding IsDownloaded}" />

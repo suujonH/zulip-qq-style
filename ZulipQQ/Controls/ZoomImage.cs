@@ -8,21 +8,27 @@ using Avalonia.Media.Imaging;
 namespace ZulipQQ.Controls;
 
 /// <summary>
-/// 可缩放、拖动的图片（图片查看器）。滚轮以鼠标位置为中心缩放（0.1～8 倍），左键拖动平移，双击在“适应窗口”和 1:1 之间切换。
-/// 新图片和窗口尺寸变化时，处于“适应窗口”状态则重新适应（不放大小图）。
+/// 可缩放、拖动的图片（图片查看器）。滚轮以鼠标位置为中心缩放（0.1～10 倍，每格放大或缩小当前的 20%），
+/// 左键拖动平移，双击在“适应窗口”和 1:1 之间切换。可以向左旋转 90°（只改变显示，换图片时恢复）。
+/// 新图片和窗口尺寸变化时，处于“适应窗口”状态则重新适应（不放大小图），否则保持比例、图片跟着中心移动。
 /// </summary>
 public class ZoomImage : Control
 {
     public const double MinScale = 0.1;
-    public const double MaxScale = 8;
+    public const double MaxScale = 10;
 
-    private const double WheelStep = 1.1;
+    // 每次放大 / 缩小当前比例的 20%
+    private const double ZoomInStep = 1.2;
+    private const double ZoomOutStep = 0.8;
 
     public static readonly StyledProperty<Bitmap?> SourceProperty =
         AvaloniaProperty.Register<ZoomImage, Bitmap?>(nameof(Source));
 
     private double _scale = 1;
+    // 图片显示区域（旋转后）的左上角
     private Vector _offset;
+    // 向左旋转的次数（0～3）
+    private int _rotation;
 
     // 处于“适应窗口”状态：尺寸变化后保持适应
     private bool _fit = true;
@@ -58,13 +64,22 @@ public class ZoomImage : Control
     /// <summary>缩放比例变化（显示百分比用）。</summary>
     public event EventHandler? ScaleChanged;
 
+    /// <summary>用户调整了缩放（滚轮、双击、放大 / 缩小 / 1:1 / 适应窗口）；换图片、窗口尺寸变化时的自动适应不算。</summary>
+    public event EventHandler? Zoomed;
+
     /// <summary>适应窗口：图片完整显示并居中，小图保持原始大小。</summary>
     public void Fit()
     {
+        ApplyFit();
+        Zoomed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ApplyFit()
+    {
         _fit = true;
-        if (Source is not { } bitmap || Bounds.Width <= 0 || Bounds.Height <= 0)
+        if (Source is null || Bounds.Width <= 0 || Bounds.Height <= 0)
             return;
-        var size = bitmap.Size;
+        var size = DisplaySize;
         SetScale(Math.Min(1, Math.Min(Bounds.Width / size.Width, Bounds.Height / size.Height)));
         Center();
     }
@@ -75,10 +90,24 @@ public class ZoomImage : Control
         _fit = false;
         SetScale(1);
         Center();
+        Zoomed?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>以控件中心为基准缩放。</summary>
-    public void ZoomBy(double factor) => ZoomAt(factor, new Point(Bounds.Width / 2, Bounds.Height / 2));
+    /// <summary>向左旋转 90°，比例不变，居中显示；处于“适应窗口”状态时重新适应。</summary>
+    public void RotateLeft()
+    {
+        _rotation = (_rotation + 1) % 4;
+        if (_fit)
+            ApplyFit();
+        else
+            Center();
+    }
+
+    /// <summary>以控件中心为基准放大当前比例的 20%。</summary>
+    public void ZoomIn() => ZoomAt(ZoomInStep, new Point(Bounds.Width / 2, Bounds.Height / 2));
+
+    /// <summary>以控件中心为基准缩小当前比例的 20%。</summary>
+    public void ZoomOut() => ZoomAt(ZoomOutStep, new Point(Bounds.Width / 2, Bounds.Height / 2));
 
     /// <summary>以 <paramref name="center"/>（控件坐标）为中心缩放：该点下的图片位置保持不动。</summary>
     public void ZoomAt(double factor, Point center)
@@ -92,26 +121,41 @@ public class ZoomImage : Control
         var ratio = _scale / old;
         _offset = new Vector(center.X - (center.X - _offset.X) * ratio, center.Y - (center.Y - _offset.Y) * ratio);
         InvalidateVisual();
+        Zoomed?.Invoke(this, EventArgs.Empty);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == SourceProperty)
-            Fit();
+        {
+            _rotation = 0;
+            ApplyFit();
+        }
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         base.OnSizeChanged(e);
         if (_fit)
-            Fit();
+        {
+            ApplyFit();
+        }
+        else
+        {
+            // 缩放或拖动过：图片跟着控件中心移动，原来在中间的仍在中间
+            _offset += new Vector((e.NewSize.Width - e.PreviousSize.Width) / 2, (e.NewSize.Height - e.PreviousSize.Height) / 2);
+            InvalidateVisual();
+        }
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);
-        ZoomAt(Math.Pow(WheelStep, e.Delta.Y), e.GetPosition(this));
+        // 触摸板的滚动量可能不是整格：按格数换算
+        var delta = e.Delta.Y;
+        if (delta != 0)
+            ZoomAt(delta > 0 ? Math.Pow(ZoomInStep, delta) : Math.Pow(ZoomOutStep, -delta), e.GetPosition(this));
         e.Handled = true;
     }
 
@@ -165,17 +209,25 @@ public class ZoomImage : Control
             context.FillRectangle(background, bounds);
         if (Source is not { } bitmap)
             return;
+        // 以显示区域的中心为原点旋转后绘制
         var size = bitmap.Size;
-        var dest = new Rect(_offset.X, _offset.Y, size.Width * _scale, size.Height * _scale);
+        var display = DisplaySize;
+        var center = new Point(_offset.X + display.Width * _scale / 2, _offset.Y + display.Height * _scale / 2);
+        var dest = new Rect(-size.Width * _scale / 2, -size.Height * _scale / 2, size.Width * _scale, size.Height * _scale);
+        using (context.PushTransform(Matrix.CreateRotation(-Math.PI / 2 * _rotation) * Matrix.CreateTranslation(center.X, center.Y)))
         using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.HighQuality }))
             context.DrawImage(bitmap, new Rect(size), dest);
     }
 
+    // 旋转后的图片尺寸
+    private Size DisplaySize => Source is not { } bitmap ? default
+        : _rotation % 2 == 0 ? bitmap.Size : new Size(bitmap.Size.Height, bitmap.Size.Width);
+
     private void Center()
     {
-        if (Source is not { } bitmap)
+        if (Source is null)
             return;
-        var size = bitmap.Size;
+        var size = DisplaySize;
         _offset = new Vector((Bounds.Width - size.Width * _scale) / 2, (Bounds.Height - size.Height * _scale) / 2);
         InvalidateVisual();
     }

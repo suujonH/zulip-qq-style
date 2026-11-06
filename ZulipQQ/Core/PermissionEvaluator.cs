@@ -16,6 +16,8 @@ public interface IChannelPermissions
     GroupSettingValue? CanMoveMessagesWithinChannelGroup { get; }
     GroupSettingValue? CanResolveTopicsGroup { get; }
     GroupSettingValue? CanCreateTopicGroup { get; }
+    GroupSettingValue? CanDeleteAnyMessageGroup { get; }
+    GroupSettingValue? CanDeleteOwnMessageGroup { get; }
 }
 
 /// <summary>构造 <see cref="PermissionEvaluator"/> 所需的数据。</summary>
@@ -23,6 +25,7 @@ public interface IChannelPermissions
 /// <param name="RealmGroupSettings">组织级组设置，键不带 <c>realm_</c> 前缀。</param>
 /// <param name="AllowEveryoneGroup">来自 <c>server_supported_permission_settings</c>：该设置是否允许“所有人”组（含访客）。</param>
 /// <param name="EditLimitSeconds">消息编辑时限；null 表示不限。</param>
+/// <param name="DeleteLimitSeconds">删除自己消息的时限；null 表示不限。</param>
 public sealed record PermissionInputs(
     long SelfId,
     int Role,
@@ -30,7 +33,8 @@ public sealed record PermissionInputs(
     IReadOnlyDictionary<string, GroupSettingValue> RealmGroupSettings,
     IReadOnlyDictionary<(string Scope, string Name), bool> AllowEveryoneGroup,
     bool AllowMessageEditing,
-    int? EditLimitSeconds);
+    int? EditLimitSeconds,
+    int? DeleteLimitSeconds);
 
 /// <summary>
 /// 根据 Zulip 的组设置判断当前用户的权限。没有权限的功能在界面上完全不显示。
@@ -66,7 +70,8 @@ public sealed class PermissionEvaluator(PermissionInputs inputs)
             reg.RealmGroupSettings(),
             reg.AllowEveryoneGroup(),
             reg.RealmAllowMessageEditing,
-            reg.RealmMessageContentEditLimitSeconds));
+            reg.RealmMessageContentEditLimitSeconds,
+            reg.RealmMessageContentDeleteLimitSeconds));
 
     /// <summary>自己是否属于该组（递归检查子组）。</summary>
     public bool IsMember(long groupId)
@@ -175,6 +180,30 @@ public sealed class PermissionEvaluator(PermissionInputs inputs)
     public bool CanInviteUsers => AllowsRealm("can_invite_users_group");
 
     public bool CanMentionEveryone => AllowsRealm("can_mention_many_users_group");
+
+    /// <summary>
+    /// 删除消息（与网页端的 get_deletability 一致）：已归档频道中的消息不能删除；可以删除任何消息的（组织或频道设置）都可以删除；
+    /// 否则只能删除自己或自己的机器人发的消息，需要组织或频道允许删除自己的消息，且在删除时限内（时间均为 Unix 秒）。
+    /// 私聊消息 <paramref name="channel"/> 为 null，只看组织设置。
+    /// </summary>
+    public bool CanDeleteMessage(IChannelPermissions? channel, bool channelArchived, bool sentByMeOrMyBot, long messageTimestamp, long now)
+    {
+        if (channel is not null && channelArchived)
+            return false;
+        if (AllowsRealmOrAdmin("can_delete_any_message_group")
+            || (channel is not null && Allows(channel.CanDeleteAnyMessageGroup, Stream, "can_delete_any_message_group")))
+            return true;
+        if (!sentByMeOrMyBot)
+            return false;
+        if (!AllowsRealmOrAdmin("can_delete_own_message_group")
+            && !(channel is not null && Allows(channel.CanDeleteOwnMessageGroup, Stream, "can_delete_own_message_group")))
+            return false;
+        return inputs.DeleteLimitSeconds is not { } limit || limit + (messageTimestamp - now) > 0;
+    }
+
+    // 组织级设置；服务器没有这个组设置（旧版本）时只有组织管理员有权限
+    private bool AllowsRealmOrAdmin(string name) =>
+        inputs.RealmGroupSettings.ContainsKey(name) ? AllowsRealm(name) : IsOrgAdmin;
 
     /// <summary>自己的消息，且组织允许编辑，且在编辑时限内（时间均为 Unix 秒）。</summary>
     public bool CanEditMessage(long senderId, long messageTimestamp, long now) =>

@@ -59,7 +59,7 @@
     </UserControl.DataTemplates>
 
     <StackPanel Spacing="8">
-        <TextBlock Classes="pageTitle" Text="群消息设置" />
+        <TextBlock Classes="pageTitle" Text="话题消息设置" />
         <c:SettingSource Local="Account" />
 
         <TextBlock Classes="section" Text="频道" />

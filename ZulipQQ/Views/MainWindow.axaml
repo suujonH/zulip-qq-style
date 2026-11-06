@@ -211,9 +211,11 @@
 
             <StackPanel x:Name="TitleUser" Grid.Column="1" Orientation="Horizontal" Spacing="8"
                         Margin="22,0,0,0" VerticalAlignment="Center">
-                <Panel Width="24" Height="24">
-                    <c:Avatar Width="24" Height="24" Source="{Binding SelfAvatarUrl}" Text="{Binding SelfName}" />
-                    <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2" />
+                <!-- 点击打开自己的名片。标题栏是拖动区域，这里要接收点击：由 Panel 统一命中，避免点在子控件上时变成拖动 -->
+                <Panel Width="24" Height="24" Background="Transparent" Cursor="Hand" Tapped="OnTitleAvatarTapped"
+                       chrome:WindowDecorationProperties.ElementRole="User">
+                    <c:Avatar Width="24" Height="24" Source="{Binding SelfAvatarUrl}" Text="{Binding SelfName}" IsHitTestVisible="False" />
+                    <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2" IsHitTestVisible="False" />
                 </Panel>
                 <TextBlock Text="{Binding SelfName}" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
                 <!-- 个性签名：点击就地编辑（经典模式窗口太窄，不显示） -->
@@ -260,6 +262,18 @@
                 <Border Grid.Column="0" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
                     <DockPanel Margin="0,8">
                         <StackPanel DockPanel.Dock="Bottom">
+                            <!-- 静音：新消息只闪烁任务栏，不弹横幅、不响提示音 -->
+                            <Button Classes="nav" Theme="{StaticResource FlatButton}" ToolTip.Tip="{Binding MuteTip}"
+                                    Command="{Binding ToggleNotificationMutedCommand}">
+                                <Panel>
+                                    <c:TdIcon Icon="{StaticResource Icon.Sound}" IsVisible="{Binding !IsNotificationMuted}" />
+                                    <!-- 静音：小喇叭外面一圈，加一条左上到右下的斜线（禁止符号） -->
+                                    <Panel IsVisible="{Binding IsNotificationMuted}">
+                                        <c:TdIcon Icon="{StaticResource Icon.Forbid}" />
+                                        <c:TdIcon Icon="{StaticResource Icon.Sound}" Width="11" Height="11" />
+                                    </Panel>
+                                </Panel>
+                            </Button>
                             <Button x:Name="MainMenuButton" Classes="nav" Theme="{StaticResource FlatButton}"
                                     ToolTip.Tip="主菜单">
                                 <c:TdIcon Icon="{StaticResource Icon.ViewList}" />

@@ -5,30 +5,37 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          dotnet-version: 10.0.x
-      - name: Restore
-        run: dotnet restore ZulipQQ.slnx
-      - name: Build
-        run: dotnet build ZulipQQ.slnx -c Release --no-restore
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
-        run: dotnet test --solution ZulipQQ.slnx -c Release --no-build
+        run: cargo test --workspace
       - name: Publish
         if: github.event_name == 'push'
         shell: pwsh
         run: |
-          dotnet publish ZulipQQ/ZulipQQ.csproj -c Release -r win-x64 --self-contained true -p:DebugType=none -o publish/ZulipQQ
-          Get-ChildItem publish/ZulipQQ -Filter *.pdb -File | ForEach-Object { Remove-Item -LiteralPath $_.FullName }
-          ./tools/build-plugins.ps1 -OutDir publish/ZulipQQ/plugins
+          $PSNativeCommandUseErrorActionPreference = $true
+          cargo build --release -p zulip-updater
+          cargo build --release -p zulip
+          New-Item -ItemType Directory -Force publish/ZulipRust | Out-Null
+          Copy-Item target/release/zulip.exe, target/release/zulip-updater.exe publish/ZulipRust
+          ./tools/build-plugins.ps1 -OutDir publish/ZulipRust/plugins
       - name: Upload artifact
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v7
         with:
-          name: ZulipQQ-win-x64
-          path: publish/ZulipQQ
+          name: ZulipRust-win-x64
+          path: publish/ZulipRust

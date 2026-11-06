@@ -1,4 +1,6 @@
 <Solution>
   <Project Path="ZulipQQ/ZulipQQ.csproj" />
+  <Project Path="ZulipQQ.Update/ZulipQQ.Update.csproj" />
+  <Project Path="ZulipQQ.Updater/ZulipQQ.Updater.csproj" />
   <Project Path="ZulipQQ.Tests/ZulipQQ.Tests.csproj" />
 </Solution>

@@ -25,10 +25,7 @@
         <Border Classes="card">
             <StackPanel>
                 <Grid Classes="item" ColumnDefinitions="*,Auto">
-                    <StackPanel>
-                        <TextBlock Text="启动" />
-                        <TextBlock Classes="hint" Text="开启时登录此账号，启动程序时也会登录；关闭时退出此账号" />
-                    </StackPanel>
+                    <TextBlock Text="启动" VerticalAlignment="Center" />
                     <ToggleSwitch Grid.Column="1" IsChecked="{Binding LoginOnStartup}" />
                 </Grid>
                 <c:SettingSource Local="Account" />

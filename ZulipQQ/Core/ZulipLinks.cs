@@ -73,10 +73,15 @@ public static class ZulipLinks
         if (key is TopicKey t)
             return TopicLink(realm, t.StreamId, channelName, topicName) + near;
 
-        var dm = (DmKey)key;
-        var ids = dm.OtherUserIds.Append(selfId).Distinct().Order()
+        return DmLink(realm, (DmKey)key, selfId) + near;
+    }
+
+    /// <summary>私聊链接：<c>#narrow/dm/{全部参与者 id，含自己，升序}-dm</c>，3 人及以上为 <c>-group</c>。</summary>
+    public static string DmLink(Uri realm, DmKey key, long selfId)
+    {
+        var ids = key.OtherUserIds.Append(selfId).Distinct().Order()
             .Select(id => id.ToString(CultureInfo.InvariantCulture)).ToList();
-        return $"{Base(realm)}#narrow/dm/{string.Join(',', ids)}-{(ids.Count >= 3 ? "group" : "dm")}{near}";
+        return $"{Base(realm)}#narrow/dm/{string.Join(',', ids)}-{(ids.Count >= 3 ? "group" : "dm")}";
     }
 
     /// <summary>

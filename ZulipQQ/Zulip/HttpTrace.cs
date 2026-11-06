@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 
 namespace ZulipQQ.Zulip;
 
+#if DEBUG
 /// <summary>记录下来的请求。头部每行一个 “名称: 值”；正文为文本，或无法记录时的说明（如 “[image/png，1024 字节]”）。</summary>
 public sealed record HttpTraceRequest(DateTime Time, string Method, string Url, string Headers, string Body);
 
@@ -28,24 +29,32 @@ public interface IHttpTraceSink
     /// <summary>收到响应或请求失败后调用。</summary>
     void End(long id, HttpTraceResponse response);
 }
+#endif
 
 /// <summary>
-/// 记录经过 <see cref="ZulipClient"/> 的请求和响应。没有开启记录时直接转发。
+/// 为经过 <see cref="ZulipClient"/> 的请求设置 User-Agent。
+/// Debug 中还记录请求和响应（开发者模式），没有开启记录时直接转发。
 /// 认证信息、密码、api_key 打码；只读取 API 请求（路径含 /api/）的文本响应，
 /// 文件上传下载、图片等只记录类型和大小，不影响流式读取。
 /// </summary>
 internal sealed partial class HttpTraceHandler(HttpMessageHandler inner) : DelegatingHandler(inner)
 {
+#if DEBUG
     private const string Masked = "******";
 
     // 记录的正文超过这个长度时截断（register 的响应可能有几 MB）
     private const int MaxBodyChars = 2 * 1024 * 1024;
+#endif
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         // 客户端名称可以在设置中修改：每个请求都用当前的值（不放在 DefaultRequestHeaders 中）
         request.Headers.Remove("User-Agent");
         request.Headers.TryAddWithoutValidation("User-Agent", ZulipClient.UserAgent);
+#if !DEBUG
+        return await base.SendAsync(request, ct).ConfigureAwait(false);
+    }
+#else
         if (ZulipClient.TraceSink is not { IsEnabled: true } sink)
             return await base.SendAsync(request, ct).ConfigureAwait(false);
 
@@ -135,4 +144,5 @@ internal sealed partial class HttpTraceHandler(HttpMessageHandler inner) : Deleg
 
     [GeneratedRegex("(\"api_key\"\\s*:\\s*\")[^\"]*\"")]
     private static partial Regex JsonSecretPattern();
+#endif
 }

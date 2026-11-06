@@ -28,6 +28,25 @@ internal sealed class MarkdownBackgroundRenderer(MarkdownEditor editor) : IBackg
         var width = textView.Bounds.Width;
         var offsetY = textView.VerticalOffset;
 
+        // 编辑中的引用消息：从标题栏到围栏结束是一张卡片（与展开的面板相同），其中的引用不再画底色
+        var editing = editor.EditingQuote;
+        if (editing is not null)
+        {
+            double cardTop = double.NaN, cardBottom = 0;
+            foreach (var visualLine in textView.VisualLines)
+            {
+                var index = visualLine.FirstDocumentLine.LineNumber - 1;
+                if (index < editing.HeaderLine || index > editing.CloseLine)
+                    continue;
+                var y = visualLine.VisualTop - offsetY;
+                if (double.IsNaN(cardTop))
+                    cardTop = y;
+                cardBottom = y + visualLine.Height;
+            }
+            if (!double.IsNaN(cardTop))
+                DrawBlock(context, BlockKind.Quote, cardTop, cardBottom, width);
+        }
+
         var bars = new List<Rect>();
         var kind = BlockKind.None;
         double top = 0, bottom = 0;
@@ -35,8 +54,9 @@ internal sealed class MarkdownBackgroundRenderer(MarkdownEditor editor) : IBackg
         {
             var index = visualLine.FirstDocumentLine.LineNumber - 1;
             var line = index < model.Lines.Count ? model.Lines[index] : null;
-            var lineKind = line is null ? BlockKind.None : KindOf(line);
             var y = visualLine.VisualTop - offsetY;
+            var inCard = editing is not null && editing.HeaderLine <= index && index <= editing.CloseLine;
+            var lineKind = line is null ? BlockKind.None : inCard && KindOf(line) == BlockKind.Quote ? BlockKind.None : KindOf(line);
             if (lineKind != kind || lineKind == BlockKind.None)
             {
                 DrawBlock(context, kind, top, bottom, width);

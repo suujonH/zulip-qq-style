@@ -117,7 +117,7 @@ internal sealed class MarkdownColorizer(MarkdownEditor editor) : DocumentColoriz
                 case MdSpanKind.UserMention or MdSpanKind.GroupMention or MdSpanKind.ChannelLink:
                     Foreground(span.Start, span.End, brand);
                     break;
-                case MdSpanKind.UploadImage or MdSpanKind.UploadPlaceholder or MdSpanKind.Time or MdSpanKind.Emoji when source:
+                case MdSpanKind.UploadImage or MdSpanKind.UploadFile or MdSpanKind.UploadPlaceholder or MdSpanKind.Time or MdSpanKind.Emoji when source:
                     Foreground(span.Start, span.End, tertiary);
                     break;
                 case MdSpanKind.Time:

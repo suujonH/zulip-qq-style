@@ -164,9 +164,16 @@ public sealed class MarkdownFormatTests
     [InlineData("abc«", MarkdownFormatKind.Rule, "abc\n\n---\n«")]
     [InlineData("«", MarkdownFormatKind.Rule, "---\n«")]
     [InlineData("a\n«\nb", MarkdownFormatKind.Rule, "a\n\n---\n«b")]
-    [InlineData("abc«", MarkdownFormatKind.Table, "abc\n\n| «标题» | 标题 |\n| --- | --- |\n| 内容 | 内容 |")]
-    [InlineData("«x", MarkdownFormatKind.Table, "| «标题» | 标题 |\n| --- | --- |\n| 内容 | 内容 |\n\nx")]
     public void Insert(string marked, MarkdownFormatKind kind, string expected) => Assert.Equal(expected, Apply(marked, kind));
+
+    [Theory]
+    [InlineData("abc", 3, "abc\n\n| «|  |\n| --- | --- |\n|  |  |")]
+    [InlineData("x", 0, "| «|  |\n| --- | --- |\n|  |  |\n\nx")]
+    public void InsertTable(string text, int caret, string expected)
+    {
+        var edit = MarkdownFormat.InsertTable(text, caret, caret, 2, 2);
+        Assert.Equal(expected.Replace("| «|", "| « |", StringComparison.Ordinal), Mark(text, edit));
+    }
 
     [Theory]
     [InlineData("a **b«c**", MarkdownFormatKind.Bold, true)]

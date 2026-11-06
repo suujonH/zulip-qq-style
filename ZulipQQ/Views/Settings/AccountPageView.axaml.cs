@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using ZulipQQ.ViewModels.Settings;
 
@@ -20,7 +21,14 @@ public partial class AccountPageView : UserControl
                 FileTypeFilter = [FilePickerFileTypes.ImageAll],
             });
             if (files.Count > 0 && files[0].TryGetLocalPath() is { } path)
-                await vm.UploadAvatarAsync(path);
+                await vm.ChangeAvatarAsync(path);
         };
+    }
+
+    // 查看头像（大图）
+    private void OnAvatarTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is AccountPageViewModel { AvatarUrl.Length: > 0 } vm)
+            ImageViewerWindow.ShowAvatar(TopLevel.GetTopLevel(this) as Window, vm.Session, vm.AvatarUrl!);
     }
 }

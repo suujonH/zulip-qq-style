@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
              x:Class="ZulipQQ.Views.ConfirmDialogView"
              x:DataType="vm:ConfirmDialogViewModel">
 
@@ -8,29 +9,37 @@
         <Style Selector="Button.primary.danger">
             <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
         </Style>
+        <Style Selector="Button.primary, Button.secondary">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        </Style>
     </UserControl.Styles>
 
-    <Border Classes="dialog" Width="320">
-        <StackPanel>
-            <TextBlock Text="提示" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" Margin="0,7" />
-            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+    <!-- 与 QQ 的确认框相同：没有标题栏，右上角关闭（等同取消），正文下方右侧是确定、取消 -->
+    <Border Classes="dialog" Width="380">
+        <Grid RowDefinitions="Auto,Auto,Auto">
+            <Button Theme="{StaticResource FlatButton}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Width="28" Height="28" Margin="0,6,6,0" Padding="0" ToolTip.Tip="关闭"
+                    Command="{Binding CancelCommand}">
+                <c:TdIcon Icon="{StaticResource Icon.Close}" Width="16" Height="16"
+                          Foreground="{DynamicResource TextPrimaryBrush}" />
+            </Button>
 
-            <StackPanel Margin="20" Spacing="20">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="{Binding Message}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" />
-                    <CheckBox IsVisible="{Binding HasCheck}" IsChecked="{Binding IsChecked}">
-                        <TextBlock Text="{Binding CheckText}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" />
-                    </CheckBox>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                    <Button x:Name="ConfirmButton" Classes="primary" Classes.danger="{Binding IsDanger}"
-                            Theme="{StaticResource FlatButton}" Content="{Binding ConfirmText}"
-                            Command="{Binding ConfirmCommand}" />
-                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="{Binding CancelText}"
-                            Command="{Binding CancelCommand}" />
-                </StackPanel>
+            <StackPanel Grid.Row="1" Margin="24,4,24,0" Spacing="10">
+                <TextBlock Text="{Binding Message}" FontSize="{DynamicResource FontSizeBody}" TextWrapping="Wrap"
+                           LineHeight="22" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <CheckBox IsVisible="{Binding HasCheck}" IsChecked="{Binding IsChecked}">
+                    <TextBlock Text="{Binding CheckText}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" />
+                </CheckBox>
             </StackPanel>
-        </StackPanel>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="24,24,20,20">
+                <Button x:Name="ConfirmButton" Classes="primary" Classes.danger="{Binding IsDanger}"
+                        Theme="{StaticResource FlatButton}" Content="{Binding ConfirmText}"
+                        Command="{Binding ConfirmCommand}" />
+                <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="{Binding CancelText}"
+                        Command="{Binding CancelCommand}" />
+            </StackPanel>
+        </Grid>
     </Border>
 </UserControl>

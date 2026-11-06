@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using ZulipQQ.Services;
 using ZulipQQ.ViewModels;
 using ZulipQQ.ViewModels.Settings;
 
@@ -29,13 +30,26 @@ public partial class SettingsWindow : Window, ISessionWindow
     }
 
     /// <summary>打开设置窗口并切换到 <paramref name="page"/>；已打开时还原并激活（当前页有未保存的修改时先确认）。</summary>
-    public static async void ShowSingle(Window? owner, SettingsPage page = SettingsPage.General)
+    public static async void ShowSingle(Window? owner, SettingsPage page = SettingsPage.General) =>
+        await OpenAsync(owner, page);
+
+    /// <summary>打开设置窗口，切换到“Zulip 账号”，选中 <paramref name="session"/> 的账号并打开它的 <paramref name="page"/>。</summary>
+    public static async void ShowAccountPage(Window? owner, ZulipSession session, SettingsPage page)
+    {
+        var vm = await OpenAsync(owner, SettingsPage.Accounts);
+        // 当前页有未保存的修改、用户选择留下时不切换
+        if (vm.CurrentPage is AccountsPageViewModel accounts
+            && AccountHubViewModel.Instance.Entries.FirstOrDefault(e => e.Session == session) is { } entry)
+            await accounts.Panel.ShowAsync(entry, page);
+    }
+
+    private static async Task<SettingsViewModel> OpenAsync(Window? owner, SettingsPage page)
     {
         if (_current is { _vm: { } existing })
         {
             WindowPlacement.BringToFront(_current);
             await existing.NavigateAsync(page);
-            return;
+            return existing;
         }
 
         // 程序级设置不属于任何账号：账号退出时不关闭
@@ -47,6 +61,7 @@ public partial class SettingsWindow : Window, ISessionWindow
         WindowPlacement.CenterOn(window, owner);
         window.Show();
         vm.Navigate(page);
+        return vm;
     }
 
     /// <summary>有未保存的修改时询问；可以关闭时关闭窗口并返回 true。</summary>

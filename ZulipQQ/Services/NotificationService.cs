@@ -65,11 +65,11 @@ public sealed class NotificationService(ZulipSession session)
             return;
         if (muted)
             _mutedAlerts.Add(m.Id);
-        // 提示音选择“无”时不播放任何提示音（与 Zulip 一致）
-        if (sound && session.Settings.Zulip.NotificationSound != "none")
+        // 静音时只闪烁任务栏：不响提示音、不弹横幅。提示音选择“无”时不播放任何提示音（与 Zulip 一致）
+        var silenced = session.Settings.Local.NotificationMuted;
+        if (sound && !silenced && session.Settings.Zulip.NotificationSound != "none")
             PlaySound("Notification.IM", IntPtr.Zero, SndAlias | SndAsync | SndNoDefault);
-        // 通知类型为“仅闪烁”时不弹窗
-        popup &= session.Settings.Local.NotificationStyle == NotificationStyle.Banner;
+        popup &= !silenced;
         Requested?.Invoke(this, Build(m, popup, muted ? ConversationKey.Helper : m.Key));
     }
 
@@ -77,9 +77,10 @@ public sealed class NotificationService(ZulipSession session)
     public void OnReminder(ChatMessage m)
     {
         var z = session.Settings.Zulip;
-        if (z.EnableSounds && z.NotificationSound != "none")
+        var silenced = session.Settings.Local.NotificationMuted;
+        if (z.EnableSounds && !silenced && z.NotificationSound != "none")
             PlaySound("Notification.IM", IntPtr.Zero, SndAlias | SndAsync | SndNoDefault);
-        var popup = z.EnableDesktopNotifications && session.Settings.Local.NotificationStyle == NotificationStyle.Banner;
+        var popup = z.EnableDesktopNotifications && !silenced;
         var avatar = session.Users.Get(m.SenderId)?.AvatarUrl ?? m.AvatarUrl;
         Requested?.Invoke(this, new NotificationRequest(m.Key, "消息提醒", "你设置的消息提醒到时间了", avatar, "提醒", null,
             popup, m.Key, IsReminder: true));

@@ -22,7 +22,7 @@
                          MaxLength="{x:Static vm:CreateChannelDialogViewModel.MaxNameLength}" />
 
                 <TextBlock Classes="sub" Text="描述" FontSize="{DynamicResource FontSizeSmall}" Margin="0,6,0,0" />
-                <TextBox Classes="input" PlaceholderText="选填，将作为群公告显示" Text="{Binding Description}"
+                <TextBox Classes="input" PlaceholderText="选填，将作为频道公告显示" Text="{Binding Description}"
                          AcceptsReturn="True" TextWrapping="Wrap" Height="72" VerticalContentAlignment="Top"
                          MaxLength="{x:Static vm:CreateChannelDialogViewModel.MaxDescriptionLength}" />
 

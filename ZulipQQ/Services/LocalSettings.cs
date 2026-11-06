@@ -7,28 +7,11 @@ using ZulipQQ.Data;
 
 namespace ZulipQQ.Services;
 
-/// <summary>新消息提醒的方式。</summary>
-public enum NotificationStyle
-{
-    /// <summary>横幅弹窗（并闪烁任务栏）。</summary>
-    Banner,
-
-    /// <summary>只闪烁任务栏 / 托盘图标。</summary>
-    TrayOnly,
-}
-
 /// <summary>关闭主面板时的行为。</summary>
 public enum CloseAction
 {
     MinimizeToTray,
     Exit,
-}
-
-/// <summary>点击聊天中未下载的文件时的行为。</summary>
-public enum FileClickAction
-{
-    OpenAfterDownload,
-    DownloadOnly,
 }
 
 /// <summary>
@@ -42,7 +25,9 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
     public const string ClassicModeKey = "classic_mode";
     public const string EdgeAutoHideKey = "edge_auto_hide";
     public const string ShowTrayIconKey = "show_tray_icon";
+    public const string NotificationMutedKey = "notification_muted";
     public const string CloseActionKey = "close_action";
+#if DEBUG
     public const string ShowUnavailableKey = "dev_show_unavailable";
     public const string LogRequestsKey = "dev_log_requests";
     public const string RequestLogLimitKey = "dev_request_log_limit";
@@ -53,13 +38,13 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
 
     /// <summary>请求记录保存的条数为此值时不限制条数。</summary>
     public const int UnlimitedRequestLogLimit = 0;
+#endif
     private const string BoundsNormalKey = "main_window_bounds_normal";
     private const string BoundsClassicKey = "main_window_bounds_classic";
 
     private const string FontSizeKey = "font_size";
-    private const string NotificationStyleKey = "notification_style";
-    private const string DownloadRootKey = "download_root";
-    private const string FileClickActionKey = "file_click_action";
+    // 旧版本的 download_root 是打开文件的下载目录（按会话分子目录），含义不同，不再读取
+    private const string SaveRootKey = "save_root";
     public const string TopicTitleFormatKey = "topic_title_format";
     public const string CollapseResolvedTopicsKey = "collapse_resolved_topics";
     public const string WildcardMentionsNotifyKey = "wildcard_mentions_notify";
@@ -156,6 +141,7 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
         set => Save(appRepository, CloseActionKey, value.ToString());
     }
 
+#if DEBUG
     /// <summary>
     /// 开发者模式（程序级）：没有权限或服务器不支持的设置和操作也显示，操作时只模拟，不发送到服务器。
     /// 见 <see cref="ZulipSession.Shows"/>、<see cref="ZulipSession.Mocks"/>。
@@ -190,6 +176,12 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
             : DefaultRequestLogLimit;
         set => Save(appRepository, RequestLogLimitKey, Math.Max(value, UnlimitedRequestLogLimit).ToString(CultureInfo.InvariantCulture));
     }
+#else
+    // 开发者模式只在 Debug 中提供：Release 没有关闭它们的界面，忽略 Debug 版本保存的值
+    public bool ShowUnavailable => false;
+
+    public bool ShowSettingSource => false;
+#endif
 
     /// <summary>实际的关闭行为：没有托盘图标时无法从托盘恢复，只能退出。</summary>
     public CloseAction EffectiveCloseAction => ShowTrayIcon ? CloseAction : CloseAction.Exit;
@@ -211,25 +203,18 @@ public sealed class LocalSettings(SettingRepository repository, SettingRepositor
             Math.Clamp(value, ThemeService.MinFontSize, ThemeService.MaxFontSize).ToString(CultureInfo.InvariantCulture));
     }
 
-    /// <summary>新消息提醒的方式（程序级）。</summary>
-    public NotificationStyle NotificationStyle
+    /// <summary>静音（程序级，主窗口左下角的喇叭按钮）：新消息只闪烁任务栏，不弹横幅、不响提示音。</summary>
+    public bool NotificationMuted
     {
-        get => Enum.TryParse<NotificationStyle>(Read(appRepository, NotificationStyleKey), out var v) ? v : NotificationStyle.Banner;
-        set => Save(appRepository, NotificationStyleKey, value.ToString());
+        get => GetBool(appRepository, NotificationMutedKey, false);
+        set => Save(appRepository, NotificationMutedKey, value);
     }
 
-    /// <summary>聊天文件的下载根目录（程序级）。</summary>
-    public string DownloadRoot
+    /// <summary>“将接收或下载的文件保存到”的目录（程序级）：保存文件时直接以原文件名存到这里，不分子目录。默认为“下载”文件夹。</summary>
+    public string SaveRoot
     {
-        get => Read(appRepository, DownloadRootKey) is { Length: > 0 } v ? v : AppPaths.DefaultDownloadRoot;
-        set => Save(appRepository, DownloadRootKey, value);
-    }
-
-    /// <summary>点击聊天中未下载的文件时的行为（程序级）。</summary>
-    public FileClickAction FileClickAction
-    {
-        get => Enum.TryParse<FileClickAction>(Read(appRepository, FileClickActionKey), out var v) ? v : FileClickAction.OpenAfterDownload;
-        set => Save(appRepository, FileClickActionKey, value.ToString());
+        get => Read(appRepository, SaveRootKey) is { Length: > 0 } v ? v : AppPaths.DefaultSaveRoot;
+        set => Save(appRepository, SaveRootKey, value);
     }
 
     /// <summary>

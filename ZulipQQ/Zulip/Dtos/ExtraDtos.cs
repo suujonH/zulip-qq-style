@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 
 namespace ZulipQQ.Zulip.Dtos;
@@ -90,4 +92,43 @@ public sealed record SubmessageDto
     public long SenderId { get; init; }
     public string MsgType { get; init; } = "";
     public string Content { get; init; } = "";
+}
+
+/// <summary>自己上传的文件（<c>GET /attachments</c>、attachment 事件）。</summary>
+public sealed record AttachmentDto
+{
+    public long Id { get; init; }
+
+    /// <summary>文件名。</summary>
+    public string Name { get; init; } = "";
+
+    /// <summary><c>/user_uploads/</c> 之后的路径。</summary>
+    public string PathId { get; init; } = "";
+
+    /// <summary>字节。</summary>
+    public long Size { get; init; }
+
+    /// <summary>上传时间。新版服务器为 Unix 秒，旧版为 Unix 毫秒，见 <see cref="CreateTimeSeconds"/>。</summary>
+    public long CreateTime { get; init; }
+
+    /// <summary>引用这个文件的消息 id（新版服务器）。</summary>
+    public List<long> MessageIds { get; init; } = [];
+
+    /// <summary>引用这个文件的消息（旧版服务器，新版改为 <see cref="MessageIds"/>）。</summary>
+    public List<AttachmentMessageDto> Messages { get; init; } = [];
+
+    /// <summary>上传时间，Unix 秒。秒数要到公元 5000 年后才会超过 1e11，更大的值是毫秒。</summary>
+    public long CreateTimeSeconds => CreateTime > 100_000_000_000 ? CreateTime / 1000 : CreateTime;
+
+    /// <summary>引用这个文件的全部消息 id，兼容新旧两种格式。</summary>
+    public IReadOnlyList<long> AllMessageIds => MessageIds.Count > 0 ? MessageIds : Messages.Select(m => m.Id).ToList();
+}
+
+/// <summary>引用上传文件的一条消息（旧版服务器）。</summary>
+public sealed record AttachmentMessageDto
+{
+    public long Id { get; init; }
+
+    /// <summary>发送时间，Unix 毫秒。</summary>
+    public long DateSent { get; init; }
 }

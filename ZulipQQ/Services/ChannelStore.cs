@@ -63,6 +63,21 @@ public sealed class ChannelStore(ZulipSession session)
 
     public IEnumerable<Channel> All => _channels.Values;
 
+    /// <summary>消息、会话标题中显示的频道名：有本地备注时只显示备注。频道不存在时为空。</summary>
+    public string DisplayName(long streamId) =>
+        session.Contacts.GetChannelRemark(streamId) ?? Get(streamId)?.Name ?? "";
+
+    /// <summary>联系人页、群消息设置等管理用列表中的频道名：“备注(频道名)”，没有备注时为频道名。</summary>
+    public string NameWithOriginal(long streamId) =>
+        RemarkFormat.WithOriginal(session.Contacts.GetChannelRemark(streamId), Get(streamId)?.Name ?? "");
+
+    /// <summary>设置频道备注（只保存在本地）；空白视为清除。变化时触发 <see cref="ChannelChanged"/>，显示频道名的界面随之刷新。</summary>
+    public void SetRemark(long streamId, string? remark)
+    {
+        if (session.Contacts.SetChannelRemark(streamId, remark))
+            ChannelChanged?.Invoke(this, streamId);
+    }
+
     /// <summary>已订阅的频道：按名称（中文区域规则）排序。频道不能置顶（只有话题可以置顶），忽略 Zulip 的 pin_to_top。</summary>
     public IEnumerable<Channel> Subscribed() =>
         _channels.Values.Where(c => c.IsSubscribed)

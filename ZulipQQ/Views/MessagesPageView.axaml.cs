@@ -108,11 +108,10 @@ public partial class MessagesPageView : UserControl
             }
             else
             {
-                var silent = ConversationMenus.Item("消息免打扰",
-                    () => vm.SetLevel(item, item.Level == DndLevel.Notify ? DndLevel.Silent : DndLevel.Notify));
-                silent.ToggleType = MenuItemToggleType.CheckBox;
-                silent.IsChecked = item.Level != DndLevel.Notify;
-                menu.Items.Add(silent);
+                // 仿 QQ：普通菜单项（带图标），文字随状态切换
+                var notify = item.Level == DndLevel.Notify;
+                menu.Items.Add(ConversationMenus.Item(notify ? "设置免打扰" : "取消免打扰",
+                    () => vm.SetLevel(item, notify ? DndLevel.Silent : DndLevel.Notify)));
             }
             menu.Items.Add(new Separator());
             // 已经总是在独立窗口中打开时不需要这一项

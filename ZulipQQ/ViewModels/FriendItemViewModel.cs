@@ -26,7 +26,8 @@ public partial class FriendItemViewModel(long userId) : ViewModelBase
 
     public void Update(Friend friend, PresenceState presence, string? statusText)
     {
-        DisplayName = friend.DisplayName;
+        // 联系人页同时显示备注和昵称，便于对照
+        DisplayName = friend.NameWithOriginal;
         AvatarUrl = friend.User.AvatarUrl;
         IsOnline = presence == PresenceState.Online;
         var state = presence switch

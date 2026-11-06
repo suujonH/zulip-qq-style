@@ -25,7 +25,7 @@ internal static class ConversationMenus
     /// <summary>“群消息设置 ▸”：四个级别的单选项，当前级别打勾。</summary>
     public static MenuItem LevelSubmenu(DndLevel current, Action<DndLevel> set)
     {
-        var levels = new MenuItem { Header = "群消息设置" };
+        var levels = new MenuItem { Header = "消息设置" };
         foreach (var level in LevelOption.All)
         {
             var option = Item(level.Text, () => set(level.Level));
@@ -42,7 +42,7 @@ internal static class ConversationMenus
 
     /// <summary>
     /// “更多设置 ▸”：标为未读（<paramref name="markUnread"/> 不为 null 时）、复制链接，
-    /// 以及有权限的移动到其他分组、标记已解决、删除（红色）、重命名话题。
+    /// 以及有权限的移动到其他分组（当前频道打勾）、标记已解决、删除（红色）、重命名话题。
     /// </summary>
     public static MenuItem MoreSubmenu(MainViewModel main, TopicKey key, Visual anchor, Action? markUnread = null)
     {
@@ -53,9 +53,22 @@ internal static class ConversationMenus
         more.Items.Add(CopyLinkItem(main, key, anchor));
         if (topics.CanMove(key) && topics.MoveTargets(key).ToList() is { Count: > 0 } targets)
         {
+            // 当前所在的频道也列出（按订阅的顺序），打勾，点击不移动
             var move = new MenuItem { Header = "移动到其他分组" };
-            foreach (var channel in targets)
-                move.Items.Add(Item($"#{channel.Name}", () => _ = topics.MoveAsync(key, channel)));
+            foreach (var channel in main.Session.Channels.Subscribed())
+            {
+                var isCurrent = channel.StreamId == key.StreamId;
+                if (!isCurrent && !targets.Contains(channel))
+                    continue;
+                var option = Item($"#{channel.Name}", () =>
+                {
+                    if (!isCurrent)
+                        _ = topics.MoveAsync(key, channel);
+                });
+                option.ToggleType = MenuItemToggleType.Radio;
+                option.IsChecked = isCurrent;
+                move.Items.Add(option);
+            }
             more.Items.Add(move);
         }
         if (topics.CanResolve(key))

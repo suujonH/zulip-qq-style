@@ -20,6 +20,9 @@ public sealed class ZulipUser
     public bool IsBot { get; set; }
     public int? BotType { get; set; }
 
+    /// <summary>机器人的所有者；不是机器人或跨组织机器人为 null。自己的机器人发的消息自己可以删除。</summary>
+    public long? BotOwnerId { get; set; }
+
     /// <summary>100 所有者 / 200 管理员 / 300 版主 / 400 成员 / 600 访客。</summary>
     public int Role { get; set; } = 400;
 
@@ -36,6 +39,7 @@ public sealed class ZulipUser
         AvatarUrl = dto.AvatarUrl,
         IsBot = dto.IsBot,
         BotType = dto.BotType,
+        BotOwnerId = dto.BotOwnerId,
         Role = dto.Role,
         IsActive = isActive,
         Timezone = dto.Timezone,
@@ -69,6 +73,9 @@ public sealed class ZulipUser
                     break;
                 case "is_active":
                     IsActive = p.Value.GetBoolean();
+                    break;
+                case "bot_owner_id":
+                    BotOwnerId = p.Value.ValueKind == JsonValueKind.Number ? p.Value.GetInt64() : null;
                     break;
                 case "custom_profile_field":
                     ApplyProfileField(p.Value);

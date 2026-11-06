@@ -60,7 +60,7 @@ public partial class ContactsPageView : UserControl
     private static bool IsOnButton(RoutedEventArgs e) =>
         (e.Source as Visual)?.FindAncestorOfType<Button>(includeSelf: true) is not null;
 
-    /// <summary>分组标题和条目的右键菜单。</summary>
+    /// <summary>分组标题和话题的右键菜单（好友没有右键菜单：双击或右侧的“发消息”进入聊天）。</summary>
     private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         if (Vm is not { } vm || Main is not { } main || e.Source is not Visual source)
@@ -74,7 +74,6 @@ public partial class ContactsPageView : UserControl
             anchor = row;
             menu = row.DataContext switch
             {
-                FriendItemViewModel friend => FriendMenu(vm, friend),
                 TopicItemViewModel topic => TopicMenu(main, vm, topic.Key, row),
                 _ => null,
             };
@@ -92,20 +91,8 @@ public partial class ContactsPageView : UserControl
         menu.Open(anchor);
     }
 
-    // 好友：发消息、置顶（只影响联系人页的“置顶好友”，与消息列表的置顶无关）
-    private static ContextMenu FriendMenu(ContactsPageViewModel vm, FriendItemViewModel friend)
-    {
-        var contacts = vm.Session.Contacts;
-        var id = friend.UserId;
-        var pinned = contacts.IsFriendPinned(id);
-        var menu = new ContextMenu();
-        menu.Items.Add(ConversationMenus.Item("发消息", () => vm.Open(friend)));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ConversationMenus.Item(pinned ? "取消置顶" : "设为置顶", () => contacts.SetFriendPinned(id, !pinned)));
-        return menu;
-    }
-
-    // 话题：发消息、置顶（联系人页自己的置顶，与消息列表的置顶无关）、群消息设置，以及“更多设置”（复制链接与有权限的话题管理操作）
+    // 话题：发消息、置顶（联系人页自己的置顶，与消息列表的置顶无关）、群消息设置，以及“更多设置”（复制链接与有权限的话题管理操作）。
+    // 备注在右侧的话题资料中设置
     private static ContextMenu TopicMenu(MainViewModel main, ContactsPageViewModel vm, TopicKey key, Visual anchor)
     {
         var session = main.Session;
@@ -113,7 +100,7 @@ public partial class ContactsPageView : UserControl
         menu.Items.Add(ConversationMenus.Item("发消息", () => _ = main.OpenChatAsync(key)));
         menu.Items.Add(new Separator());
         var pinned = session.Contacts.IsTopicPinned(key);
-        menu.Items.Add(ConversationMenus.Item(pinned ? "取消置顶" : "设为置顶", () =>
+        menu.Items.Add(ConversationMenus.Item(pinned ? "取消置顶" : "置顶", () =>
         {
             // 保存话题名（不加入消息列表），之后话题列表未加载时“置顶群聊”也能显示原来的大小写
             if (!pinned)
@@ -149,6 +136,7 @@ public partial class ContactsPageView : UserControl
                     colors.Items.Add(item);
                 }
                 menu.Items.Add(colors);
+                menu.Items.Add(ConversationMenus.Item("备注", () => vm.ShowChannelRemarkDialog(id)));
                 menu.Items.Add(new Separator());
                 menu.Items.Add(ConversationMenus.Item("复制频道链接", () => _ = ConversationMenus.CopyAsync(anchor,
                     ZulipLinks.ChannelLink(main.Session.Client.RealmUrl, id, channel.Name), main)));

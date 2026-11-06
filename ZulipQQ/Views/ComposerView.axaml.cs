@@ -26,6 +26,9 @@ public partial class ComposerView : UserControl
     // Flyout 不在名称范围中，不能用 x:Name 取得
     private Flyout EmojiFlyout => (Flyout)EmojiButton.Flyout!;
 
+    // 光标所在的编辑器：表格的单元格，或者输入框本身。格式、粘贴、补全都作用于它
+    private MarkdownEditor Editor => InputBox.FocusedEditor;
+
     public ComposerView()
     {
         InitializeComponent();
@@ -42,6 +45,7 @@ public partial class ComposerView : UserControl
             UpdateFormatBar();
         };
         InputBox.PreeditChanged += (_, _) => UpdatePlaceholder();
+        InputBox.QuoteJumpRequested += (_, id) => _ = _vm?.Chat.JumpToMessageAsync(id);
         InputBox.LostFocus += (_, _) =>
         {
             _vm?.Mentions.Close();
@@ -69,11 +73,11 @@ public partial class ComposerView : UserControl
         };
         foreach (var button in FormatBar.Children.OfType<Button>())
             button.Click += OnFormatClick;
-        ParagraphButton.Click += (_, _) => OpenToolMenu(ParagraphButton, ParagraphMenu(enabled: true, fromToolbar: true));
+        ParagraphButton.Click += (_, _) => OpenToolMenu(ParagraphButton, ParagraphMenu());
         InsertButton.Click += (_, _) =>
         {
             if (_vm is { } vm)
-                OpenToolMenu(InsertButton, InsertMenu(vm, fromToolbar: true));
+                OpenToolMenu(InsertButton, InsertMenu(vm));
         };
     }
 
@@ -107,6 +111,7 @@ public partial class ComposerView : UserControl
             _vm.TextReset += OnTextReset;
             var session = _vm.Chat.Session;
             InputBox.EmojiLookup = name => session.Emoji.Catalog.TryGet(name);
+            InputBox.RenderHtml = session.Chat.RenderAsync;
             InputBox.Resolver = new ZulipMarkdownResolver(session);
             // 绑定把草稿放进输入框后再清空撤销记录
             Dispatcher.UIThread.Post(InputBox.ResetHistory);
@@ -132,24 +137,26 @@ public partial class ComposerView : UserControl
     // 插入到光标处（输入框失去焦点后仍记得光标位置），前后不是空白时加空格（多行内容结尾补一个换行），然后把焦点移回输入框
     private void OnInsertRequested(object? sender, string markdown)
     {
-        var text = InputBox.Text;
-        var start = Math.Clamp(InputBox.SelectionStart, 0, text.Length);
-        var end = Math.Clamp(InputBox.SelectionEnd, start, text.Length);
+        var editor = Editor;
+        var text = editor.Text;
+        var start = Math.Clamp(editor.SelectionStart, 0, text.Length);
+        var end = Math.Clamp(editor.SelectionEnd, start, text.Length);
         var before = start > 0 && !char.IsWhiteSpace(text[start - 1]) ? " " : "";
         var block = MarkdownFormat.WithTrailingLine(markdown);
         var after = block != markdown || (end < text.Length && char.IsWhiteSpace(text[end])) ? "" : " ";
-        InputBox.Replace(start, end, before + block + after);
-        Dispatcher.UIThread.Post(() => InputBox.TextArea.Focus());
+        editor.Replace(start, end, before + block + after);
+        Dispatcher.UIThread.Post(() => editor.TextArea.Focus());
     }
 
     // 作为独立的段落插入到光标处（前后补足空行，见 MarkdownFormat.PadBlock），然后把焦点移回输入框
     private void OnInsertBlockRequested(object? sender, string markdown)
     {
-        var text = InputBox.Text;
-        var start = Math.Clamp(InputBox.SelectionStart, 0, text.Length);
-        var end = Math.Clamp(InputBox.SelectionEnd, start, text.Length);
-        InputBox.Replace(start, end, MarkdownFormat.PadBlock(text, start, end, markdown));
-        Dispatcher.UIThread.Post(() => InputBox.TextArea.Focus());
+        var editor = Editor;
+        var text = editor.Text;
+        var start = Math.Clamp(editor.SelectionStart, 0, text.Length);
+        var end = Math.Clamp(editor.SelectionEnd, start, text.Length);
+        editor.Replace(start, end, MarkdownFormat.PadBlock(text, start, end, markdown));
+        Dispatcher.UIThread.Post(() => editor.TextArea.Focus());
     }
 
     // 文字或光标变化时更新 @ 补全与代码块语言补全
@@ -157,14 +164,16 @@ public partial class ComposerView : UserControl
     {
         if (_vm is null || !InputBox.IsKeyboardFocusWithin)
             return;
-        _vm.Mentions.Update(InputBox.MaskedText, InputBox.CaretIndex);
-        _vm.Languages.Update(InputBox.Text, InputBox.CaretIndex, InputBox.Model);
+        _vm.Mentions.Update(Editor.MaskedText, Editor.CaretIndex);
+        _vm.Languages.Update(Editor.Text, Editor.CaretIndex, Editor.Model);
     }
 
     // 处理完后用 Post 执行命令：发送会清空文字，不能在同一次按键事件中修改 TextBox
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
         if (_vm is null)
+            return;
+        if (InputBox.HandleTableKey(e))
             return;
         var languages = _vm.Languages;
         if (languages.IsOpen)
@@ -214,6 +223,10 @@ public partial class ComposerView : UserControl
             }
         }
 
+        // 在补全列表之后：列表打开时上下键选择列表项
+        if (InputBox.HandleTableCaretKey(e))
+            return;
+
         if (e.Key == Key.V && e.KeyModifiers == KeyModifiers.Control)
         {
             e.Handled = true;
@@ -224,14 +237,14 @@ public partial class ComposerView : UserControl
         if (e.Key == Key.V && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift))
         {
             e.Handled = true;
-            InputBox.Paste();
+            Editor.Paste();
             return;
         }
         // 复制、剪切连同格式（编辑器自己的复制只有原文）
         if (e.Key is Key.C or Key.X && e.KeyModifiers == KeyModifiers.Control)
         {
             e.Handled = true;
-            _ = InputBox.CopyAsync(cut: e.Key == Key.X);
+            _ = Editor.CopyAsync(cut: e.Key == Key.X);
             return;
         }
         if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && _vm.IsEditingMessage)
@@ -240,13 +253,14 @@ public partial class ComposerView : UserControl
             Dispatcher.UIThread.Post(() => _vm?.CancelEditCommand.Execute(null));
             return;
         }
-        if (FormatShortcut(e) is { } format)
+        // 源码模式下直接写 Markdown，格式快捷键不起作用（与收起的格式按钮一致）
+        if (!InputBox.IsSourceMode && FormatShortcut(e) is { } format)
         {
             e.Handled = true;
-            InputBox.ApplyFormat(format);
+            Editor.ApplyFormat(format);
             return;
         }
-        if (HeadingShortcut(e) is { } level)
+        if (!InputBox.IsSourceMode && InputBox.ActiveCell is null && HeadingShortcut(e) is { } level)
         {
             e.Handled = true;
             InputBox.SetHeading(level);
@@ -310,17 +324,21 @@ public partial class ComposerView : UserControl
 
     private void Format(MarkdownFormatKind kind)
     {
-        InputBox.ApplyFormat(kind);
-        InputBox.TextArea.Focus();
+        var editor = Editor;
+        editor.ApplyFormat(kind);
+        editor.TextArea.Focus();
     }
 
-    // 光标处已有的格式显示为按下
+    // 光标处已有的格式显示为按下；单元格中只能用行内格式
     private void UpdateFormatBar()
     {
         foreach (var button in FormatBar.Children.OfType<Button>())
         {
-            if (button.Tag is string tag && Enum.TryParse<MarkdownFormatKind>(tag, out var kind))
-                button.Classes.Set("active", InputBox.IsFormatActive(kind));
+            if (button.Tag is not string tag || !Enum.TryParse<MarkdownFormatKind>(tag, out var kind))
+                continue;
+            button.Classes.Set("active", Editor.IsFormatActive(kind));
+            button.IsEnabled = InputBox.ActiveCell is null
+                               || kind is not (MarkdownFormatKind.Quote or MarkdownFormatKind.NumberedList or MarkdownFormatKind.BulletedList);
         }
     }
 
@@ -329,8 +347,8 @@ public partial class ComposerView : UserControl
         if (_vm is not { } vm)
             return;
         if (await DateTimeDialogViewModel.ShowAsync(vm.Chat.Host, "插入时间", "插入") is { } at)
-            InputBox.InsertTime(new DateTimeOffset(at));
-        InputBox.TextArea.Focus();
+            Editor.InsertTime(new DateTimeOffset(at));
+        Editor.TextArea.Focus();
     }
 
     private void OnLanguageClicked(object? sender, PointerReleasedEventArgs e)
@@ -341,10 +359,11 @@ public partial class ComposerView : UserControl
 
     private void AcceptLanguage(string? language)
     {
-        if (_vm?.Languages.Accept(InputBox.Text, InputBox.CaretIndex, InputBox.Model, language) is not { } edit)
+        var editor = Editor;
+        if (_vm?.Languages.Accept(editor.Text, editor.CaretIndex, editor.Model, language) is not { } edit)
             return;
-        InputBox.ApplyEdit(edit);
-        InputBox.TextArea.Focus();
+        editor.ApplyEdit(edit);
+        editor.TextArea.Focus();
     }
 
     private void OnMentionClicked(object? sender, PointerReleasedEventArgs e)
@@ -355,10 +374,11 @@ public partial class ComposerView : UserControl
 
     private void AcceptMention(MentionCandidate? candidate)
     {
-        if (_vm?.Mentions.Accept(InputBox.CaretIndex, candidate) is not { } result)
+        var editor = Editor;
+        if (_vm?.Mentions.Accept(editor.CaretIndex, candidate) is not { } result)
             return;
-        InputBox.Replace(result.Start, InputBox.CaretIndex, result.Insertion);
-        InputBox.TextArea.Focus();
+        editor.Replace(result.Start, editor.CaretIndex, result.Insertion);
+        editor.TextArea.Focus();
     }
 
     // 粘贴顺序：本程序复制的 Markdown（连同格式）> 文件（资源管理器中复制的）> 位图（截图）> 文字。
@@ -367,15 +387,16 @@ public partial class ComposerView : UserControl
     {
         if (_vm is null || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
             return;
-        var start = InputBox.SelectionStart;
-        var end = InputBox.SelectionEnd;
-        var selected = InputBox.SelectedText;
+        var editor = Editor;
+        var start = editor.SelectionStart;
+        var end = editor.SelectionEnd;
+        var selected = editor.SelectedText;
         try
         {
             if (await MarkdownClipboard.TryGetMarkdownAsync(clipboard) is { Length: > 0 } markdown)
             {
                 if (_vm.CanEdit)
-                    InputBox.InsertBlock(markdown);
+                    editor.InsertBlock(markdown);
                 return;
             }
             if (await clipboard.TryGetFilesAsync() is { Length: > 0 } files)
@@ -391,9 +412,9 @@ public partial class ComposerView : UserControl
             if (selected.Length > 0 && !selected.Contains('\n')
                 && (await clipboard.TryGetTextAsync())?.Trim() is { Length: > 0 } url && !url.Contains('\n')
                 && Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
-                && InputBox.SelectionStart == start && InputBox.SelectionEnd == end)
+                && editor.SelectionStart == start && editor.SelectionEnd == end)
             {
-                InputBox.Replace(start, end, $"[{selected}]({url})");
+                editor.Replace(start, end, $"[{selected}]({url})");
                 return;
             }
         }
@@ -401,24 +422,22 @@ public partial class ComposerView : UserControl
         {
             Log.Warn("读取剪贴板失败", ex);
         }
-        InputBox.Paste();
+        editor.Paste();
     }
 
-    /// <summary>输入框右键菜单：剪切、复制、粘贴、全选，“段落 ▸”“插入 ▸”，以及“常用语 ▸”（插入、新建、删除）。</summary>
+    /// <summary>输入框右键菜单：剪切、复制、粘贴、全选，以及“常用语 ▸”（插入、新建、删除）。段落、插入在工具栏上。</summary>
     private void OnInputContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         if (_vm is not { } vm)
             return;
         e.Handled = true;
-        var hasText = InputBox.Text.Length > 0;
+        var editor = Editor;
+        var hasText = editor.Text.Length > 0;
         var menu = new ContextMenu();
-        menu.Items.Add(MenuItem("剪切", () => _ = InputBox.CopyAsync(cut: true), InputBox.CanCut));
-        menu.Items.Add(MenuItem("复制", () => _ = InputBox.CopyAsync(cut: false), InputBox.CanCopy));
+        menu.Items.Add(MenuItem("剪切", () => _ = editor.CopyAsync(cut: true), editor.CanCut));
+        menu.Items.Add(MenuItem("复制", () => _ = editor.CopyAsync(cut: false), editor.CanCopy));
         menu.Items.Add(MenuItem("粘贴", PasteAsync, vm.CanEdit));
-        menu.Items.Add(MenuItem("全选", () => InputBox.SelectAll(), hasText));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(ParagraphMenu(vm.CanEdit));
-        menu.Items.Add(InsertMenu(vm));
+        menu.Items.Add(MenuItem("全选", () => editor.SelectAll(), hasText));
         menu.Items.Add(new Separator());
 
         var snippets = new MenuItem { Header = "常用语" };
@@ -426,8 +445,8 @@ public partial class ComposerView : UserControl
         {
             var item = MenuItem(snippet.Title, () =>
             {
-                InputBox.InsertBlock(snippet.Content);
-                InputBox.TextArea.Focus();
+                Editor.InsertBlock(snippet.Content);
+                Editor.TextArea.Focus();
             }, vm.CanEdit);
             ToolTip.SetTip(item, snippet.Content);
             snippets.Items.Add(item);
@@ -453,24 +472,16 @@ public partial class ComposerView : UserControl
         return item;
     }
 
-    // 段落 ▸：标题级别（光标所在行的级别打勾）、列表、引用。
-    // 从工具栏打开时不重复工具栏上已有的按钮（无序列表、引用）
-    private MenuItem ParagraphMenu(bool enabled, bool fromToolbar = false)
+    // 工具栏“段落”：标题级别（光标所在行的级别打勾）。不重复工具栏上已有的按钮（有序列表、无序列表、引用）
+    private MenuItem ParagraphMenu()
     {
-        var menu = new MenuItem { Header = "段落", IsEnabled = enabled };
+        var menu = new MenuItem { Header = "段落" };
         var current = InputBox.HeadingLevel;
         string[] names = ["一级标题", "二级标题", "三级标题", "四级标题", "五级标题", "六级标题"];
         for (var level = 1; level <= 6; level++)
             menu.Items.Add(HeadingItem(names[level - 1], level, current));
         menu.Items.Add(new Separator());
         menu.Items.Add(HeadingItem("段落", 0, current));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(FormatItem("有序列表", MarkdownFormatKind.NumberedList));
-        if (!fromToolbar)
-        {
-            menu.Items.Add(FormatItem("无序列表", MarkdownFormatKind.BulletedList));
-            menu.Items.Add(FormatItem("引用", MarkdownFormatKind.Quote));
-        }
         return menu;
     }
 
@@ -480,7 +491,7 @@ public partial class ComposerView : UserControl
         {
             InputBox.SetHeading(level);
             InputBox.TextArea.Focus();
-        }, true);
+        }, InputBox.ActiveCell is null);
         item.ToggleType = MenuItemToggleType.CheckBox;
         item.IsChecked = level == current;
         item.InputGesture = new KeyGesture(Key.D0 + level, KeyModifiers.Control);
@@ -489,40 +500,55 @@ public partial class ComposerView : UserControl
 
     private MenuItem FormatItem(string header, MarkdownFormatKind kind)
     {
-        var item = MenuItem(header, () => Format(kind), true);
+        var item = MenuItem(header, () => Format(kind), InputBox.ActiveCell is null);
         item.ToggleType = MenuItemToggleType.CheckBox;
-        item.IsChecked = InputBox.IsFormatActive(kind);
+        item.IsChecked = Editor.IsFormatActive(kind);
         return item;
     }
 
-    // 插入 ▸：块、图片 / 链接 / 时间、分隔线 / 表格、不在工具栏中的行内格式。
-    // 从工具栏打开时不重复工具栏上已有的按钮（代码、图片、链接）
-    private MenuItem InsertMenu(ComposerViewModel vm, bool fromToolbar = false)
+    // 工具栏“插入”：块、时间、分隔线 / 表格、不在工具栏中的行内格式。不重复工具栏上已有的按钮（代码、图片、链接）。
+    // 光标在表格中时都不能用，只能在表格的上方、下方插入段落（表格占满了宽度，不方便把光标放到外面）
+    private MenuItem InsertMenu(ComposerViewModel vm)
     {
+        var outside = InputBox.ActiveCell is null;
         var menu = new MenuItem { Header = "插入", IsEnabled = vm.CanEdit };
-        if (!fromToolbar)
-            menu.Items.Add(MenuItem("代码块", () => Format(MarkdownFormatKind.CodeBlock), true));
-        menu.Items.Add(MenuItem("公式块", () => Format(MarkdownFormatKind.MathBlock), true));
-        menu.Items.Add(MenuItem("引用块", () => Format(MarkdownFormatKind.QuoteBlock), true));
-        menu.Items.Add(MenuItem("折叠", () => Format(MarkdownFormatKind.Spoiler), true));
+        menu.Items.Add(MenuItem("上方插入段落", () => InputBox.InsertParagraphBesideTable(above: true), !outside));
+        menu.Items.Add(MenuItem("下方插入段落", () => InputBox.InsertParagraphBesideTable(above: false), !outside));
         menu.Items.Add(new Separator());
-        if (!fromToolbar)
-        {
-            menu.Items.Add(MenuItem("图片…", async () =>
-            {
-                if (TopLevel.GetTopLevel(this) is { } top)
-                    await vm.PickImagesAsync(top);
-            }, true));
-            menu.Items.Add(MenuItem("链接", () => Format(MarkdownFormatKind.Link), true));
-        }
-        menu.Items.Add(MenuItem("全局时间…", InsertTimeAsync, true));
+        menu.Items.Add(MenuItem("公式块", () => Format(MarkdownFormatKind.MathBlock), outside));
+        menu.Items.Add(MenuItem("引用块", () => Format(MarkdownFormatKind.QuoteBlock), outside));
+        menu.Items.Add(MenuItem("折叠", () => Format(MarkdownFormatKind.Spoiler), outside));
         menu.Items.Add(new Separator());
-        menu.Items.Add(MenuItem("分隔线", () => Format(MarkdownFormatKind.Rule), true));
-        menu.Items.Add(MenuItem("表格", () => Format(MarkdownFormatKind.Table), true));
+        menu.Items.Add(MenuItem("全局时间…", InsertTimeAsync, outside));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(MenuItem("分隔线", () => Format(MarkdownFormatKind.Rule), outside));
+        menu.Items.Add(MenuItem("表格…", InsertTable, outside));
+        menu.Items.Add(MenuItem("任务列表", InsertTodo, outside));
         menu.Items.Add(new Separator());
         menu.Items.Add(FormatItem("删除线", MarkdownFormatKind.Strikethrough));
         menu.Items.Add(FormatItem("行内公式", MarkdownFormatKind.Math));
         return menu;
+    }
+
+    // 弹出窗口填写行列数，确定后插入
+    private void InsertTable() => _vm?.ShowInsertTableDialog((columns, rows) =>
+    {
+        InputBox.InsertTable(columns, rows);
+        InputBox.Focus();
+    });
+
+    // 任务列表（Zulip 的 /todo 待办）：整条消息以 “/todo 标题” 开头才会成为待办，所以加在最前面，
+    // 下面每一行是一个任务（“任务: 说明”，原有的文字也各成一个任务）；光标停在标题处。已经是待办时光标移到标题末尾
+    private const string TodoPrefix = "/todo ";
+
+    private void InsertTodo()
+    {
+        var text = InputBox.Text;
+        if (!text.StartsWith(TodoPrefix.TrimEnd(), StringComparison.Ordinal))
+            InputBox.ApplyEdit(new MarkdownEdit(0, 0, TodoPrefix + "\n", TodoPrefix.Length, TodoPrefix.Length));
+        else
+            InputBox.CaretIndex = text.IndexOf('\n') is var end and >= 0 ? end : text.Length;
+        InputBox.TextArea.Focus();
     }
 
     private void OnEmojiFlyoutOpening(object? sender, EventArgs e)
@@ -534,11 +560,11 @@ public partial class ComposerView : UserControl
         {
             EmojiFlyout.Hide();
             InsertText($":{emoji.Name}: ");
-            InputBox.TextArea.Focus();
+            Editor.TextArea.Focus();
         };
         EmojiFlyout.Content = new EmojiPickerView { DataContext = picker };
     }
 
     /// <summary>在光标处插入 Markdown（替换选中部分）。</summary>
-    private void InsertText(string s) => InputBox.Insert(s);
+    private void InsertText(string s) => Editor.Insert(s);
 }

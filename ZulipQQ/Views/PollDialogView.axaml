@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.PollDialogView"
+             x:DataType="vm:PollDialogViewModel">
+
+    <Border Classes="dialog" Width="360">
+        <StackPanel>
+            <Grid Height="30">
+                <TextBlock Text="发起投票" FontSize="{DynamicResource FontSizeSmall}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Button Theme="{StaticResource FlatButton}" Width="30" Height="30" CornerRadius="0,8,0,0"
+                        HorizontalAlignment="Right" Command="{Binding CancelCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                </Button>
+            </Grid>
+            <Border Height="1" Background="{DynamicResource DividerBrush}" />
+
+            <StackPanel Margin="20,14,20,20" Spacing="8">
+                <TextBlock Classes="sub" Text="问题" FontSize="{DynamicResource FontSizeSmall}" />
+                <TextBox x:Name="QuestionBox" Classes="input" PlaceholderText="输入投票的问题" Text="{Binding Question}" />
+
+                <TextBlock Classes="sub" Text="选项" FontSize="{DynamicResource FontSizeSmall}" Margin="0,6,0,0" />
+                <ScrollViewer MaxHeight="240" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Options}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="6" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PollOptionItem">
+                                <TextBox Classes="input" PlaceholderText="输入选项" Text="{Binding Text}">
+                                    <TextBox.InnerRightContent>
+                                        <Button Theme="{StaticResource FlatButton}" Background="Transparent" Width="24" Height="24"
+                                                Margin="0,0,4,0" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip.Tip="删除选项"
+                                                Command="{Binding RemoveCommand}" IsVisible="{Binding CanRemove}">
+                                            <c:TdIcon Icon="{StaticResource Icon.Close}" Width="14" Height="14" />
+                                        </Button>
+                                    </TextBox.InnerRightContent>
+                                </TextBox>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                <Button Theme="{StaticResource FlatButton}" HorizontalAlignment="Left" Padding="6,4"
+                        Command="{Binding AddOptionCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <c:TdIcon Icon="{StaticResource Icon.Add}" Width="14" Height="14" Foreground="{DynamicResource BrandBrush}" />
+                        <TextBlock Text="添加选项" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource BrandBrush}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+                    <Button Classes="primary" Theme="{StaticResource FlatButton}" Content="发送"
+                            Command="{Binding ConfirmCommand}" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                            Command="{Binding CancelCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

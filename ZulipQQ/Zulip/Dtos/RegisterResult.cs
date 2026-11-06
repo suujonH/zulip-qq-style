@@ -62,6 +62,9 @@ public sealed record RegisterResult
     public int MaxMessageLength { get; init; } = 10000;
     public int MaxTopicLength { get; init; } = 60;
     public int MaxFileUploadSizeMib { get; init; } = 25;
+
+    /// <summary>组织的上传存储空间配额（MiB）；null 为不限。</summary>
+    public long? RealmUploadQuotaMib { get; init; }
     public string RealmEmptyTopicDisplayName { get; init; } = "";
     public JsonElement ServerSupportedPermissionSettings { get; init; }
 
@@ -79,6 +82,9 @@ public sealed record RegisterResult
 
     /// <summary>编辑时限（秒）；null 表示不限。</summary>
     public int? RealmMessageContentEditLimitSeconds { get; init; }
+
+    /// <summary>删除自己消息的时限（秒）；null 表示不限。</summary>
+    public int? RealmMessageContentDeleteLimitSeconds { get; init; }
 
     public bool RealmEnableReadReceipts { get; init; }
     public int? RealmMoveMessagesBetweenStreamsLimitSeconds { get; init; }

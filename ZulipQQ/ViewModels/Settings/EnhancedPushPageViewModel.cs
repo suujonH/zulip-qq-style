@@ -144,7 +144,7 @@ public sealed partial class PushTopicRowViewModel : ObservableObject
     /// <summary>重新读取话题状态与推送效果（不提交）。</summary>
     public void Refresh()
     {
-        Title = _session.Conversations.GetTitle(new TopicKey(StreamId, TopicName));
+        Title = _session.Conversations.GetTopicTitleWithOriginal(new TopicKey(StreamId, TopicName));
         ApplyLocal(_session.Channels.TopicPolicy(StreamId, TopicName));
     }
 
@@ -265,7 +265,7 @@ public sealed partial class PushChannelGroupViewModel : ObservableObject
             return;
         var z = _session.Settings.Zulip;
         _updating = true;
-        Name = channel.Name;
+        Name = _session.Channels.NameWithOriginal(StreamId);
         Fill = ConversationItemViewModel.BrushOf(channel.Color);
         CanEdit = !channel.IsArchived;
         IsMuted = channel.IsMuted;
@@ -395,6 +395,8 @@ public sealed partial class EnhancedPushPageViewModel : SettingsPageViewModel
         Session.Channels.TopicsChanged += OnTopicsChanged;
         Session.Channels.Reset += OnReset;
         Session.PermissionsChanged += OnRealmChanged;
+        // 话题备注变化时更新话题名
+        Session.Conversations.EntryChanged += OnEntryChanged;
     }
 
     private UserSettingsDto Z => Session.Settings.Zulip;
@@ -565,6 +567,7 @@ public sealed partial class EnhancedPushPageViewModel : SettingsPageViewModel
         Session.Channels.TopicsChanged -= OnTopicsChanged;
         Session.Channels.Reset -= OnReset;
         Session.PermissionsChanged -= OnRealmChanged;
+        Session.Conversations.EntryChanged -= OnEntryChanged;
     }
 
     private static PushRules PushRulesOf(UserSettingsDto z) => new(z.EnableOfflinePushNotifications, z.EnableStreamPushNotifications,
@@ -632,6 +635,12 @@ public sealed partial class EnhancedPushPageViewModel : SettingsPageViewModel
     }
 
     private void OnTopicsChanged(object? sender, long streamId) => Find(streamId)?.OnTopicsChanged();
+
+    private void OnEntryChanged(object? sender, ConversationKey key)
+    {
+        if (key is TopicKey t)
+            Find(t.StreamId)?.Topics.FirstOrDefault(r => key.Equals(new TopicKey(r.StreamId, r.TopicName)))?.Refresh();
+    }
 
     private void OnReset(object? sender, EventArgs e) => Build();
 }

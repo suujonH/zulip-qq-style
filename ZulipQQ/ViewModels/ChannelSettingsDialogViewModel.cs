@@ -95,7 +95,7 @@ public partial class ChannelSettingsDialogViewModel : ViewModelBase
         _streamId = channel.StreamId;
         _allowed = _session.Permissions.CanAdministerChannel(channel);
         _onClosed = onClosed;
-        Title = $"群资料设置 - #{channel.Name}";
+        Title = $"频道设置 - #{channel.Name}";
         Name = _originalName = channel.Name;
         Description = _originalDescription = channel.Description;
         IsPrivate = _originalPrivate = channel.InviteOnly;

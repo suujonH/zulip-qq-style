@@ -20,7 +20,8 @@
 
         <Border Classes="card" Padding="16,14">
             <Grid ColumnDefinitions="Auto,*,Auto">
-                <c:Avatar Width="56" Height="56" Source="{Binding AvatarUrl}" Text="{Binding FullName}" />
+                <c:Avatar Width="56" Height="56" Source="{Binding AvatarUrl}" Text="{Binding FullName}"
+                          Cursor="Hand" Tapped="OnAvatarTapped" />
                 <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center" Spacing="2">
                     <TextBlock Text="{Binding FullName}" FontSize="{DynamicResource FontSizeH2}" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" />
@@ -28,7 +29,7 @@
                     <c:SettingSource Margin="0,2,0,0" Zulip="avatar_url" />
                 </StackPanel>
                 <Button x:Name="AvatarButton" Grid.Column="2" Classes="secondary" Theme="{StaticResource FlatButton}"
-                        Content="更换头像" IsEnabled="{Binding !IsUploadingAvatar}" VerticalAlignment="Center" />
+                        Content="更换头像" IsEnabled="{Binding !IsChangingAvatar}" VerticalAlignment="Center" />
             </Grid>
         </Border>
 

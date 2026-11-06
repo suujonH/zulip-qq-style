@@ -1,10 +1,13 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using ZulipQQ.Services;
 using ZulipQQ.ViewModels;
+using ZulipQQ.ViewModels.Settings;
 
 namespace ZulipQQ.Views;
 
@@ -42,6 +45,33 @@ public partial class UserCardView : UserControl
         _vm = DataContext as UserCardViewModel;
         if (TopLevel.GetTopLevel(this) is not null)
             _vm?.Attach();
+    }
+
+    // 名片可能在弹出层中：取弹出层所属的窗口
+    private Window? OwnerWindow()
+    {
+        var top = TopLevel.GetTopLevel(this);
+        return top as Window ?? (top as PopupRoot)?.ParentTopLevel as Window;
+    }
+
+    // 编辑资料：设置 -> Zulip 账号 -> 名片所属的账号 -> 我
+    private void OnEditProfileClick(object? sender, RoutedEventArgs e)
+    {
+        if (_vm is not { } vm)
+            return;
+        var owner = OwnerWindow();
+        vm.DismissCard();
+        SettingsWindow.ShowAccountPage(owner, vm.Session, SettingsPage.Account);
+    }
+
+    // 查看头像（大图）
+    private void OnAvatarTapped(object? sender, TappedEventArgs e)
+    {
+        if (_vm is not { AvatarUrl.Length: > 0 } vm)
+            return;
+        var owner = OwnerWindow();
+        vm.DismissCard();
+        ImageViewerWindow.ShowAvatar(owner, vm.Session, vm.AvatarUrl!);
     }
 
     private async void OnCopyEmailClick(object? sender, RoutedEventArgs e)

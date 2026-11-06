@@ -10,7 +10,7 @@
         WindowStartupLocation="CenterOwner"
         WindowDecorations="BorderOnly"
         ExtendClientAreaToDecorationsHint="True"
-        Background="{DynamicResource WindowBackgroundBrush}">
+        Background="#1B1B1B">
 
     <Window.Styles>
         <!-- 底部工具栏的图标按钮 -->
@@ -47,57 +47,105 @@
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="30,*,52">
-        <!-- 图片区：铺满整个窗口，标题栏和工具栏叠在上面 -->
-        <c:ZoomImage x:Name="Image" Grid.RowSpan="3" Source="{Binding Bitmap}" />
-        <TextBlock Grid.Row="1" Text="加载中…" HorizontalAlignment="Center" VerticalAlignment="Center"
-                   Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsLoading}" />
-        <TextBlock Grid.Row="1" Text="图片加载失败" HorizontalAlignment="Center" VerticalAlignment="Center"
-                   Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsFailed}" />
+    <Grid>
+        <!-- 查看器本身固定为深色（标题栏、工具栏上的按钮为浅色）；对话框在外面，跟随主题 -->
+        <ThemeVariantScope RequestedThemeVariant="Dark">
+            <Grid RowDefinitions="30,*,52">
+                <!-- 图片区：标题栏与底部工具栏之间（不画到标题栏下面） -->
+                <c:ZoomImage x:Name="Image" Grid.Row="1" Source="{Binding Bitmap}">
+                    <!-- 右键菜单（仿 QQ 图片查看器）：深色半透明磨砂玻璃（见 GlassPopup），没有图标 -->
+                    <c:ZoomImage.ContextMenu>
+                        <ContextMenu x:Name="ImageMenu" Classes="noIcons" MinWidth="180" Padding="0,6">
+                            <ContextMenu.Resources>
+                                <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="#A61C1C1C" />
+                                <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush" Color="#33FFFFFF" />
+                                <SolidColorBrush x:Key="MenuFlyoutItemForeground" Color="White" />
+                                <SolidColorBrush x:Key="MenuFlyoutItemForegroundPointerOver" Color="White" />
+                                <SolidColorBrush x:Key="MenuFlyoutItemForegroundPressed" Color="White" />
+                                <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="#1FFFFFFF" />
+                                <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="#2EFFFFFF" />
+                                <SolidColorBrush x:Key="MenuFlyoutSeparatorBackground" Color="#26FFFFFF" />
+                                <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
+                            </ContextMenu.Resources>
+                            <MenuItem Header="使用系统图片查看器打开" Command="{Binding OpenExternalCommand}" />
+                            <Separator />
+                            <MenuItem x:Name="CopyMenuItem" Header="复制" Command="{Binding CopyCommand}" />
+                            <MenuItem Header="转发" Command="{Binding ForwardCommand}" />
+                            <MenuItem x:Name="SaveAsMenuItem" Header="另存为" Command="{Binding SaveAsCommand}" />
+                        </ContextMenu>
+                    </c:ZoomImage.ContextMenu>
+                </c:ZoomImage>
+                <TextBlock Grid.Row="1" Text="加载中…" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsLoading}" />
+                <TextBlock Grid.Row="1" Text="图片加载失败" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsFailed}" />
 
-        <Button Grid.Row="1" Classes="nav" HorizontalAlignment="Left" ToolTip.Tip="上一张（←）"
-                Command="{Binding PreviousCommand}" IsVisible="{Binding HasPrevious}">
-            <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" />
-        </Button>
-        <Button Grid.Row="1" Classes="nav" HorizontalAlignment="Right" ToolTip.Tip="下一张（→）"
-                Command="{Binding NextCommand}" IsVisible="{Binding HasNext}">
-            <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" />
-        </Button>
+                <Button Grid.Row="1" Classes="nav" HorizontalAlignment="Left" ToolTip.Tip="上一张（←）"
+                        Command="{Binding PreviousCommand}" IsVisible="{Binding HasPrevious}">
+                    <c:TdIcon Icon="{StaticResource Icon.ChevronLeft}" />
+                </Button>
+                <Button Grid.Row="1" Classes="nav" HorizontalAlignment="Right" ToolTip.Tip="下一张（→）"
+                        Command="{Binding NextCommand}" IsVisible="{Binding HasNext}">
+                    <c:TdIcon Icon="{StaticResource Icon.ChevronRight}" />
+                </Button>
 
-        <c:CaptionBar Grid.Row="0" Title="{Binding CounterText}" />
+                <!-- 标题栏与底部工具栏为黑色，图片区底色见 Window.Background -->
+                <Border Grid.Row="0" Background="#131313" />
+                <c:CaptionBar Grid.Row="0" />
 
-        <!-- 底部工具栏 -->
-        <Border Grid.Row="2" Background="{DynamicResource PanelBackgroundBrush}"
-                BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                <Button x:Name="ZoomOutButton" Classes="tool" ToolTip.Tip="缩小">
-                    <c:TdIcon Icon="{StaticResource Icon.ZoomOut}" />
-                </Button>
-                <TextBlock x:Name="ScaleText" Width="48" TextAlignment="Center" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeSub}"
-                           Foreground="{DynamicResource TextSecondaryBrush}" />
-                <Button x:Name="ZoomInButton" Classes="tool" ToolTip.Tip="放大">
-                    <c:TdIcon Icon="{StaticResource Icon.ZoomIn}" />
-                </Button>
-                <Button x:Name="ActualSizeButton" Classes="tool" ToolTip.Tip="原始大小" Content="1:1" FontSize="{DynamicResource FontSizeSmall}" />
-                <Button x:Name="FitButton" Classes="tool" ToolTip.Tip="适应窗口">
-                    <c:TdIcon Icon="{StaticResource Icon.Fullscreen}" />
-                </Button>
-                <Border Width="1" Height="20" Margin="8,0" Background="{DynamicResource DividerBrush}" />
-                <Button Classes="tool" ToolTip.Tip="另存为" Command="{Binding SaveAsCommand}"
-                        CommandParameter="{Binding $parent[Window]}">
-                    <c:TdIcon Icon="{StaticResource Icon.Download}" />
-                </Button>
-                <Button Classes="tool" ToolTip.Tip="复制" Command="{Binding CopyCommand}"
-                        CommandParameter="{Binding $parent[Window]}">
-                    <c:TdIcon Icon="{StaticResource Icon.Copy}" />
-                </Button>
-            </StackPanel>
-        </Border>
+                <!-- 底部工具栏 -->
+                <Border Grid.Row="2" Background="#111111">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                        <Button x:Name="ZoomOutButton" Classes="tool" ToolTip.Tip="缩小">
+                            <c:TdIcon Icon="{StaticResource Icon.ZoomOut}" />
+                        </Button>
+                        <TextBlock x:Name="ScaleText" Width="48" TextAlignment="Center" VerticalAlignment="Center" FontSize="{DynamicResource FontSizeSub}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <Button x:Name="ZoomInButton" Classes="tool" ToolTip.Tip="放大">
+                            <c:TdIcon Icon="{StaticResource Icon.ZoomIn}" />
+                        </Button>
+                        <Button x:Name="ActualSizeButton" Classes="tool" ToolTip.Tip="原始大小" Content="1:1" FontSize="{DynamicResource FontSizeSmall}" />
+                        <Border Width="1" Height="20" Margin="8,0" Background="{DynamicResource DividerBrush}" />
+                        <Button x:Name="RotateLeftButton" Classes="tool" ToolTip.Tip="向左旋转">
+                            <c:TdIcon Icon="{StaticResource Icon.RotateLeft}" />
+                        </Button>
+                        <Button Classes="tool" ToolTip.Tip="另存为" Command="{Binding SaveAsCommand}"
+                                CommandParameter="{Binding $parent[Window]}">
+                            <c:TdIcon Icon="{StaticResource Icon.Download}" />
+                        </Button>
+                        <Button Classes="tool" ToolTip.Tip="复制" Command="{Binding CopyCommand}"
+                                CommandParameter="{Binding $parent[Window]}">
+                            <c:TdIcon Icon="{StaticResource Icon.Copy}" />
+                        </Button>
+                        <Button Classes="tool" ToolTip.Tip="转发" Command="{Binding ForwardCommand}">
+                            <c:TdIcon Icon="{StaticResource Icon.Share}" />
+                        </Button>
+                        <Button Classes="tool" ToolTip.Tip="用系统图片查看器打开" Command="{Binding OpenExternalCommand}">
+                            <c:TdIcon Icon="{StaticResource Icon.OpenExternal}" />
+                        </Button>
+                    </StackPanel>
+                </Border>
 
-        <Border Grid.Row="1" Background="#CC000000" CornerRadius="6" Padding="16,8" HorizontalAlignment="Center"
-                VerticalAlignment="Top" Margin="0,16,0,0"
-                IsVisible="{Binding ToastText, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="{DynamicResource FontSizeSmall}" />
-        </Border>
+                <!-- 调整缩放后显示的比例：图片区中间，3 秒后淡出 -->
+                <Border x:Name="ZoomTip" Grid.Row="1" Background="#E61E1F22" BorderBrush="#33FFFFFF" BorderThickness="1"
+                        CornerRadius="14" Padding="26,12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        IsHitTestVisible="False" Opacity="0">
+                    <Border.Transitions>
+                        <Transitions>
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                        </Transitions>
+                    </Border.Transitions>
+                    <TextBlock x:Name="ZoomTipText" Foreground="White" FontSize="16" FontWeight="SemiBold" />
+                </Border>
+
+                <Border Grid.Row="1" Background="#CC000000" CornerRadius="6" Padding="16,8" HorizontalAlignment="Center"
+                        VerticalAlignment="Top" Margin="0,16,0,0"
+                        IsVisible="{Binding ToastText, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <TextBlock Text="{Binding ToastText}" Foreground="White" FontSize="{DynamicResource FontSizeSmall}" />
+                </Border>
+            </Grid>
+        </ThemeVariantScope>
+
+        <c:DialogLayer Dialogs="{Binding Dialogs}" />
     </Grid>
 </Window>

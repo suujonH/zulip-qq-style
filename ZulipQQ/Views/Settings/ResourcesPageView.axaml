@@ -1,0 +1,173 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels.Settings"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.Settings.ResourcesPageView"
+             x:DataType="vm:ResourcesPageViewModel">
+    <UserControl.Styles>
+        <Style Selector="ProgressBar.usage">
+            <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Height" Value="6" />
+            <Setter Property="MinHeight" Value="6" />
+        </Style>
+        <Style Selector="Grid.resourceHeader.expandable">
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <!-- 展开后的引用表格：带边框和表头，行间分隔线，悬停高亮 -->
+        <Style Selector="Border.refList">
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector="Border.refTableHeader">
+            <Setter Property="Padding" Value="12,0,6,0" />
+            <Setter Property="Background" Value="{DynamicResource FillBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource RowDividerBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        </Style>
+        <Style Selector="Border.refTableHeader TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.refRow">
+            <Setter Property="Padding" Value="12,0,6,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource RowDividerBrush}" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+        </Style>
+        <Style Selector="ContentPresenter:nth-child(1) > Border.refRow">
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Border.refRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="TextBlock.refCell">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeSub}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="8">
+        <TextBlock Classes="pageTitle" Text="资源" />
+
+        <Border Classes="card" Padding="16,12">
+            <StackPanel Spacing="8">
+                <TextBlock Text="{Binding UsageText, FallbackValue=''}" FontSize="{DynamicResource FontSizeBody}"
+                           IsVisible="{Binding UsageText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <ProgressBar Classes="usage" Minimum="0" Maximum="100" Value="{Binding UsagePercent, FallbackValue=0}"
+                             IsVisible="{Binding HasQuota}" />
+                <TextBox Classes="input" PlaceholderText="搜索文件名" Text="{Binding Query}" />
+            </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+            <Panel>
+                <StackPanel Margin="0,12" Spacing="8" HorizontalAlignment="Center"
+                            IsVisible="{Binding StatusText, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <TextBlock Classes="hint" Text="{Binding StatusText}" HorizontalAlignment="Center" />
+                    <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="重试" HorizontalAlignment="Center"
+                            Command="{Binding RetryCommand}" IsVisible="{Binding LoadFailed}" />
+                </StackPanel>
+                <ItemsControl ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ResourceItem">
+                            <StackPanel>
+                                <Grid Classes="resourceHeader" Classes.expandable="{Binding HasMessages}"
+                                      ColumnDefinitions="Auto,*,Auto,Auto,Auto" Height="56" Background="Transparent"
+                                      Tapped="OnHeaderTapped">
+                                    <Panel Width="36" Height="36" Margin="0,0,12,0">
+                                        <c:RemoteImage Width="36" Height="36" CornerRadius="4"
+                                                       Source="{Binding ImagePath}" IsVisible="{Binding IsImage}" />
+                                        <c:TdIcon IconKey="{Binding IconKey}" Width="30" Height="30"
+                                                  Foreground="{DynamicResource BrandBrush}"
+                                                  IsVisible="{Binding !IsImage}" />
+                                    </Panel>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                                        <TextBlock Text="{Binding FileName}" FontSize="{DynamicResource FontSizeBody}"
+                                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}" />
+                                        <TextBlock Text="{Binding DetailText}" FontSize="{DynamicResource FontSizeSub}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Padding="6" ToolTip.Tip="打开"
+                                            VerticalAlignment="Center" Margin="8,0,0,0" Command="{Binding OpenCommand}"
+                                            IsEnabled="{Binding HasMessages}">
+                                        <c:TdIcon Icon="{StaticResource Icon.Folder}" Width="16" Height="16"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </Button>
+                                    <Button Grid.Column="3" Theme="{StaticResource FlatButton}" Padding="6" ToolTip.Tip="保存"
+                                            VerticalAlignment="Center" Command="{Binding SaveCommand}">
+                                        <c:TdIcon Icon="{StaticResource Icon.Download}" Width="16" Height="16"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </Button>
+                                    <Button Grid.Column="4" Theme="{StaticResource FlatButton}" Padding="6" ToolTip.Tip="删除"
+                                            VerticalAlignment="Center" Command="{Binding DeleteCommand}">
+                                        <c:TdIcon Icon="{StaticResource Icon.Delete}" Width="16" Height="16"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </Button>
+                                </Grid>
+
+                                <!-- 引用这个文件的消息：点击文件展开 -->
+                                <c:ExpandPanel IsExpanded="{Binding IsExpanded}">
+                                    <Border Classes="refList" Margin="48,0,0,10">
+                                        <!-- 表头与各行的会话、时间列对齐 -->
+                                        <StackPanel Grid.IsSharedSizeScope="True">
+                                            <TextBlock Classes="hint" Text="{Binding ReferencesStatus}" Margin="12,8"
+                                                       IsVisible="{Binding ReferencesStatus, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            <Border Classes="refTableHeader" IsVisible="{Binding !!References.Count}">
+                                                <Grid Height="30">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Group" />
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Time" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="会话" />
+                                                    <TextBlock Grid.Column="1" Text="时间" Margin="16,0,0,0" />
+                                                    <TextBlock Grid.Column="2" Text="内容" Margin="16,0,0,0" />
+                                                </Grid>
+                                            </Border>
+                                            <ItemsControl ItemsSource="{Binding References}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:ResourceReference">
+                                                        <Border Classes="refRow">
+                                                            <Grid Height="34">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Group" />
+                                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Time" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="{Binding GroupName}" MaxWidth="140" Classes="refCell"
+                                                                           ToolTip.Tip="{Binding GroupName}" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" Classes="refCell"
+                                                                           Margin="16,0,0,0" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding Preview}" Classes="refCell"
+                                                                           Margin="16,0,0,0" />
+                                                                <Button Grid.Column="3" Theme="{StaticResource FlatButton}" Padding="6"
+                                                                        ToolTip.Tip="跳转到消息" VerticalAlignment="Center" Margin="8,0,0,0"
+                                                                        Command="{Binding JumpCommand}">
+                                                                    <c:TdIcon Icon="{StaticResource Icon.ArrowRightUp}" Width="14" Height="14"
+                                                                              Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                                </Button>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </c:ExpandPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Panel>
+        </Border>
+    </StackPanel>
+</UserControl>

@@ -47,7 +47,7 @@ public static class ChatMembers
                     : 2;
                 var online = session.Users.GetPresence(u.Id, now) != PresenceState.Offline;
                 var item = new ChatMemberItem(u.Id, session.Contacts.DisplayName(u.Id), u.AvatarUrl, u.Email,
-                    rank switch { 0 => "群主", 1 => "管理员", _ => null }, rank == 0);
+                    rank switch { 0 => "频道创建者", 1 => "管理员", _ => null }, rank == 0);
                 return (Item: item, Rank: rank, Online: online);
             })
             .OrderBy(x => x.Rank)

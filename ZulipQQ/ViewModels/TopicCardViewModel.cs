@@ -8,7 +8,8 @@ using ZulipQQ.Services;
 namespace ZulipQQ.ViewModels;
 
 /// <summary>
-/// 话题名片（弹出卡片和右侧资料面板共用）：头像、话题名、所属频道、本地备注、“发消息”。
+/// 话题名片（弹出卡片和右侧资料面板共用）：头像、所属频道（话题名上方的小字，区分不同频道的同名话题）、话题名、
+/// 频道备注与话题备注（分开设置，都只保存在本地）、“发消息”。频道名与话题名有备注时显示为“备注(原名称)”。
 /// 显示期间（<see cref="Attach"/> 到 <see cref="Detach"/>）随数据变化刷新。
 /// </summary>
 public partial class TopicCardViewModel : ViewModelBase
@@ -95,9 +96,9 @@ public partial class TopicCardViewModel : ViewModelBase
     private void Refresh()
     {
         var channel = _session.Channels.Get(Key.StreamId);
-        Title = _session.Conversations.GetTitle(Key);
+        Title = _session.Conversations.GetTopicTitleWithOriginal(Key);
         AvatarFill = ConversationItemViewModel.BrushOf(channel?.Color);
-        ChannelText = channel is null ? "" : $"#{channel.Name}";
+        ChannelText = channel is null ? "" : $"#{_session.Channels.NameWithOriginal(Key.StreamId)}";
         IsPrivate = channel?.InviteOnly ?? false;
         RemarkText = _session.Conversations.Get(Key)?.Remark ?? "";
     }

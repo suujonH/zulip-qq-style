@@ -120,6 +120,11 @@ public sealed class LocalDb : IDisposable
         INSERT INTO contact_pin(account_id, item_key, pinned_at)
           SELECT account_id, conv_key, pinned_at FROM conversation_state WHERE pinned_at IS NOT NULL AND conv_key LIKE 't:%';
         """,
+        // 频道备注（只保存在本地）。用户备注在 user_remark，话题备注在 conversation_state.remark，频道没有会话键，单独一张表
+        """
+        CREATE TABLE channel_remark(account_id INTEGER NOT NULL, stream_id INTEGER NOT NULL, remark TEXT NOT NULL,
+          PRIMARY KEY(account_id, stream_id));
+        """,
     ];
 
     private readonly SqliteConnection _connection;

@@ -146,9 +146,41 @@ public sealed class ZulipMarkdownTests
         Assert.Equal("/user_uploads/1/ab/x.png", span.Data);
     }
 
+    [Theory]
+    [InlineData("[a.zip](/user_uploads/1/ab/a.zip)", "/user_uploads/1/ab/a.zip")]
+    [InlineData("[a.mp4](/user_uploads/1/ab/a.mp4)", "/user_uploads/1/ab/a.mp4")]
+    public void Inline_UploadFile(string text, string address)
+    {
+        var span = Assert.Single(Parse(text).Spans);
+        Assert.Equal(MdSpanKind.UploadFile, span.Kind);
+        Assert.Equal((0, text.Length), (span.Start, span.End));
+        Assert.Equal(address, span.Data);
+        Assert.Equal(text[1..text.IndexOf(']')], text[span.ContentStart..span.ContentEnd]);
+    }
+
     [Fact]
-    public void Inline_UploadFileIsLink() =>
-        Assert.Equal(MdSpanKind.Link, Assert.Single(Parse("[a.zip](/user_uploads/1/ab/a.zip)").Spans).Kind);
+    public void Inline_UploadFileWithoutLabelIsLink() =>
+        Assert.Equal(MdSpanKind.Link, Assert.Single(Parse("[](/user_uploads/1/ab/a.zip)").Spans).Kind);
+
+    [Fact]
+    public void Tables_FindsRowsAfterHeaderAndSeparator()
+    {
+        var table = Assert.Single(MarkdownTables.Find(Parse("前\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n\n后")));
+        Assert.Equal(new MarkdownTable(2, 3, 5), table);
+    }
+
+    [Theory]
+    [InlineData("| a |")]
+    [InlineData("> | a | b |\n> | --- | --- |\n> | 1 | 2 |")]
+    public void Tables_IgnoresIncompleteOrQuoted(string text) =>
+        Assert.Empty(MarkdownTables.Find(Parse(text)));
+
+    [Fact]
+    public void Tables_PipesInCodeAreNotSeparators()
+    {
+        const string text = "| `a|b` | c |";
+        Assert.Equal([0, 8, 12], ZulipMarkdown.TablePipes(text, 0, text.Length));
+    }
 
     [Fact]
     public void Inline_UploadPlaceholder()

@@ -30,6 +30,14 @@ public sealed class ImageCache
     private readonly LinkedList<(string Url, int Width, Bitmap Bitmap)> _lru = [];
     private readonly Dictionary<(string Url, int Width), Task<Bitmap?>> _inflight = [];
 
+    // 同一地址的读取或下载只进行一次：同一张图片常常同时按多种宽度加载（如刚换的头像），
+    // 各自下载再覆盖同一个缓存文件时，Windows 上后改名的一方会失败
+    private readonly Dictionary<string, Task<byte[]>> _downloads = [];
+    private readonly string? _cacheDir;
+
+    /// <param name="cacheDir">磁盘缓存目录；默认是 <see cref="AppPaths.ImageCacheDir"/>。</param>
+    public ImageCache(string? cacheDir = null) => _cacheDir = cacheDir;
+
     public static ImageCache Shared { get; } = new();
 
     /// <summary>已在内存缓存中的图片；没有时返回 null，不发起下载。<paramref name="client"/> 是图片所属账号的客户端。</summary>
@@ -57,15 +65,36 @@ public sealed class ImageCache
         return task;
     }
 
+    /// <summary>图片原文件在磁盘缓存中的路径（没有缓存时先下载）；失败返回 null。缓存文件没有扩展名。</summary>
+    public async Task<string?> GetFileAsync(string url, ZulipClient? client)
+    {
+        if (Absolute(url, client) is not { } absolute)
+            return null;
+        try
+        {
+            await ReadOrDownloadSharedAsync(absolute, client);
+            // 缓存文件可能没有写成（见 StoreAsync）
+            return File.Exists(CachePath(absolute)) ? CachePath(absolute) : null;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"下载图片失败：{absolute}", ex);
+            return null;
+        }
+    }
+
+    private string CacheDir => _cacheDir ?? AppPaths.ImageCacheDir;
+
+    private string CachePath(Uri url) =>
+        Path.Combine(CacheDir, Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(url.AbsoluteUri))));
+
     // 账号退出后客户端被释放，进行中的下载失败返回 null
     private async Task<Bitmap?> LoadAsync(Uri absolute, int? decodeWidth, ZulipClient? client)
     {
         var key = (absolute.AbsoluteUri, decodeWidth ?? 0);
         try
         {
-            var bytes = await Task.Run(() => ReadOrDownloadAsync(absolute, client, CancellationToken.None));
-            if (bytes is null)
-                return null;
+            var bytes = await ReadOrDownloadSharedAsync(absolute, client);
             var bitmap = await Task.Run(() => Decode(bytes, decodeWidth));
             if (bitmap is null)
                 return null;
@@ -83,10 +112,27 @@ public sealed class ImageCache
         }
     }
 
-    private static async Task<byte[]?> ReadOrDownloadAsync(Uri url, ZulipClient? client, CancellationToken ct)
+    private Task<byte[]> ReadOrDownloadSharedAsync(Uri url, ZulipClient? client)
     {
-        var path = Path.Combine(AppPaths.ImageCacheDir,
-            Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(url.AbsoluteUri))));
+        var key = url.AbsoluteUri;
+        lock (_downloads)
+        {
+            if (_downloads.TryGetValue(key, out var running))
+                return running;
+            var task = Task.Run(() => ReadOrDownloadAsync(url, client, CancellationToken.None));
+            _downloads[key] = task;
+            task.ContinueWith(_ =>
+            {
+                lock (_downloads)
+                    _downloads.Remove(key);
+            }, TaskScheduler.Default);
+            return task;
+        }
+    }
+
+    private async Task<byte[]> ReadOrDownloadAsync(Uri url, ZulipClient? client, CancellationToken ct)
+    {
+        var path = CachePath(url);
         // 组织内上传的头像和图片地址带内容哈希，可以一直使用磁盘缓存
         var isRealm = client is not null && IsSameHost(url, client.RealmUrl);
         if (File.Exists(path) && (isRealm || DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < ExternalMaxAge))
@@ -104,12 +150,33 @@ public sealed class ImageCache
             bytes = await External.GetByteArrayAsync(url, ct);
         }
 
-        Directory.CreateDirectory(AppPaths.ImageCacheDir);
+        await StoreAsync(path, bytes, ct);
+        return bytes;
+    }
+
+    // 图片已经下载到了，写缓存失败（文件被占用、磁盘满等）不影响显示，下次重新下载
+    private static async Task StoreAsync(string path, byte[] bytes, CancellationToken ct)
+    {
         // 先写临时文件再改名，避免并发读到写了一半的文件
         var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        await File.WriteAllBytesAsync(temp, bytes, ct);
-        File.Move(temp, path, overwrite: true);
-        return bytes;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllBytesAsync(temp, bytes, ct);
+            File.Move(temp, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Debug($"写入图片缓存失败：{path}", ex);
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+            {
+                Log.Debug($"删除图片缓存临时文件失败：{temp}", cleanup);
+            }
+        }
     }
 
     private static Bitmap? Decode(byte[] bytes, int? decodeWidth)

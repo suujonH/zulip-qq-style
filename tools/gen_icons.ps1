@@ -69,6 +69,9 @@ $icons = [ordered]@{
     ZoomOut         = 'zoom-out'
     Fullscreen      = 'fullscreen'
     Copy            = 'file-copy'
+    Cut             = 'cut'
+    Paste           = 'paste'
+    CheckCircle     = 'check-circle'
     ChatBubble      = 'chat-bubble'
     App             = 'app'
     FileZip         = 'file-zip'
@@ -90,9 +93,19 @@ $icons = [ordered]@{
     Spoiler         = 'browse-off'
     Formula         = 'formula'
     ListNumbered    = 'list-numbered'
+    ListBulleted    = 'manual:ListBulleted'
     SourceCode      = 'file-code'
     Mail            = 'mail'
     Mention         = 'mentioned'
+    RotateLeft      = 'anticlockwise'
+    OpenExternal    = 'jump'
+    Sound           = 'sound'
+    Poll            = 'chart-bar'
+    ViewModule      = 'view-module'
+    MoreVertical    = 'more'
+    AlignLeft       = 'manual:AlignLeft'
+    AlignCenter     = 'manual:AlignCenter'
+    AlignRight      = 'manual:AlignRight'
 }
 
 # TDesign 没有的图标：注释 + 属性
@@ -100,6 +113,22 @@ $manual = @{
     NotificationOff = @{
         Comment = 'notification + 斜线（TDesign 没有 notification-off，用铃铛加斜线组合出免打扰图标）'
         Attrs   = ' StrokeData="M5 8V13L3 16V19H21V16L19 13V8C19 4.13401 15.866 1 12 1C8.13401 1 5 4.13401 5 8Z M8.5 19H15.5C15.5 20.933 13.933 22.5 12 22.5C10.067 22.5 8.5 20.933 8.5 19Z M2 2L22 22"'
+    }
+    ListBulleted    = @{
+        Comment = '短横线 + 横线（无序列表，与 list-numbered 的布局一致；TDesign 的 bulletpoint 是圆点）'
+        Attrs   = ' StrokeData="M2 5H5M2 12H5M2 19H5M8 5H21M8 12H21M8 19H21"'
+    }
+    AlignLeft       = @{
+        Comment = '文字左对齐（TDesign 没有文字对齐的图标）'
+        Attrs   = ' StrokeData="M3 5H21M3 10H14M3 15H21M3 20H14"'
+    }
+    AlignCenter     = @{
+        Comment = '文字居中'
+        Attrs   = ' StrokeData="M3 5H21M7 10H17M3 15H21M7 20H17"'
+    }
+    AlignRight      = @{
+        Comment = '文字右对齐'
+        Attrs   = ' StrokeData="M3 5H21M10 10H21M3 15H21M10 20H21"'
     }
     Forbid          = @{
         Comment = '圆圈 + 斜线（TDesign 没有 forbid，按 QQ 屏蔽群消息的图标组合）'

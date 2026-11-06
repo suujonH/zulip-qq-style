@@ -120,6 +120,9 @@ public sealed partial class FileEntry : ViewModelBase
     private void Open() => _owner.Open(this);
 
     [RelayCommand]
+    private void Save() => _owner.Save(this);
+
+    [RelayCommand]
     private void SaveAs() => _owner.SaveAs(this);
 
     [RelayCommand]
@@ -244,7 +247,7 @@ public partial class FilesViewModel : ViewModelBase
         FilesView.Recent => "最近使用",
         FilesView.Sender => SelectedSource is { } s ? $"发送人 - {s.Title}" : "发送人",
         FilesView.Conversation => SelectedSource is { } c ? $"会话 - {c.Title}" : "会话",
-        FilesView.Group => SelectedSource is { } g ? $"群文件 - {g.Title}" : "群文件",
+        FilesView.Group => SelectedSource is { } g ? $"频道文件 - {g.Title}" : "频道文件",
         _ => "全部文件",
     };
 
@@ -279,7 +282,7 @@ public partial class FilesViewModel : ViewModelBase
         : ShowSources && SelectedSource is null ? View switch
         {
             FilesView.Sender => "请选择发送人",
-            FilesView.Group => "请选择群聊",
+            FilesView.Group => "请选择频道",
             _ => "请选择会话",
         }
         : HasError ? "加载失败"
@@ -390,6 +393,24 @@ public partial class FilesViewModel : ViewModelBase
             ShowToast("文件下载失败");
     }
 
+    /// <summary>点击文件：与聊天中点击文件相同，以只读方式直接打开。</summary>
+    public void Click(FileEntry entry) => _ = ClickAsync(entry);
+
+    private async Task ClickAsync(FileEntry entry)
+    {
+        if (!await _session.Files.OpenAsync(entry.Link, entry.Key, entry.MessageId) && !_session.IsDisposed && !_closed)
+            ShowToast("文件下载失败");
+    }
+
+    public void Save(FileEntry entry) => _ = SaveAsync(entry);
+
+    private async Task SaveAsync(FileEntry entry)
+    {
+        var saved = await _session.Files.SaveAsync(entry.Link);
+        if (!_session.IsDisposed && !_closed)
+            ShowToast(saved is not null ? FileService.SavedToast(saved) : "文件保存失败");
+    }
+
     public void SaveAs(FileEntry entry) => SaveAsRequested?.Invoke(this, entry);
 
     public void Reveal(FileEntry entry)
@@ -403,7 +424,7 @@ public partial class FilesViewModel : ViewModelBase
     {
         var markdown = ComposerViewModel.LinkMarkdown(entry.FileName, entry.Path);
         MainWindowRequested?.Invoke(this, EventArgs.Empty);
-        ForwardDialogViewModel.Show(_main, _main, $"[文件]{entry.FileName}", () => Task.FromResult<IReadOnlyList<string>>([markdown]));
+        ForwardDialogViewModel.Show(_session, _main, $"[文件]{entry.FileName}", () => Task.FromResult<IReadOnlyList<string>>([markdown]));
     }
 
     public void Locate(FileEntry entry) => _ = LocateAsync(entry);

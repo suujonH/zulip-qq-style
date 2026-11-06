@@ -176,8 +176,13 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
             repo.Rename(oldKey, newKey, newTitle);
             if (_entries.TryGetValue(newKey, out var target))
             {
-                // 目标会话已存在：保留目标的本地状态，预览以服务器为准重新获取
+                // 目标会话已存在：保留目标的本地状态，预览以服务器为准重新获取。目标没有备注时带上原话题的备注
                 target.TitleCache = newTitle;
+                if (string.IsNullOrEmpty(target.Remark) && !string.IsNullOrEmpty(moved.Remark))
+                {
+                    target.Remark = moved.Remark;
+                    repo.SetRemark(newKey, moved.Remark);
+                }
                 QueueBackfill(newKey);
             }
             else
@@ -317,8 +322,7 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
             case TopicKey t:
                 if (!string.IsNullOrEmpty(e?.Remark))
                     return e.Remark;
-                var name = ViewModels.TopicActions.StripResolved(GetTopicName(t));
-                return name.Length == 0 ? session.Realm.EmptyTopicDisplayName : name;
+                return GetOriginalTopicTitle(t);
             case DmKey { IsSelfDm: true }:
                 return "我自己";
             case DmKey { OtherUserIds.Length: 1 } d:
@@ -331,7 +335,7 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
             case ResolvedKey:
                 return "已解决话题";
             default:
-                return "群助手";
+                return "话题助手";
         }
     }
 
@@ -344,11 +348,22 @@ public sealed class ConversationListStore(ZulipSession session, ConversationStat
     {
         if (key is not TopicKey t)
             return GetTitle(key);
-        var title = TopicTitleFormat.Format(session.Settings.Local.TopicTitleFormat, session.Channels.Get(t.StreamId)?.Name ?? "", GetTitle(key));
+        var title = TopicTitleFormat.Format(session.Settings.Local.TopicTitleFormat, session.Channels.DisplayName(t.StreamId), GetTitle(key));
         return !stripResolved && ViewModels.TopicActions.IsResolvedName(GetTopicName(t))
             ? ViewModels.TopicActions.ResolvedLabel + title
             : title;
     }
+
+    /// <summary>不考虑备注的话题显示名：去掉已解决标记，空话题名显示为组织设置的名称。</summary>
+    public string GetOriginalTopicTitle(TopicKey key)
+    {
+        var name = ViewModels.TopicActions.StripResolved(GetTopicName(key));
+        return name.Length == 0 ? session.Realm.EmptyTopicDisplayName : name;
+    }
+
+    /// <summary>联系人页、群消息设置等管理用列表中的话题名：“备注(话题名)”，没有备注时为话题名。</summary>
+    public string GetTopicTitleWithOriginal(TopicKey key) =>
+        RemarkFormat.WithOriginal(Get(key)?.Remark, GetOriginalTopicTitle(key));
 
     /// <summary>原始大小写的话题名，用于 narrow 和发送。</summary>
     public string GetTopicName(TopicKey key)

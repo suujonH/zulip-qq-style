@@ -408,14 +408,14 @@ public partial class MessagesPageViewModel : ViewModelBase
 
     /// <summary>
     /// 会话夹条目：时间取各会话的最新时间，提示取最高优先级的 @；
-    /// 预览在有未读时为“N个群聊有新消息”，否则为最近一条消息“会话名：发送者：内容”。
+    /// 预览在有未读时为“N个话题有新消息”，否则为最近一条消息“会话名：发送者：内容”。
     /// </summary>
     private ConversationSnapshot FolderSnapshot(ConversationKey folder, IReadOnlyList<ConversationEntry> members, bool isPinned)
     {
         var unreadCount = members.Count(e => _session.Unread.Count(e.Key) > 0);
         var latest = members.Where(e => e.LastMessageId > 0)
             .MaxBy(e => (e.LastMessageTime, e.LastMessageId));
-        var preview = unreadCount > 0 ? $"{unreadCount}个群聊有新消息"
+        var preview = unreadCount > 0 ? $"{unreadCount}个话题有新消息"
             : latest is null ? ""
             : $"{_session.Conversations.GetDisplayTitle(latest.Key, folder is ResolvedKey)}：{PreviewOf(latest)}";
         var notices = members.Select(e => _session.Unread.GetNotice(e.Key)).ToList();

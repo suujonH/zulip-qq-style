@@ -5,4 +5,7 @@ public sealed record Friend(ZulipUser User, long? GroupId, string? Remark = null
 {
     /// <summary>有备注显示备注，否则显示昵称。</summary>
     public string DisplayName => string.IsNullOrEmpty(Remark) ? User.FullName : Remark;
+
+    /// <summary>“备注(昵称)”，没有备注时为昵称。</summary>
+    public string NameWithOriginal => Core.RemarkFormat.WithOriginal(Remark, User.FullName);
 }

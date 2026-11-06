@@ -29,7 +29,7 @@ public partial class UserCardViewModel : ViewModelBase
     private bool _refreshing;
 
     /// <param name="openChat">打开会话。</param>
-    /// <param name="onOpened">点击“发消息”后调用（关闭弹出卡片）。</param>
+    /// <param name="onOpened">点击“发消息”、“编辑资料”或头像后调用（关闭弹出卡片）。</param>
     public UserCardViewModel(ZulipSession session, long userId, Action<ConversationKey> openChat, Action? onOpened = null)
     {
         _session = session;
@@ -49,7 +49,12 @@ public partial class UserCardViewModel : ViewModelBase
 
     public long UserId { get; }
 
+    public ZulipSession Session => _session;
+
     public bool IsSelf => UserId == _session.SelfId;
+
+    /// <summary>离开名片去做别的事（编辑资料、查看头像）：关闭弹出卡片。</summary>
+    public void DismissCard() => _onOpened?.Invoke();
 
     /// <summary>备注和分组只对其他真人用户显示。</summary>
     public bool CanEditContact => !IsSelf && _session.Users.Get(UserId) is { IsBot: false };

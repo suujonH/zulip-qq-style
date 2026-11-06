@@ -22,7 +22,9 @@ public enum SettingsPage
     /// <summary>Zulip 账号列表（添加、删除）。</summary>
     Accounts,
     Plugins,
+#if DEBUG
     Developer,
+#endif
     About,
 
     // 账号
@@ -36,6 +38,9 @@ public enum SettingsPage
     GroupMessages,
     Privacy,
     AlertWords,
+
+    /// <summary>自己上传的文件（Zulip 的“上传的文件”）。</summary>
+    Resources,
     Organization,
 
     /// <summary>服务器配置与信息。</summary>
@@ -86,7 +91,7 @@ public abstract class SettingsPageViewModel(SettingsViewModel owner) : ViewModel
     protected SettingsViewModel Owner { get; } = owner;
 
     /// <summary>账号的设置页使用的会话（程序级设置的页面没有会话，不能使用）。</summary>
-    protected ZulipSession Session => Owner.Session ?? throw new InvalidOperationException("程序级设置没有账号");
+    public ZulipSession Session => Owner.Session ?? throw new InvalidOperationException("程序级设置没有账号");
 
     /// <summary>切换到其它页时调用。</summary>
     public virtual void OnLeave()
@@ -206,6 +211,21 @@ public partial class SettingsViewModel : ViewModelBase
         _toastTimer.Start();
     }
 
+    /// <summary>显示头像裁剪对话框（接管 <paramref name="image"/>），返回裁剪后的 PNG；取消时返回 null。</summary>
+    public async Task<byte[]?> CropAvatarAsync(AvatarImage image)
+    {
+        var dialog = new AvatarCropDialogViewModel(image);
+        Dialogs.Add(dialog);
+        try
+        {
+            return await dialog.Result;
+        }
+        finally
+        {
+            Dialogs.Remove(dialog);
+        }
+    }
+
     /// <summary>显示确认对话框，返回用户是否点击了确定。</summary>
     public Task<bool> ConfirmAsync(string message, string confirmText = "确定", bool isDanger = false, string cancelText = "取消")
     {
@@ -298,8 +318,10 @@ public partial class SettingsViewModel : ViewModelBase
 
     private void OnLocalChanged(object? sender, string key)
     {
+#if DEBUG
         if (key == LocalSettings.ShowSettingSourceKey)
             OnPropertyChanged(nameof(ShowSettingSource));
+#endif
     }
 
     private SettingsPageViewModel Create(SettingsPage page) => page switch
@@ -316,9 +338,12 @@ public partial class SettingsViewModel : ViewModelBase
         SettingsPage.Server => new ServerPageViewModel(this),
         SettingsPage.Privacy => new PrivacyPageViewModel(this),
         SettingsPage.AlertWords => new AlertWordsPageViewModel(this),
+        SettingsPage.Resources => new ResourcesPageViewModel(this),
         SettingsPage.Organization => new OrganizationPageViewModel(this),
         SettingsPage.Plugins => new PluginsPageViewModel(this),
+#if DEBUG
         SettingsPage.Developer => new DeveloperPageViewModel(this),
+#endif
         _ => new AboutPageViewModel(this),
     };
 
@@ -332,19 +357,22 @@ public partial class SettingsViewModel : ViewModelBase
             Nav.Add(new SettingsNavItem(SettingsPage.Preferences, "偏好设置"));
             Nav.Add(new SettingsNavItem(SettingsPage.Notifications, "消息通知"));
             Nav.Add(new SettingsNavItem(SettingsPage.EnhancedPush, "强化推送"));
-            Nav.Add(new SettingsNavItem(SettingsPage.GroupMessages, "群消息设置"));
+            Nav.Add(new SettingsNavItem(SettingsPage.GroupMessages, "话题消息设置"));
             Nav.Add(new SettingsNavItem(SettingsPage.Privacy, "隐私"));
             Nav.Add(new SettingsNavItem(SettingsPage.AlertWords, "提醒词"));
+            Nav.Add(new SettingsNavItem(SettingsPage.Resources, "资源"));
             // 所有人可以查看，组织管理员可以修改
             Nav.Add(new SettingsNavItem(SettingsPage.Organization, "组织管理"));
             return;
         }
         Nav.Add(new SettingsNavItem(SettingsPage.General, "通用"));
-        Nav.Add(new SettingsNavItem(SettingsPage.Files, "聊天中的文件"));
+        Nav.Add(new SettingsNavItem(SettingsPage.Files, "数据目录"));
         Nav.Add(new SettingsNavItem(SettingsPage.Palette, "超级调色盘"));
         Nav.Add(new SettingsNavItem(SettingsPage.Accounts, "Zulip 账号"));
         Nav.Add(new SettingsNavItem(SettingsPage.Plugins, "插件"));
+#if DEBUG
         Nav.Add(new SettingsNavItem(SettingsPage.Developer, "开发者模式"));
+#endif
         Nav.Add(new SettingsNavItem(SettingsPage.About, "关于"));
     }
 }

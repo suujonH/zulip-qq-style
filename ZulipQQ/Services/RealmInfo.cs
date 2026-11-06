@@ -20,6 +20,9 @@ public sealed class RealmInfo
     public int MaxTopicLength { get; set; }
     public int MaxFileUploadSizeMib { get; set; }
 
+    /// <summary>组织的上传存储空间配额（MiB）；null 为不限。</summary>
+    public long? UploadQuotaMib { get; set; }
+
     /// <summary>空话题（<c>""</c>）的显示名。</summary>
     public string EmptyTopicDisplayName { get; set; } = "";
 
@@ -54,6 +57,9 @@ public sealed class RealmInfo
     /// <summary>编辑时限（秒）；null 表示不限。</summary>
     public int? EditLimitSeconds { get; set; }
 
+    /// <summary>删除自己消息的时限（秒）；null 表示不限。</summary>
+    public int? DeleteLimitSeconds { get; set; }
+
     public bool EnableReadReceipts { get; set; }
     public string EditHistoryVisibilityPolicy { get; set; } = "all";
 
@@ -84,6 +90,7 @@ public sealed class RealmInfo
         MaxMessageLength = reg.MaxMessageLength,
         MaxTopicLength = reg.MaxTopicLength,
         MaxFileUploadSizeMib = reg.MaxFileUploadSizeMib,
+        UploadQuotaMib = reg.RealmUploadQuotaMib,
         EmptyTopicDisplayName = reg.RealmEmptyTopicDisplayName,
         ServerEmojiDataUrl = reg.ServerEmojiDataUrl,
         AllowMessageEditing = reg.RealmAllowMessageEditing,
@@ -93,6 +100,7 @@ public sealed class RealmInfo
         ZulipUpdateAnnouncementsChannelId = IdOrNull(reg.RealmZulipUpdateAnnouncementsStreamId),
         ModerationRequestChannelId = IdOrNull(reg.RealmModerationRequestChannelId),
         EditLimitSeconds = reg.RealmMessageContentEditLimitSeconds,
+        DeleteLimitSeconds = reg.RealmMessageContentDeleteLimitSeconds,
         EnableReadReceipts = reg.RealmEnableReadReceipts,
         EditHistoryVisibilityPolicy = reg.RealmMessageEditHistoryVisibilityPolicy,
         TopicsPolicy = reg.RealmTopicsPolicy,
@@ -137,6 +145,9 @@ public sealed class RealmInfo
             case "message_content_edit_limit_seconds":
                 EditLimitSeconds = value.ValueKind == JsonValueKind.Number ? value.GetInt32() : null;
                 break;
+            case "message_content_delete_limit_seconds":
+                DeleteLimitSeconds = value.ValueKind == JsonValueKind.Number ? value.GetInt32() : null;
+                break;
             case "enable_read_receipts":
                 EnableReadReceipts = value.GetBoolean();
                 break;
@@ -145,6 +156,9 @@ public sealed class RealmInfo
                 break;
             case "empty_topic_display_name":
                 EmptyTopicDisplayName = value.GetString() ?? EmptyTopicDisplayName;
+                break;
+            case "upload_quota_mib":
+                UploadQuotaMib = value.ValueKind == JsonValueKind.Number ? value.GetInt64() : null;
                 break;
             case "topics_policy":
                 TopicsPolicy = value.GetString() ?? TopicsPolicy;
