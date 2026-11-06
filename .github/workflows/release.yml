@@ -1,7 +1,7 @@
 name: Release
 
 # 推送 v* tag 时编译并发布 zip 与自动更新清单；手动运行只生成构建产物，不创建 Release。
-# 已安装的程序从 releases/latest/download/ZulipQQ-update.json 检查更新，所以只有正式版（tag 不含 -）会推送给用户。
+# 已安装的程序从 releases/latest/download/ZulipRust-update.json 检查更新，所以只有正式版（tag 不含 -）会推送给用户。
 on:
   push:
     tags: ['v*']
@@ -9,6 +9,9 @@ on:
 
 permissions:
   contents: write
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   release:
@@ -18,9 +21,8 @@ jobs:
         shell: pwsh
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
 
       - name: Version
         run: |
@@ -30,36 +32,38 @@ jobs:
             $ver = '0.0.0-ci.${{ github.run_number }}'
           }
           "VERSION=$ver" >> $env:GITHUB_ENV
-          "PKG=ZulipQQ-v$ver-win-x64" >> $env:GITHUB_ENV
+          "PKG=ZulipRust-v$ver-win-x64" >> $env:GITHUB_ENV
+
+      # 程序的版本取自工作区版本，改成与 tag 一致
+      - name: Set workspace version
+        run: |
+          $path = (Resolve-Path Cargo.toml).Path
+          $text = Get-Content -LiteralPath $path -Raw -Encoding utf8
+          $pattern = '(?ms)(\[workspace\.package\][^\[]*?^version\s*=\s*)"[^"]*"'
+          if ($text -notmatch $pattern) { throw 'Cargo.toml 的 [workspace.package] 中没有 version' }
+          $text = [regex]::Replace($text, $pattern, { param($m) $m.Groups[1].Value + '"' + $env:VERSION + '"' })
+          [IO.File]::WriteAllText($path, $text, [Text.UTF8Encoding]::new($false))
 
       - name: Test
-        run: dotnet test --solution ZulipQQ.slnx -c Release
+        run: cargo test --workspace --release
 
-      - name: Publish
+      - name: Build
         run: |
-          dotnet publish ZulipQQ/ZulipQQ.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -p:DebugType=none -o publish/ZulipQQ
-          # DebugType=none 只影响本项目；SkiaSharp 等 NuGet 包自带的原生 pdb 仍会复制过来，这里一并删除
-          Get-ChildItem publish/ZulipQQ -Filter *.pdb -File | ForEach-Object { Remove-Item -LiteralPath $_.FullName }
+          $PSNativeCommandUseErrorActionPreference = $true
+          # 更新器单独编译：不带主程序的网络依赖，保持小巧
+          cargo build --release -p zulip-updater
+          cargo build --release -p zulip
 
-      - name: Publish updater
+      - name: Assemble
         run: |
-          # 独立更新器（NativeAOT 单文件）；vcvars 可能找不到 vswhere，它用来定位链接器（同 tools/build-plugins.ps1）
-          $installer = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'
-          if (Test-Path $installer) { $env:PATH = "$installer;$env:PATH" }
-          dotnet publish ZulipQQ.Updater/ZulipQQ.Updater.csproj -c Release -r win-x64 -p:Version=$env:VERSION -p:DebugType=none -o publish/updater
-          Copy-Item publish/updater/ZulipQQ.Updater.exe publish/ZulipQQ/
+          $PSNativeCommandUseErrorActionPreference = $true
+          New-Item -ItemType Directory -Force publish/ZulipRust | Out-Null
+          Copy-Item target/release/zulip.exe, target/release/zulip-updater.exe publish/ZulipRust
+          ./tools/build-plugins.ps1 -OutDir publish/ZulipRust/plugins
 
-      - name: Build plugins
-        run: |
-          if (Test-Path tools/build-plugins.ps1) {
-            ./tools/build-plugins.ps1 -OutDir publish/ZulipQQ/plugins
-          } else {
-            Write-Host 'tools/build-plugins.ps1 不存在，跳过插件编译'
-          }
-
-      # 生成文件清单、zip 和 ZulipQQ-update.json；版本号不合法或与程序不一致时失败
+      # 生成文件清单、zip 和 ZulipRust-update.json；版本号不合法或与程序不一致时失败
       - name: Pack
-        run: ./tools/pack-release.ps1 -Version $env:VERSION -PublishDir publish/ZulipQQ -OutDir release-out
+        run: ./tools/pack-release.ps1 -Version $env:VERSION -PublishDir publish/ZulipRust -OutDir release-out
 
       - name: Create release
         if: github.event_name == 'push'
@@ -67,7 +71,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = '${{ github.ref_name }}'
-          $ghArgs = @('release', 'create', $tag, "release-out/$env:PKG.zip", 'release-out/ZulipQQ-update.json', '--title', $tag, '--generate-notes')
+          $ghArgs = @('release', 'create', $tag, "release-out/$env:PKG.zip", 'release-out/ZulipRust-update.json', '--title', $tag, '--generate-notes')
           if ($tag.Contains('-')) { $ghArgs += '--prerelease' }
           gh @ghArgs
 
@@ -78,4 +82,4 @@ jobs:
           name: ${{ env.PKG }}
           path: |
             release-out/${{ env.PKG }}.zip
-            release-out/ZulipQQ-update.json
+            release-out/ZulipRust-update.json

@@ -4,7 +4,7 @@
 
 - Zulip 的话题（Topic）对应 QQ 的“群”，频道（Channel）对应“群分组”。
 - 会话置顶、免打扰、好友分组、备注、下载记录等保存在本地 SQLite。
-- 支持原生 DLL 插件（`sdk/zulipqq_plugin.h`），内置模型中心、翻译、回复助手三个插件。
+- 支持原生 DLL 插件（`sdk/zulip_plugin.h`），内置模型中心、翻译、回复助手三个插件。
 
 ## 构建
 

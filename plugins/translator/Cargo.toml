@@ -1,0 +1,17 @@
+[package]
+name = "plugin-translator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+zulip-plugin-sdk.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+rusqlite.workspace = true
