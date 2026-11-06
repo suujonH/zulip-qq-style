@@ -54,7 +54,7 @@ public sealed partial class AccountPageViewModel : SettingsPageViewModel
     public partial string SignatureDraft { get; set; } = "";
 
     [ObservableProperty]
-    public partial bool IsUploadingAvatar { get; private set; }
+    public partial bool IsChangingAvatar { get; private set; }
 
     /// <summary>隐身 = 不向他人显示在线状态（Zulip 的 presence_enabled 取反）。</summary>
     public bool IsInvisible
@@ -159,16 +159,35 @@ public sealed partial class AccountPageViewModel : SettingsPageViewModel
         }
     }
 
-    /// <summary>上传新头像（由窗口弹出文件选择器）。组织禁止更换时显示服务器的错误。</summary>
-    public async Task UploadAvatarAsync(string path)
+    /// <summary>
+    /// 更换头像（由窗口弹出文件选择器）：读取图片、打开裁剪对话框，保存后上传裁剪结果；取消时不上传。
+    /// 组织禁止更换时显示服务器的错误。
+    /// </summary>
+    public async Task ChangeAvatarAsync(string path)
     {
-        IsUploadingAvatar = true;
+        if (IsChangingAvatar)
+            return;
+        IsChangingAvatar = true;
         try
         {
-            await using var stream = File.OpenRead(path);
-            await Session.Client.UploadAvatarAsync(stream, Path.GetFileName(path), ImageContentType(path), Session.Token);
+            var image = await Task.Run(() => AvatarImage.Load(path));
+            if (Session.IsDisposed)
+            {
+                image.Dispose();
+                return;
+            }
+            var png = await Owner.CropAvatarAsync(image);
+            if (png is null || Session.IsDisposed)
+                return;
+            using var stream = new MemoryStream(png, writable: false);
+            await Session.Client.UploadAvatarAsync(stream, "avatar.png", "image/png", Session.Token);
             if (!Session.IsDisposed)
                 Owner.ShowToast("头像已更换");
+        }
+        catch (AvatarImageException ex) when (!Session.IsDisposed)
+        {
+            Log.Warn($"读取头像图片失败：{path}", ex);
+            Owner.ShowToast(ex.Message);
         }
         catch (Exception ex) when (!Session.IsDisposed)
         {
@@ -177,7 +196,7 @@ public sealed partial class AccountPageViewModel : SettingsPageViewModel
         }
         finally
         {
-            IsUploadingAvatar = false;
+            IsChangingAvatar = false;
         }
     }
 
@@ -217,15 +236,6 @@ public sealed partial class AccountPageViewModel : SettingsPageViewModel
             Owner.ShowToast("设置失败");
         }
     }
-
-    private static string ImageContentType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
-    {
-        ".png" => "image/png",
-        ".gif" => "image/gif",
-        ".webp" => "image/webp",
-        ".bmp" => "image/bmp",
-        _ => "image/jpeg",
-    };
 
     private void OnUserChanged(object? sender, long id)
     {

@@ -91,7 +91,7 @@ public abstract class SettingsPageViewModel(SettingsViewModel owner) : ViewModel
     protected SettingsViewModel Owner { get; } = owner;
 
     /// <summary>账号的设置页使用的会话（程序级设置的页面没有会话，不能使用）。</summary>
-    protected ZulipSession Session => Owner.Session ?? throw new InvalidOperationException("程序级设置没有账号");
+    public ZulipSession Session => Owner.Session ?? throw new InvalidOperationException("程序级设置没有账号");
 
     /// <summary>切换到其它页时调用。</summary>
     public virtual void OnLeave()
@@ -209,6 +209,21 @@ public partial class SettingsViewModel : ViewModelBase
         ToastText = text;
         _toastTimer.Stop();
         _toastTimer.Start();
+    }
+
+    /// <summary>显示头像裁剪对话框（接管 <paramref name="image"/>），返回裁剪后的 PNG；取消时返回 null。</summary>
+    public async Task<byte[]?> CropAvatarAsync(AvatarImage image)
+    {
+        var dialog = new AvatarCropDialogViewModel(image);
+        Dialogs.Add(dialog);
+        try
+        {
+            return await dialog.Result;
+        }
+        finally
+        {
+            Dialogs.Remove(dialog);
+        }
     }
 
     /// <summary>显示确认对话框，返回用户是否点击了确定。</summary>

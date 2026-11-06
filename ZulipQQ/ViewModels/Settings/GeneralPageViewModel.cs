@@ -121,6 +121,18 @@ public sealed partial class GeneralPageViewModel : SettingsPageViewModel
         set => Local.CollapseResolvedTopics = value;
     }
 
+    /// <summary>开机自动运行，切换即生效（保存在 Windows 的启动项中）。</summary>
+    public bool RunAtStartup
+    {
+        get => LaunchAtStartup.Current.IsEnabled;
+        set
+        {
+            LaunchAtStartup.Current.Set(value);
+            // 修改失败时开关回到实际的状态
+            OnPropertyChanged();
+        }
+    }
+
     public bool EdgeAutoHide
     {
         get => Local.EdgeAutoHide;

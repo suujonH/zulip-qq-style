@@ -6,6 +6,7 @@ using Avalonia.Controls.Documents;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using ZulipQQ.Services;
+using ZulipQQ.Zulip;
 
 namespace ZulipQQ.Controls;
 
@@ -41,6 +42,10 @@ public class Avatar : Control
         AvaloniaProperty.Register<Avatar, IBrush?>(nameof(Fill));
 
     private Bitmap? _bitmap;
+
+    // _bitmap 属于谁（列表复用容器时换了数据）、来自哪个账号：同一数据换了地址时保留旧图直到新图加载完
+    private object? _bitmapContext;
+    private ZulipClient? _bitmapClient;
 
     static Avatar()
     {
@@ -91,17 +96,29 @@ public class Avatar : Control
     private async void LoadSource()
     {
         var source = Source;
-        _bitmap = null;
-        InvalidateVisual();
+        var client = RealmImage.GetClient(this);
+        var context = DataContext;
+        // 同一个人换了头像时不闪成文字头像：旧图留到新图加载完
+        if (string.IsNullOrEmpty(source) || !ReferenceEquals(_bitmapContext, context) || _bitmapClient != client)
+            SetBitmap(null, context, client);
         if (string.IsNullOrEmpty(source))
             return;
 
         // 按显示尺寸的 2 倍解码，高 DPI 下也清晰
         var size = double.IsNaN(Width) ? 40 : Width;
         var decodeWidth = (int)Math.Ceiling(size * 2);
-        var client = RealmImage.GetClient(this);
         var bitmap = ImageCache.Shared.TryGet(source, decodeWidth, client) ?? await ImageCache.Shared.GetAsync(source, decodeWidth, client);
-        if (bitmap is null || Source != source || RealmImage.GetClient(this) != client)
+        if (Source != source || RealmImage.GetClient(this) != client)
+            return;
+        // 加载失败时不能继续显示旧图：回到文字头像
+        SetBitmap(bitmap, DataContext, client);
+    }
+
+    private void SetBitmap(Bitmap? bitmap, object? context, ZulipClient? client)
+    {
+        _bitmapContext = context;
+        _bitmapClient = client;
+        if (ReferenceEquals(_bitmap, bitmap))
             return;
         _bitmap = bitmap;
         InvalidateVisual();

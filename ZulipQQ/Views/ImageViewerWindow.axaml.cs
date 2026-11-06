@@ -69,6 +69,10 @@ public partial class ImageViewerWindow : Window, ISessionWindow
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
     }
 
+    /// <summary>打开图片查看器，显示头像的大图。</summary>
+    public static void ShowAvatar(Window? owner, ZulipSession session, string avatarUrl) =>
+        Show(owner, session, [new InlineImage(AvatarUrls.Large(avatarUrl), "")], 0);
+
     /// <summary>打开图片查看器，显示 <paramref name="images"/> 中的第 <paramref name="index"/> 张。</summary>
     public static void Show(Window? owner, ZulipSession session, IReadOnlyList<InlineImage> images, int index)
     {

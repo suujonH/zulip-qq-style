@@ -237,6 +237,18 @@ public partial class MainWindow : Window, ISessionWindow
             FilesWindow.ShowSingle(this, vm);
     }
 
+    // 标题栏自己的头像：打开自己的名片
+    private void OnTitleAvatarTapped(object? sender, TappedEventArgs e)
+    {
+        if (_vm is not { } vm || sender is not Control anchor)
+            return;
+        var session = vm.Session;
+        ChatView.ShowCard(close => session.Users.Get(session.SelfId) is null
+                ? null
+                : new UserCardViewModel(session, session.SelfId, key => _ = vm.OpenChatAsync(key), close),
+            anchor, PlacementMode.BottomEdgeAlignedLeft);
+    }
+
     private void OnPaletteClick(object? sender, RoutedEventArgs e)
     {
         MainMenuButton.Flyout?.Hide();

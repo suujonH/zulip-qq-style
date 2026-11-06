@@ -60,6 +60,12 @@
         <Border Classes="card">
             <StackPanel>
                 <Grid Classes="item" ColumnDefinitions="*,Auto">
+                    <TextBlock Text="开机自动运行" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding RunAtStartup}" />
+                </Grid>
+                <c:SettingSource Local="App" />
+                <Border Classes="divider" />
+                <Grid Classes="item" ColumnDefinitions="*,Auto">
                     <TextBlock Text="经典模式" />
                     <ToggleSwitch Grid.Column="1" IsChecked="{Binding ClassicMode}" />
                 </Grid>

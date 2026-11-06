@@ -211,9 +211,11 @@
 
             <StackPanel x:Name="TitleUser" Grid.Column="1" Orientation="Horizontal" Spacing="8"
                         Margin="22,0,0,0" VerticalAlignment="Center">
-                <Panel Width="24" Height="24">
-                    <c:Avatar Width="24" Height="24" Source="{Binding SelfAvatarUrl}" Text="{Binding SelfName}" />
-                    <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2" />
+                <!-- 点击打开自己的名片。标题栏是拖动区域，这里要接收点击：由 Panel 统一命中，避免点在子控件上时变成拖动 -->
+                <Panel Width="24" Height="24" Background="Transparent" Cursor="Hand" Tapped="OnTitleAvatarTapped"
+                       chrome:WindowDecorationProperties.ElementRole="User">
+                    <c:Avatar Width="24" Height="24" Source="{Binding SelfAvatarUrl}" Text="{Binding SelfName}" IsHitTestVisible="False" />
+                    <Ellipse Classes="online" Width="9" Height="9" Margin="0,0,-2,-2" IsHitTestVisible="False" />
                 </Panel>
                 <TextBlock Text="{Binding SelfName}" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" />
                 <!-- 个性签名：点击就地编辑（经典模式窗口太窄，不显示） -->

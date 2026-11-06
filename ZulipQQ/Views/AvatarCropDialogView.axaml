@@ -1,0 +1,116 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ZulipQQ.ViewModels"
+             xmlns:c="using:ZulipQQ.Controls"
+             x:Class="ZulipQQ.Views.AvatarCropDialogView"
+             x:DataType="vm:AvatarCropDialogViewModel">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="CropSliderTrackBrush" Color="#C8C8C8" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="CropSliderTrackBrush" Color="#5C5C5C" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!-- 与 QQ 的裁剪框相同：灰色细轨道（不区分已滑过的部分）、细长的白色手柄。Fluent 的滑块改不出这个样子 -->
+            <ControlTheme x:Key="CropSlider" TargetType="Slider">
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Panel Height="28" Background="Transparent">
+                            <Border Height="4" CornerRadius="2" VerticalAlignment="Center" Margin="3,0"
+                                    Background="{DynamicResource CropSliderTrackBrush}" />
+                            <Track Name="PART_Track" Orientation="Horizontal"
+                                   Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                                   Value="{TemplateBinding Value, Mode=TwoWay}">
+                                <Track.DecreaseButton>
+                                    <RepeatButton Name="PART_DecreaseButton" Focusable="False" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate>
+                                                <Border Background="Transparent" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseButton>
+                                <Track.IncreaseButton>
+                                    <RepeatButton Name="PART_IncreaseButton" Focusable="False" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate>
+                                                <Border Background="Transparent" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseButton>
+                                <Track.Thumb>
+                                    <!-- 手柄比白色部分大：阴影不会超出手柄的范围，也更容易拖动 -->
+                                    <Thumb Width="14" Height="26">
+                                        <Thumb.Template>
+                                            <ControlTemplate>
+                                                <Panel Background="Transparent">
+                                                    <Border Width="8" Height="18" Background="White" CornerRadius="3"
+                                                            BoxShadow="0 1 3 0 #59000000" />
+                                                </Panel>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Panel>
+                    </ControlTemplate>
+                </Setter>
+            </ControlTheme>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Button.primary, Button.secondary">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- 与 QQ 的裁剪图片框相同：标题、取景区、缩放滑块、保存和取消。窗口太矮时取景区缩小 -->
+    <Border Classes="dialog" Width="320" ClipToBounds="True" Background="{DynamicResource PanelBackgroundBrush}">
+        <Grid RowDefinitions="28,*,Auto,Auto">
+            <TextBlock Text="裁剪图片" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource TextPrimaryBrush}" />
+            <Button Theme="{StaticResource FlatButton}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Width="24" Height="24" Margin="0,0,4,0" Padding="0" ToolTip.Tip="关闭"
+                    Command="{Binding CancelCommand}">
+                <c:TdIcon Icon="{StaticResource Icon.Close}" Width="16" Height="16"
+                          Foreground="{DynamicResource TextPrimaryBrush}" />
+            </Button>
+
+            <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="DownOnly">
+                <c:AvatarCropCanvas x:Name="Canvas" />
+            </Viewbox>
+
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="12,10,12,0">
+                <Button Theme="{StaticResource FlatButton}" Width="28" Height="28" Padding="0" ToolTip.Tip="缩小"
+                        IsEnabled="{Binding CanZoom}" Command="{Binding ZoomOutCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.ZoomOut}" Width="24" Height="24"
+                              Foreground="{DynamicResource TextPrimaryBrush}" />
+                </Button>
+                <Slider Grid.Column="1" Margin="8,0" VerticalAlignment="Center" Minimum="0" Maximum="1"
+                        Theme="{StaticResource CropSlider}"
+                        SmallChange="0.05" LargeChange="0.1" IsEnabled="{Binding CanZoom}"
+                        Value="{Binding ZoomPosition}" />
+                <Button Grid.Column="2" Theme="{StaticResource FlatButton}" Width="28" Height="28" Padding="0"
+                        ToolTip.Tip="放大" IsEnabled="{Binding CanZoom}" Command="{Binding ZoomInCommand}">
+                    <c:TdIcon Icon="{StaticResource Icon.ZoomIn}" Width="24" Height="24"
+                              Foreground="{DynamicResource TextPrimaryBrush}" />
+                </Button>
+            </Grid>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,20,18,16">
+                <Button x:Name="SaveButton" Classes="primary" Theme="{StaticResource FlatButton}" Content="保存"
+                        IsEnabled="{Binding !IsSaving}" Command="{Binding SaveCommand}" />
+                <Button Classes="secondary" Theme="{StaticResource FlatButton}" Content="取消"
+                        Command="{Binding CancelCommand}" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

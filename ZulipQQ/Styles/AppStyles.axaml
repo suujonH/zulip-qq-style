@@ -119,6 +119,8 @@
 
     <!-- 名片弹出层：名片自带背景和圆角 -->
     <Style Selector="FlyoutPresenter.card">
+        <!-- 光标会从锚点继承：锚点是手型（如标题栏头像）时，卡片不能整个变成手型 -->
+        <Setter Property="Cursor" Value="Arrow" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="MaxWidth" Value="400" />
         <Setter Property="CornerRadius" Value="8" />
